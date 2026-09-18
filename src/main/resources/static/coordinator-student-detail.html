@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Profile | PlacementLink</title>
+    <link rel="stylesheet" href="css/portal.css?v=1">
+    <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
+</head>
+<body data-role="coordinator" data-active="students" data-title="Student Profile">
+
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="app-main">
+    <header class="app-header" id="appHeader"></header>
+
+    <main class="page-content">
+        <div class="page-heading heading-row">
+            <div>
+                <a class="btn btn-small btn-secondary" href="coordinator-students.html">← Back to My Students</a>
+            </div>
+        </div>
+
+        <div id="loadingBox" class="empty">
+            <div class="empty-icon"><span class="empty-spinner" aria-hidden="true"></span></div>
+            <div class="empty-title">Loading student…</div>
+        </div>
+
+        <div id="errorBox" class="empty hidden">
+            <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4.2l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg></div>
+            <div class="empty-title">Unable to load student</div>
+            <p id="errorText"></p>
+        </div>
+
+        <div id="profileContent" class="hidden">
+            <div class="profile-head">
+                <span class="profile-avatar-lg" id="profileAvatar">?</span>
+                <div class="profile-meta">
+                    <h1 id="profileName">—</h1>
+                    <p id="profileEmail">—</p>
+                    <p id="profileEnrollment">Enrollment: —</p>
+                </div>
+            </div>
+
+            <div class="profile-tabs" id="profileTabs">
+                <button class="tab-btn active" data-tab="personal">Personal</button>
+                <button class="tab-btn" data-tab="academic">Academic</button>
+                <button class="tab-btn" data-tab="applications">Applications</button>
+                <button class="tab-btn" data-tab="rounds">Rounds</button>
+            </div>
+
+            <div class="tab-panel active" id="tab-personal">
+                <div class="detail-grid" id="personalGrid"></div>
+            </div>
+
+            <div class="tab-panel" id="tab-academic">
+                <div class="detail-grid" id="academicGrid"></div>
+            </div>
+
+            <div class="tab-panel" id="tab-applications">
+                <div class="toolbar">
+                    <input type="search" id="appSearch" class="search" placeholder="Search applications...">
+                    <select id="appStatusFilter"><option value="">All statuses</option></select>
+                </div>
+                <div class="list-meta"><span id="appResultCount"></span></div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Company</th>
+                            <th>Job/Role</th>
+                            <th>Applied Date</th>
+                            <th>Current Round</th>
+                            <th>Score</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody id="appsBody"></tbody>
+                    </table>
+                </div>
+                <div class="empty hidden" id="noAppsMsg">
+                    <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4.2l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg></div>
+                    <div class="empty-title">No applications found</div>
+                    <p>This student has not applied to any placements yet.</p>
+                </div>
+            </div>
+
+            <div class="tab-panel" id="tab-rounds">
+                <div id="roundsList"></div>
+                <div class="empty hidden" id="noRoundsMsg">
+                    <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4.2l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg></div>
+                    <div class="empty-title">No round progress yet</div>
+                    <p>So far this student has no evaluated round history.</p>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script src="js/ui.js?v=1"></script>
+<script src="js/coordinator-student-detail.js?v=1"></script>
+</body>
+</html>

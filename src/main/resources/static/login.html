@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign in | PlacementLink</title>
+    <link rel="stylesheet" href="css/portal.css?v=1">
+    <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
+</head>
+<body class="auth-page">
+
+<div class="auth-topbar">
+    <a href="index.html" class="lp-brand">
+        <span class="lp-mark">PL</span>
+        <span class="lp-nameblock">
+            <span class="lp-name">PlacementLink</span>
+            <span class="lp-sub">Training &amp; Placement Cell</span>
+        </span>
+    </a>
+    <button class="theme-toggle" data-theme-toggle aria-label="Toggle theme"></button>
+</div>
+
+<div class="auth-wrap">
+    <div class="auth-story">
+        <span class="lp-kicker">Sign in</span>
+        <h1>Your enrollment number is the key.</h1>
+        <p>There's no password to remember and nothing to sign up for. If you're on the college rolls and your mobile number matches our records, you're already on the list.</p>
+
+        <div class="steps">
+            <div><b>1</b><span>Enter your enrollment number and registered mobile number.</span></div>
+            <div><b>2</b><span>We email a six-digit OTP to the address on file.</span></div>
+            <div><b>3</b><span>Enter it, and you land on the dashboard for your role.</span></div>
+        </div>
+
+        <p class="auth-hero-note">Wrong mobile number showing against your name? Don't retry — ask your placement coordinator to correct it first. The portal won't let a mismatched number through, by design.</p>
+    </div>
+
+    <div class="auth-card">
+        <h2>Student &amp; staff sign in</h2>
+        <p class="auth-subtitle">Use your enrollment number (students) or your staff enrollment, plus the mobile number registered with the placement cell.</p>
+
+        <form id="loginForm" class="auth-form">
+            <div class="input-group">
+                <label for="enrollmentno">Enrollment number</label>
+                <input type="text" id="enrollmentno" placeholder="e.g. 2021XXXXXX" autocomplete="username" required>
+            </div>
+            <div class="input-group">
+                <label for="mobile">Registered mobile number</label>
+                <input type="tel" id="mobile" placeholder="10-digit number" autocomplete="username" maxlength="10" pattern="[0-9]{10}" required>
+            </div>
+            <button type="submit" id="loginButton" class="btn auth-submit">Send OTP</button>
+        </form>
+
+        <div id="otpSection" style="display:none;">
+            <p class="message success" id="otpSentMessage"></p>
+            <form id="otpForm" class="auth-form">
+                <div class="input-group">
+                    <label for="otp">Six-digit OTP</label>
+                    <input type="text" id="otp" inputmode="numeric" maxlength="6" placeholder="······" autocomplete="one-time-code" required>
+                </div>
+                <button type="submit" id="otpButton" class="btn auth-submit">Verify OTP</button>
+            </form>
+            <div class="auth-links">
+                <a href="#" id="backToLogin">Use a different number</a>
+                <a href="#" id="resendOtp">Resend OTP</a>
+            </div>
+        </div>
+
+        <p id="message"></p>
+
+        <div class="auth-footer">Can't get in at all? Write to the placement cell at <a href="mailto:Lloydedu@liet.in">Lloydedu@liet.in</a>.</div>
+    </div>
+</div>
+
+<script src="js/ui.js?v=1"></script>
+<script src="js/login.js?v=1"></script>
+</body>
+</html>

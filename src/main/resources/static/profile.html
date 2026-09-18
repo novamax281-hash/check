@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile | PlacementLink</title>
+    <link rel="stylesheet" href="css/portal.css?v=1">
+    <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
+</head>
+<body data-role="" data-active="profile" data-title="My Profile">
+
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="app-main">
+    <header class="app-header" id="appHeader"></header>
+
+    <main class="page-content">
+        <div class="page-heading">
+            <h1>My Profile</h1>
+            <p>View and update your profile information.</p>
+        </div>
+
+        <div class="profile-summary" id="profileSummary">
+            <span class="profile-avatar" id="profileAvatar">?</span>
+            <div>
+                <div class="profile-name" id="profileName">Loading...</div>
+                <div class="profile-meta" id="profileMeta">-</div>
+            </div>
+        </div>
+
+        <div class="detail-card">
+            <div class="card-title" id="profileDetailsTitle">Profile Details</div>
+            <div class="detail-list" id="profileDetails"></div>
+        </div>
+
+        <div class="detail-card">
+            <div class="card-title">Edit Profile</div>
+            <p class="section-help">Fields that cannot be changed by you are read-only and enforced by the server.</p>
+            <form id="profileForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="pName">Full Name</label>
+                        <input type="text" id="pName">
+                    </div>
+                    <div class="form-group">
+                        <label for="pEmail">Email</label>
+                        <input type="email" id="pEmail">
+                    </div>
+                    <div class="form-group">
+                        <label for="pPhone">Mobile Number</label>
+                        <input type="tel" id="pPhone" maxlength="10" pattern="[0-9]{10}">
+                    </div>
+                    <div class="form-group hidden" id="pDepartmentWrap">
+                        <label for="pDepartment">Department</label>
+                        <input type="text" id="pDepartment">
+                    </div>
+                    <div class="form-group hidden" id="pDobWrap">
+                        <label for="pDob">Date of Birth</label>
+                        <input type="date" id="pDob">
+                    </div>
+                    <div class="form-group hidden" id="pGenderWrap">
+                        <label for="pGender">Gender</label>
+                        <select id="pGender">
+                            <option value="">Select</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group hidden" id="pAddressWrap">
+                        <label for="pAddress">Address</label>
+                        <input type="text" id="pAddress">
+                    </div>
+                    <div class="form-group hidden" id="pCityWrap">
+                        <label for="pCity">City</label>
+                        <input type="text" id="pCity">
+                    </div>
+                    <div class="form-group hidden" id="pStateWrap">
+                        <label for="pState">State</label>
+                        <input type="text" id="pState">
+                    </div>
+                </div>
+                <div class="modal-actions" style="padding-top:8px;">
+                    <button type="submit" class="btn" id="saveProfileBtn">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </main>
+</div>
+
+<script src="js/ui.js?v=1"></script>
+<script src="js/profile.js?v=1"></script>
+</body>
+</html>

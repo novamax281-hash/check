@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Placements | PlacementLink</title>
+    <link rel="stylesheet" href="css/portal.css?v=1">
+    <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
+</head>
+<body data-role="admin" data-active="placements" data-title="Manage Placements">
+
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="app-main">
+    <header class="app-header" id="appHeader"></header>
+
+    <main class="page-content">
+        <div class="page-heading">
+            <h1>Manage Placements</h1>
+            <p>Add, edit, or remove company job placements.</p>
+        </div>
+
+        <div class="toolbar">
+            <input type="search" id="searchBox" class="search" placeholder="Search company or role...">
+            <select id="companyFilter"><option value="">All companies</option></select>
+            <button class="btn btn-secondary" id="exportJobsBtn" type="button" title="Download all placements as CSV">Export CSV</button>
+            <button class="btn" id="addJobBtn">+ Add Placement</button>
+        </div>
+
+        <div class="table-responsive">
+            <table>
+                <thead>
+                <tr>
+                    <th>Company</th>
+                    <th>Role</th>
+                    <th>Salary / CTC</th>
+                    <th>Location</th>
+                    <th>Eligibility</th>
+                    <th>Deadline</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+                <tbody id="jobsBody"></tbody>
+            </table>
+        </div>
+        <div class="empty" id="emptyMsg" style="display:none;">
+            <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4.2l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg></div>
+            <div class="empty-title">No placements found</div>
+            <p>Add a new placement to get started.</p>
+        </div>
+    </main>
+</div>
+
+<div class="modal" id="jobModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2 id="modalTitle">Add Placement</h2>
+        </div>
+        <div class="form-group">
+            <label>Company Name</label>
+            <input type="text" id="fCompany" required>
+        </div>
+        <div class="form-group">
+            <label>Job Role</label>
+            <input type="text" id="fRole" required>
+        </div>
+        <div class="form-group">
+            <label>Salary / CTC</label>
+            <input type="text" id="fSalary">
+        </div>
+        <div class="form-group">
+            <label>Location</label>
+            <input type="text" id="fLocation">
+        </div>
+        <div class="form-group">
+            <label>Eligibility</label>
+            <input type="text" id="fEligibility">
+        </div>
+        <div class="form-group">
+            <label>Required Skills</label>
+            <input type="text" id="fSkills">
+        </div>
+        <div class="form-group">
+            <label>Application Deadline</label>
+            <input type="text" id="fDeadline">
+        </div>
+        <div class="form-group">
+            <label>Number of Openings</label>
+            <input type="text" id="fOpenings">
+        </div>
+        <div class="form-group">
+            <label>Status</label>
+            <select id="fStatus">
+                <option value="Open">Open</option>
+                <option value="Closed">Closed</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Job Description</label>
+            <textarea id="fDescription"></textarea>
+        </div>
+        <div class="form-group">
+            <label>Selection Rounds</label>
+            <div id="roundsEditor" class="rounds-editor"></div>
+            <button type="button" class="btn btn-small btn-secondary" id="addRoundBtn" style="margin-top:8px;">+ Add Round</button>
+            <p class="field-hint">Optional — numbers are assigned automatically and can be changed. Saved to the job's round configuration, which drives evaluation order, filters and progression.</p>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" id="cancelJobBtn">Cancel</button>
+            <button class="btn" id="saveJobBtn">Save</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="roundsModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2>Interview Rounds</h2>
+        </div>
+        <div class="detail-list" id="roundsJobInfo"></div>
+        <div id="roundsList" class="rounds-config-list"></div>
+        <div class="form-group">
+            <label id="roundFormLabel">Add Round</label>
+            <div class="round-add-row">
+                <input type="number" id="newRoundNumber" min="1" placeholder="#">
+                <input type="text" id="newRoundName" placeholder="Round name (e.g. Technical Interview)">
+            </div>
+            <textarea id="newRoundDescription" placeholder="Description (optional)"></textarea>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" id="closeRoundsBtn">Close</button>
+            <button class="btn btn-success" id="addRoundSubmitBtn">Add Round</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="coordinatorsModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2>Assign Coordinators</h2>
+        </div>
+        <div class="detail-list" id="coordinatorsJobInfo"></div>
+        <div class="form-group">
+            <label>Coordinators</label>
+            <div id="coordinatorsList" class="selection-list"></div>
+            <p class="field-hint">Only coordinators assigned here can pick students for this job. A student sees the job only after one of their coordinators selects them.</p>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" id="cancelCoordinatorsBtn">Cancel</button>
+            <button class="btn" id="saveCoordinatorsBtn">Save</button>
+        </div>
+    </div>
+</div>
+
+<script src="js/ui.js?v=1"></script>
+<script src="js/admin-placements.js?v=1"></script>
+</body>
+</html>

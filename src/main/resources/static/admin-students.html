@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Students | PlacementLink</title>
+    <link rel="stylesheet" href="css/portal.css?v=1">
+    <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
+</head>
+<body class="students-page" data-role="admin" data-active="students" data-title="Students">
+
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="app-main">
+    <header class="app-header" id="appHeader"></header>
+
+    <main class="page-content">
+        <div class="page-heading">
+            <h1>Students</h1>
+            <p>Manage students, academic information and placement progress.</p>
+        </div>
+
+        <div class="stat-grid">
+            <div class="stat-card">
+                <strong id="statTotal">0</strong>
+                <span>Total Students</span>
+            </div>
+            <div class="stat-card">
+                <strong id="statActive">0</strong>
+                <span>Active</span>
+            </div>
+            <div class="stat-card">
+                <strong id="statPlaced">0</strong>
+                <span>Placed</span>
+            </div>
+            <div class="stat-card">
+                <strong id="statNotPlaced">0</strong>
+                <span>Not Placed</span>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <div class="search-wrap search-prominent">
+                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+                <input type="search" id="searchBox" class="search" placeholder="Search by name, email, enrollment number or phone..." aria-label="Search students" autocomplete="off">
+                <button type="button" id="searchClearBtn" class="search-clear hidden" aria-label="Clear search">✕</button>
+            </div>
+
+            <div class="action-group">
+                <button type="button" class="btn btn-secondary filter-toggle-btn" id="filterToggleBtn">
+                    <span>Filters</span><span class="filter-badge hidden" id="filterCountBadge">0</span>
+                </button>
+                <div class="saved-filters-wrap">
+                    <button type="button" class="btn btn-secondary" id="savedFiltersBtn">Saved Filters ▾</button>
+                    <div class="saved-filters-dropdown" id="savedFiltersDropdown"></div>
+                </div>
+                <button type="button" class="btn btn-secondary" id="importCsvBtn">Import CSV</button>
+                <button type="button" class="btn btn-secondary" id="exportCsvBtn">Export CSV</button>
+                <button type="button" class="btn btn-secondary" id="emailCsvBtn">Email CSV</button>
+                <button type="button" class="btn" id="addStudentBtn">+ Add Student</button>
+            </div>
+        </div>
+
+        <div class="filter-panel" id="filterPanel">
+            <div class="filter-section">
+                <h3>Student Filters</h3>
+                <p class="section-help">Filter by academic attributes.</p>
+                <div class="filter-grid">
+                    <div class="form-group">
+                        <label for="batchFilter">Batch</label>
+                        <select id="batchFilter"><option value="">All Batches</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="branchFilter">Branch</label>
+                        <select id="branchFilter"><option value="">All Branches</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="sectionFilter">Section</label>
+                        <select id="sectionFilter"><option value="">All Sections</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="studentStatusFilter">Student Status</label>
+                        <select id="studentStatusFilter"><option value="">All Statuses</option></select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="filter-section">
+                <h3>Application / Placement Filters</h3>
+                <p class="section-help">Filter students who have applications matching these criteria.</p>
+                <div class="filter-grid">
+                    <div class="form-group">
+                        <label for="companyFilter">Company</label>
+                        <select id="companyFilter"><option value="">All Companies</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="jobFilter">Job</label>
+                        <select id="jobFilter"><option value="">All Jobs</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="applicationStatusFilter">Application Status</label>
+                        <select id="applicationStatusFilter"><option value="">All Statuses</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="roundFilter">Round</label>
+                        <select id="roundFilter"><option value="">All Rounds</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="appliedFromFilter">Applied From</label>
+                        <input type="date" id="appliedFromFilter">
+                    </div>
+                    <div class="form-group">
+                        <label for="appliedToFilter">Applied To</label>
+                        <input type="date" id="appliedToFilter">
+                    </div>
+                </div>
+            </div>
+
+            <div class="filter-actions">
+                <button type="button" class="btn btn-secondary" id="resetFiltersBtn">Reset</button>
+                <button type="button" class="btn" id="applyFiltersBtn">Apply Filters</button>
+            </div>
+        </div>
+
+        <div class="bulk-bar hidden" id="bulkBar">
+            <span id="bulkCount" class="bulk-count">0 selected</span>
+            <button type="button" class="btn btn-small btn-success" id="bulkChangeStatusBtn">Change Status</button>
+            <button type="button" class="btn btn-small btn-secondary" id="bulkChangeRoundBtn">Change Round</button>
+            <button type="button" class="btn btn-small btn-secondary" id="bulkExportBtn">Export CSV</button>
+            <button type="button" class="btn btn-small btn-secondary" id="bulkEmailBtn">Email CSV</button>
+            <button type="button" class="btn btn-small btn-danger" id="bulkClearBtn">Clear Selection</button>
+        </div>
+
+        <div class="list-meta">
+            <span id="resultCount">Loading students...</span>
+        </div>
+
+        <div class="table-responsive">
+            <table class="student-table">
+                <thead>
+                <tr>
+                    <th style="width:36px"><input type="checkbox" id="selectAllCheckbox" title="Select all on this page" aria-label="Select all on this page"></th>
+                    <th>Student</th>
+                    <th>Email</th>
+                    <th>Enrollment</th>
+                    <th>Branch</th>
+                    <th>Section</th>
+                    <th>Batch</th>
+                    <th>Applications</th>
+                    <th>Placement Status</th>
+                    <th class="th-actions">Action</th>
+                </tr>
+                </thead>
+                <tbody id="studentsBody"></tbody>
+            </table>
+        </div>
+
+        <div class="list-meta">
+            <div class="page-options">
+                <span>Rows per page:</span>
+                <select id="pageSizeSelect" aria-label="Rows per page">
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+        </div>
+        <div class="pagination" id="pagination"></div>
+
+        <div class="empty" id="emptyMsg" style="display:none;">
+            <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4.2l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg></div>
+            <div class="empty-title" id="emptyTitle">No students found.</div>
+            <p id="emptySub">Try adjusting your search or filters.</p>
+            <button type="button" class="btn btn-secondary" id="emptyClearBtn" style="margin-top:14px;">Clear Filters</button>
+        </div>
+    </main>
+</div>
+
+<!-- Add / Edit student modal -->
+<div class="modal" id="studentModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2 id="studentModalTitle">Add Student</h2>
+        </div>
+        <div class="form-group">
+            <label>Enrollment Number</label>
+            <input type="text" id="sEnrollment" placeholder="e.g. 2023CS102" required>
+        </div>
+        <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="sName" placeholder="Full name">
+        </div>
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" id="sEmail" placeholder="name@gmail.com" required>
+        </div>
+        <div class="form-group">
+            <label>Phone</label>
+            <input type="text" id="sPhone" placeholder="Contact number">
+        </div>
+        <div class="form-group">
+            <label>Batch</label>
+            <input type="text" id="sBatch" placeholder="e.g. 2023-2027">
+        </div>
+        <div class="form-group">
+            <label>Branch</label>
+            <input type="text" id="sBranch" placeholder="e.g. CSE">
+        </div>
+        <div class="form-group">
+            <label>Section</label>
+            <input type="text" id="sSection" placeholder="e.g. A">
+        </div>
+        <div class="form-group">
+            <label>Student Status</label>
+            <select id="sStatus">
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+                <option value="Placed">Placed</option>
+                <option value="Not Placed">Not Placed</option>
+            </select>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" id="cancelStudentBtn">Cancel</button>
+            <button class="btn" id="saveStudentBtn">Save Student</button>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk status modal -->
+<div class="modal" id="bulkStatusModal">
+    <div class="modal-box confirm-box">
+        <div class="modal-header">
+            <h2>Change Student Status</h2>
+        </div>
+        <p class="confirm-message">Selected: <strong id="bulkStatusCount">0</strong> students</p>
+        <div class="form-group">
+            <label>New Status</label>
+            <select id="bulkStatusSelect">
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+                <option value="Placed">Placed</option>
+                <option value="Not Placed">Not Placed</option>
+            </select>
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="cancelBulkStatusBtn">Cancel</button>
+            <button type="button" class="btn btn-success" id="applyBulkStatusBtn">Update Students</button>
+        </div>
+    </div>
+</div>
+
+<!-- Bulk round modal -->
+<div class="modal" id="bulkRoundModal">
+    <div class="modal-box confirm-box">
+        <div class="modal-header">
+            <h2>Move Applications</h2>
+        </div>
+        <p class="confirm-message">Moves the selected candidates' applications to the chosen round. Only applies to applications that are not in a terminal state. Applications for this student will be moved where possible.</p>
+        <div class="form-group">
+            <label for="bulkRoundInput">Target Round</label>
+            <input type="number" id="bulkRoundInput" min="1" step="1" value="1">
+        </div>
+        <div class="form-group">
+            <label for="bulkRoundRemark">Admin Remark (optional)</label>
+            <input type="text" id="bulkRoundRemark" placeholder="e.g. Moved for re-evaluation">
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="cancelBulkRoundBtn">Cancel</button>
+            <button type="button" class="btn btn-success" id="applyBulkRoundBtn">Move Applications</button>
+        </div>
+    </div>
+</div>
+
+<!-- CSV Import wizard -->
+<div class="modal" id="importModal">
+    <div class="modal-box modal-lg">
+        <div class="modal-header">
+            <h2>Import Student Data</h2>
+        </div>
+
+        <div class="step-indicator" id="importSteps">
+            <span class="step-dot" data-step="1">1 Upload</span>
+            <span class="step-arrow">→</span>
+            <span class="step-dot" data-step="2">2 Configure</span>
+            <span class="step-arrow">→</span>
+            <span class="step-dot" data-step="3">3 Validate</span>
+            <span class="step-arrow">→</span>
+            <span class="step-dot" data-step="4">4 Review</span>
+            <span class="step-arrow">→</span>
+            <span class="step-dot" data-step="5">5 Confirm</span>
+            <span class="step-arrow">→</span>
+            <span class="step-dot" data-step="6">6 Complete</span>
+        </div>
+
+        <div class="import-step" id="importStep1">
+            <p class="field-hint" style="margin-bottom:12px;">Choose the CSV file containing student data, then pick what to do with it.</p>
+            <div class="drop-zone" id="dropZone">
+                <span class="dz-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 18v-6M9.5 14.5L12 12l2.5 2.5"/></svg></span>
+                <p><strong>Drop CSV here</strong></p>
+                <p>or</p>
+                <button type="button" class="btn btn-secondary" id="chooseFileBtn">Choose CSV File</button>
+                <input type="file" id="csvFileInput" accept=".csv,text/csv" style="display:none;">
+                <p class="field-hint" id="fileNameHint" style="margin-top:8px;"></p>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="downloadTemplateBtn">Download CSV Template</button>
+            </div>
+        </div>
+
+        <div class="import-step" id="importStep2" style="display:none;">
+            <p class="field-hint" style="margin-bottom:12px;">Choose the operation to run on the uploaded data.</p>
+            <div class="operation-grid" id="operationGrid"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="backToUploadBtn">Back</button>
+                <button type="button" class="btn" id="validateCsvBtn">Validate CSV</button>
+            </div>
+        </div>
+
+        <div class="import-step" id="importStep3" style="display:none;">
+            <div class="import-summary" id="validationSummary"></div>
+            <div id="validationGlobalErrors" class="field-hint" style="color:var(--danger);margin-bottom:10px;"></div>
+            <div class="csv-preview-wrap">
+                <table>
+                    <thead>
+                    <tr><th>Row</th><th>Enrollment</th><th>Name</th><th>Email</th><th>Status</th><th>Result</th></tr>
+                    </thead>
+                    <tbody id="validationTableBody"></tbody>
+                </table>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="backToConfigureBtn">Back</button>
+                <button type="button" class="btn" id="reviewChangesBtn">Next: Review Changes</button>
+            </div>
+        </div>
+
+        <div class="import-step" id="importStep4" style="display:none;">
+            <div class="review-stats" id="reviewStats"></div>
+            <p class="field-hint">Confirming will commit the changes to the database. Only rows that pass validation are applied.</p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="backToValidateBtn">Back</button>
+                <button type="button" class="btn btn-danger" id="confirmImportBtn">Confirm &amp; Update</button>
+            </div>
+        </div>
+
+        <div class="import-step" id="importStep5" style="display:none;">
+            <div id="importResultBox"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="downloadErrorReportBtn">Download Error Report</button>
+                <button type="button" class="btn" id="doneImportBtn">Done</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export CSV modal -->
+<div class="modal" id="exportModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2>Export Students</h2>
+        </div>
+        <p class="field-hint">Choose which students to include, then select the columns to export.</p>
+        <div class="form-group">
+            <label>Students</label>
+            <select id="exportScopeSelect">
+                <option value="selected">Selected students</option>
+                <option value="filtered">Current filtered students</option>
+                <option value="all">All students</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Columns</label>
+            <div class="column-picker" id="exportColumns"></div>
+            <div style="margin-top:8px;display:flex;gap:8px;">
+                <button type="button" class="btn btn-small btn-secondary" id="selectAllColumnsBtn">Select All</button>
+                <button type="button" class="btn btn-small btn-secondary" id="clearAllColumnsBtn">Clear All</button>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" id="cancelExportBtn">Cancel</button>
+            <button class="btn" id="generateExportBtn">Generate CSV</button>
+        </div>
+    </div>
+</div>
+
+<!-- Email CSV modal -->
+<div class="modal" id="emailModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2>Send Student Data</h2>
+        </div>
+        <p class="field-hint">Email a CSV of student data to a recipient. The file is generated server-side and sent as an attachment.</p>
+        <div class="form-group">
+            <label>Recipient Email</label>
+            <input type="email" id="emailRecipient" placeholder="coordinator@example.com" required>
+        </div>
+        <div class="form-group">
+            <label>Students</label>
+            <select id="emailScopeSelect">
+                <option value="selected">Selected students</option>
+                <option value="filtered">Current filtered students</option>
+                <option value="all">All students</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Columns</label>
+            <div class="column-picker" id="emailColumns"></div>
+            <div style="margin-top:8px;display:flex;gap:8px;">
+                <button type="button" class="btn btn-small btn-secondary" id="emailSelectAllBtn">Select All</button>
+                <button type="button" class="btn btn-small btn-secondary" id="emailClearAllBtn">Clear All</button>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" id="cancelEmailBtn">Cancel</button>
+            <button class="btn" id="sendEmailBtn">Generate &amp; Send</button>
+        </div>
+    </div>
+</div>
+
+<script src="js/ui.js?v=1"></script>
+<script src="js/admin-students.js?v=1"></script>
+</body>
+</html>

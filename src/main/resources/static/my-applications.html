@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Applications | PlacementLink</title>
+    <link rel="stylesheet" href="css/portal.css?v=1">
+    <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
+</head>
+<body data-role="student" data-active="applications" data-title="My Applications">
+
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="app-main">
+    <header class="app-header" id="appHeader"></header>
+
+    <main class="page-content">
+        <div class="page-heading heading-row">
+            <div>
+                <h1>My Applications</h1>
+                <p>Track the status of every placement you have applied for.</p>
+            </div>
+            <a class="btn" href="placement-apply.html">+ Explore more placements</a>
+        </div>
+
+        <div class="stat-grid" id="appStats"></div>
+
+        <div class="filter-card">
+            <div class="filter-head">
+                <span class="filter-title">Filters</span>
+                <button type="button" class="btn btn-small btn-secondary" id="clearFiltersBtn">Clear all</button>
+            </div>
+            <div class="toolbar">
+                <input type="search" id="searchBox" class="search" placeholder="Search company, role, batch, branch, location...">
+                <select id="companyFilter"><option value="">All companies</option></select>
+                <select id="statusFilter"><option value="">All statuses</option></select>
+                <select id="batchFilter"><option value="">All batches</option></select>
+                <select id="branchFilter"><option value="">All branches</option></select>
+                <select id="roundFilter"><option value="">All rounds</option></select>
+                <input type="date" id="dateFrom" title="Applied from" aria-label="Applied from">
+                <input type="date" id="dateTo" title="Applied to" aria-label="Applied to">
+            </div>
+        </div>
+
+        <div class="list-meta" id="listMeta"><span id="resultCount"></span></div>
+
+        <div class="table-responsive">
+            <table>
+                <thead>
+                <tr>
+                    <th>Company / Role</th>
+                    <th>Batch · Branch</th>
+                    <th>Status</th>
+                    <th>Applied</th>
+                    <th>Progress</th>
+                    <th class="th-actions">Details</th>
+                </tr>
+                </thead>
+                <tbody id="appsBody"></tbody>
+            </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+
+        <div class="empty" id="emptyMsg" style="display:none;">
+            <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4.2l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg></div>
+            <div class="empty-title">No applications found</div>
+            <p>Try adjusting your search or filters, or explore and apply to new placements below.</p>
+            <a class="btn btn-secondary" href="placement-apply.html" style="margin-top:14px;">Browse placements</a>
+        </div>
+    </main>
+</div>
+
+<script src="js/ui.js?v=1"></script>
+<script src="js/my-applications.js?v=1"></script>
+</body>
+</html>

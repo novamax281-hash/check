@@ -1,0 +1,19 @@
+# Environment variables
+.env
+
+# Build output
+target/
+
+# IDE files
+.idea/
+*.iml
+.project
+.classpath
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Maven wrapper JAR
+!.mvn/wrapper/maven-wrapper.jar

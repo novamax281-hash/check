@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | PlacementLink</title>
+    <link rel="stylesheet" href="css/portal.css?v=1">
+    <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
+</head>
+<body data-role="coordinator" data-active="dashboard" data-title="Dashboard">
+
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="app-main">
+    <header class="app-header" id="appHeader"></header>
+
+    <main class="page-content">
+        <div class="page-heading">
+            <h1>Coordinator Dashboard</h1>
+            <p id="welcome">Manage the job roles you own, their rounds and applicants.</p>
+        </div>
+
+        <div class="stat-grid">
+            <div class="stat-card">
+                <strong id="statJobs">0</strong>
+                <span>My Jobs</span>
+            </div>
+            <div class="stat-card">
+                <strong id="statOpen">0</strong>
+                <span>Open Jobs</span>
+            </div>
+            <div class="stat-card">
+                <strong id="statPending">0</strong>
+                <span>In Process</span>
+            </div>
+            <div class="stat-card">
+                <strong id="statSelected">0</strong>
+                <span>Selected</span>
+            </div>
+        </div>
+
+        <div class="page-heading heading-row">
+            <div>
+                <h1>Company List</h1>
+                <p>Job roles posted by you and their applicants.</p>
+            </div>
+            <button type="button" class="btn" id="addJobBtn">+ Add Job Role</button>
+        </div>
+
+        <div class="table-responsive">
+            <table>
+                <thead>
+                <tr>
+                    <th>Company</th>
+                    <th>Role</th>
+                    <th>Location</th>
+                    <th>Deadline</th>
+                    <th>Status</th>
+                    <th>Round</th>
+                    <th>Applicants</th>
+                    <th>Selected</th>
+                    <th>In Process</th>
+                    <th>Actions</th>
+                </tr>
+                </thead>
+                <tbody id="jobsBody">
+                <tr><td colspan="10" style="text-align:center;color:var(--text-muted)">Loading jobs...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="empty hidden" id="noJobs">
+            <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7h-4V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M10 7V5h4v2"/></svg></div>
+            <div class="empty-title">No jobs created yet</div>
+            <p>Use Add Job Role to publish a placement opportunity for students.</p>
+        </div>
+
+        <div class="page-heading">
+            <h1>Assigned Students</h1>
+            <p>Distribution across branches, sections and batches.</p>
+        </div>
+
+        <div class="stat-grid" id="breakdownGrid"></div>
+
+        <div class="table-responsive">
+            <table>
+                <thead>
+                <tr>
+                    <th>Branch</th>
+                    <th>Section</th>
+                    <th>Batch</th>
+                    <th>Action</th>
+                </tr>
+                </thead>
+                <tbody id="criteriaBody">
+                <tr><td colspan="4" style="text-align:center;color:var(--text-muted)">Loading breakdown...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="empty hidden" id="noBreakdown">
+            <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4.2l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg></div>
+            <div class="empty-title">No students assigned yet</div>
+            <p>Ask your admin to assign students to you so you can start tracking their progress.</p>
+        </div>
+    </main>
+</div>
+
+<div class="modal" id="jobModal">
+    <div class="modal-box">
+        <div class="modal-header"><h2 id="jobModalTitle">Add Job Role</h2></div>
+        <div class="form-group"><label>Company Name</label><input id="jobCompany" required></div>
+        <div class="form-group"><label>Job Role</label><input id="jobType" required></div>
+        <div class="form-group"><label>Salary / CTC</label><input id="jobStipend"></div>
+        <div class="form-group"><label>Program Fee</label><input id="jobProgramFee"></div>
+        <div class="form-group"><label>Duration</label><input id="jobDuration"></div>
+        <div class="form-group"><label>Skills</label><input id="jobSkills"></div>
+        <div class="form-group"><label>Eligibility</label><input id="jobEligibility"></div>
+        <div class="form-group"><label>Application Deadline</label><input id="jobDeadline" type="date"></div>
+        <div class="form-group"><label>Application Link</label><input id="jobLink" type="url"></div>
+        <div class="form-group"><label>Location</label><input id="jobLocation"></div>
+        <div class="form-group"><label>Openings</label><input id="jobOpenings" type="number" min="1"></div>
+        <div class="form-group"><label>Batch</label><input id="jobBatch"></div>
+        <div class="form-group"><label>Branch</label><input id="jobBranch"></div>
+        <div class="form-group">
+            <label>Status</label>
+            <select id="jobStatus"><option>Open</option><option>Closed</option></select>
+        </div>
+        <div class="form-group"><label>Job Description</label><textarea id="jobDescription"></textarea></div>
+        <div class="form-group">
+            <label>Assessment Rounds</label>
+            <div id="assessmentRounds" class="rounds-editor"></div>
+            <button type="button" class="btn btn-small btn-secondary" id="addAssessmentRoundBtn">+ Add Round</button>
+            <datalist id="roundTypes">
+                <option value="Aptitude Test"><option value="Technical Test"><option value="Coding Round">
+                <option value="Group Discussion"><option value="Technical Interview"><option value="HR Interview">
+            </datalist>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" id="cancelJobBtn">Cancel</button>
+            <button class="btn" id="saveJobBtn">Add Job Role</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="roundsModal">
+    <div class="modal-box">
+        <div class="modal-header"><h2>Assessment Rounds</h2></div>
+        <div class="detail-list" id="roundsJobInfo"></div>
+        <div class="table-responsive">
+            <table>
+                <thead><tr><th>#</th><th>Round</th><th>Description</th><th>Action</th></tr></thead>
+                <tbody id="roundsBody"></tbody>
+            </table>
+        </div>
+        <div class="toolbar">
+            <input type="number" id="newRoundNumber" min="1" placeholder="#" style="max-width:80px">
+            <input id="newRoundName" placeholder="Round name">
+            <input id="newRoundDescription" placeholder="Description">
+            <button type="button" class="btn btn-small" id="addRoundBtn">Add Round</button>
+        </div>
+        <div class="modal-actions"><button class="btn btn-secondary" id="closeRoundsBtn">Close</button></div>
+    </div>
+</div>
+
+<div class="modal" id="applicantsModal">
+    <div class="modal-box modal-box-wide">
+        <div class="modal-header"><h2 id="applicantsTitle">Applicants</h2></div>
+        <div class="toolbar">
+            <input id="applicantSearch" placeholder="Search student">
+            <select id="applicantStatusFilter">
+                <option value="">All application statuses</option>
+                <option value="IN_PROGRESS">In Process</option>
+                <option value="SELECTED">Selected</option>
+                <option value="REJECTED">Rejected</option>
+            </select>
+            <select id="applicantRoundFilter"><option value="">All rounds</option></select>
+            <select id="applicantRoundStatusFilter">
+                <option value="">All round results</option>
+                <option value="PENDING">Pending</option>
+                <option value="QUALIFIED">Qualified</option>
+                <option value="REJECTED">Rejected</option>
+            </select>
+        </div>
+        <div class="toolbar">
+            <select id="bulkRound"><option value="">Target round</option></select>
+            <input id="applicantRemark" placeholder="Remark (optional)">
+            <button type="button" class="btn btn-small" id="bulkAdvanceBtn">Advance Selected</button>
+            <button type="button" class="btn btn-small btn-secondary" id="bulkRejectBtn">Reject Selected</button>
+            <button type="button" class="btn btn-small btn-secondary" id="bulkSetRoundBtn">Set Round</button>
+        </div>
+        <div class="table-responsive">
+            <table>
+                <thead><tr>
+                    <th><input type="checkbox" id="selectAllApplicants" aria-label="Select all"></th>
+                    <th>Student</th>
+                    <th>Status</th>
+                    <th>Round</th>
+                    <th>Result</th>
+                    <th>Actions</th>
+                </tr></thead>
+                <tbody id="applicantsBody"></tbody>
+            </table>
+        </div>
+        <div class="modal-actions"><button class="btn btn-secondary" id="closeApplicantsBtn">Close</button></div>
+    </div>
+</div>
+
+<script src="js/ui.js?v=1"></script>
+<script src="js/coordinator-dashboard.js?v=1"></script>
+</body>
+</html>
