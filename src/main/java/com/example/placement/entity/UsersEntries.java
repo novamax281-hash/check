@@ -7,9 +7,6 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.FieldType;
 import org.springframework.data.mongodb.core.mapping.MongoId;
 
-import java.util.ArrayList;
-import java.util.List;
-
 @Data
 @NoArgsConstructor
 @Document(collection = "student_data")
@@ -38,9 +35,6 @@ public class UsersEntries {
     private String section;
 
     private String department;
-
-    @Indexed
-    private List<String> coordinatorIds = new ArrayList<>();
 
     private String course;
 

@@ -38,10 +38,9 @@ public class CustomAuthenticationProvider implements AuthenticationProvider {
         }
 
         String role;
-        if (user.getRole() != null && user.getRole().equalsIgnoreCase("admin")) {
+        if (user.getRole() != null && (user.getRole().equalsIgnoreCase("admin")
+                || user.getRole().equalsIgnoreCase("coordinator"))) {
             role = "ROLE_ADMIN";
-        } else if (user.getRole() != null && user.getRole().equalsIgnoreCase("coordinator")) {
-            role = "ROLE_COORDINATOR";
         } else {
             role = "ROLE_STUDENT";
         }

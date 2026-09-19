@@ -34,8 +34,11 @@ public class ProfileController {
         String role = user.getRole();
 
         copyIfPresent(update.getName(), user::setName);
-        copyIfPresent(update.getEmail(), user::setEmail);
-        copyIfPresent(update.getPhoneno(), user::setPhoneno);
+        boolean canEditContact = isCoordinator(role) || "admin".equalsIgnoreCase(role);
+        if (canEditContact) {
+            copyIfPresent(update.getEmail(), user::setEmail);
+            copyIfPresent(update.getPhoneno(), user::setPhoneno);
+        }
 
         if (isCoordinator(role)) {
             copyIfPresent(update.getDepartment(), user::setDepartment);

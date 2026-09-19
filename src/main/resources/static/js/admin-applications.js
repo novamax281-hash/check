@@ -66,6 +66,8 @@ const userSearchClearBtn = document.getElementById("userSearchClearBtn");
 const userBatchFilter = document.getElementById("userBatchFilter");
 const userBranchFilter = document.getElementById("userBranchFilter");
 const userStatusFilter = document.getElementById("userStatusFilter");
+const userJobFilter = document.getElementById("userJobFilter");
+const userJobFilter = document.getElementById("userJobFilter");
 const userDateFrom = document.getElementById("userDateFrom");
 const userDateTo = document.getElementById("userDateTo");
 const userClearBtn = document.getElementById("userClearBtn");
@@ -82,6 +84,10 @@ const statuses = ["IN_PROGRESS", "SELECTED", "REJECTED", "WITHDRAWN",
 
 let applications = [];
 let allUsers = [];
+let usersLazyLoaded = false;
+let usersLoadPromise = null;
+let usersLazyLoaded = false;
+let usersLoadPromise = null;
 let usersById = {};
 let usersByEnrollment = {};
 let editingApp = null;
@@ -100,6 +106,31 @@ let userPageCount = 1;
 let jobRoundsCache = {};
 const configPromises = {};
 
+
+async function fetchAllApplicationsPage() {
+    const MAX_PAGE_SIZE = 100;
+    const accumulator = [];
+    let page = 1;
+    let total = null;
+    for (;;) {
+        const url = "/admin/applications?page=" + page + "&pageSize=" + MAX_PAGE_SIZE;
+        const response = await fetch(url, { credentials: "include" });
+        if (UI.redirectIfUnauthorized(response)) return accumulator;
+        if (!response.ok) break;
+        const data = await response.json();
+        const list = (data && Array.isArray(data.applications)) ? data.applications : [];
+        accumulator.push.apply(accumulator, list);
+        total = data && Number.isFinite(data.total) ? data.total : null;
+        if (total === null || accumulator.length >= total) break;
+        page += 1;
+    }
+    return accumulator;
+}
+
+function unpaginateAllApplicationsPage(data) {
+    return (data && Array.isArray(data.applications)) ? data.applications : (Array.isArray(data) ? data : []);
+}
+
 async function loadApplications() {
     userLoadingMsg.classList.remove("hidden");
     userErrorMsg.classList.add("hidden");
@@ -108,19 +139,12 @@ async function loadApplications() {
     try {
         const appsResponse = await fetch("/admin/applications", { credentials: "include" });
         if (UI.redirectIfUnauthorized(appsResponse)) return;
-        applications = await appsResponse.json();
-        try {
-            const usersResponse = await fetch("/admin/users", { credentials: "include" });
-            allUsers = usersResponse.ok ? await usersResponse.json() : [];
-        } catch (usersFailure) {
-            allUsers = [];
-        }
-        buildUsersIndex();
+        applications = await fetchAllApplicationsPage();
         enrichApplicationsWithUsers();
         fillFilters();
         render();
-        renderUsers();
         refreshMgmtApplicants();
+        renderUsersLazyHint();
     } catch (e) {
         emptyMsg.style.display = "block";
         userLoadingMsg.classList.add("hidden");
@@ -129,6 +153,37 @@ async function loadApplications() {
         userListState.textContent = "Unable to load students";
         userResults.innerHTML = "";
     }
+}
+
+function ensureUsersLazy() {
+    if (usersLazyLoaded) return Promise.resolve(allUsers);
+    if (usersLoadPromise) return usersLoadPromise;
+    usersLoadPromise = fetch("/admin/users", { credentials: "include" })
+        .then(function(resp) {
+            if (UI.redirectIfUnauthorized(resp)) return [];
+            return resp.ok ? resp.json() : [];
+        })
+        .then(function(list) {
+            allUsers = Array.isArray(list) ? list : [];
+            usersLazyLoaded = true;
+            buildUsersIndex();
+            return allUsers;
+        })
+        .catch(function() {
+            allUsers = [];
+            usersLazyLoaded = true;
+            buildUsersIndex();
+            return allUsers;
+        });
+    return usersLoadPromise;
+}
+
+function renderUsersLazyHint() {
+    userListState.textContent = "Select a filter or search to load students…";
+    userResults.innerHTML = "";
+    userLoadingMsg.classList.add("hidden");
+    userErrorMsg.classList.add("hidden");
+    userEmptyMsg.classList.remove("hidden");
 }
 
 function buildUsersIndex() {
@@ -200,6 +255,16 @@ function fillFilters() {
         branches.map(b => '<option value="' + esc(b) + '">' + esc(b) + "</option>").join("");
     userStatusFilter.innerHTML = '<option value="">All application statuses</option>' +
         presentStatuses.map(s => '<option value="' + esc(s) + '">' + esc(s) + "</option>").join("");
+    const jobItems = [...new Set((Array.isArray(applications) ? applications : []).map(function(app) {
+        const company = app && app.company || (app.job && app.job.company) || "";
+        const role = app && app.jobType || (app.job && app.job.jobType) || "";
+        return company && role ? company + " – " + role : (company || role || "");
+    }).filter(Boolean))].sort();
+    userJobFilter.innerHTML = '<option value="">All jobs</option>' +
+        jobItems.map(function(item) {
+            const key = item;
+            return '<option value="' + esc(key) + '">' + esc(key) + "</option>";
+        }).join("");
 }
 
 function fillJobFilters() {
@@ -512,6 +577,7 @@ function groupUsers() {
 }
 
 function filterUsers() {
+    const jobKeyword = userJobFilter ? userJobFilter.value.trim().toLowerCase() : "";
     const keyword = userSearch.value.toLowerCase().trim();
     const batch = userBatchFilter.value;
     const branch = userBranchFilter.value;
@@ -520,6 +586,20 @@ function filterUsers() {
     const toMs = userDateTo.value ? new Date(userDateTo.value + "T23:59:59.999").getTime() : null;
 
     return groupUsers().filter(function(user) {
+        const jobFilterVal = userJobFilter ? userJobFilter.value : "";
+        if (jobFilterVal) {
+            const hasJob = user.apps.some(function(app) {
+                const company = (app.company || "") + " " + app.role;
+                return company.toLowerCase().includes(jobFilterVal.toLowerCase());
+            });
+            if (!hasJob) return false;
+        }
+        if (jobKeyword) {
+            const jobHaystack = user.apps.map(function(app) {
+                return (app.company || "") + " " + (app.role || "") + " " + (app.jobId || "");
+            }).join(" ").toLowerCase();
+            if (!jobHaystack.includes(jobKeyword)) return false;
+        }
         if (keyword) {
             const haystack = (user.studentName + " " + user.studentEmail + " " + user.enrollmentno
                 + " " + user.phoneNo + " " + user.studentId + " " + user.apps.map(function(app) {
@@ -748,6 +828,23 @@ function renderUserPagination(total) {
         + '<span class="page-buttons">' + buttons + "</span>";
 }
 
+function ensureUsersLazy() {
+    if (usersLazyLoaded) return Promise.resolve();
+    if (usersLoadPromise) return usersLoadPromise;
+    usersLoadPromise = fetch("/admin/users", { credentials: "include" })
+        .then(function(response) {
+            if (UI.redirectIfUnauthorized(response)) return Promise.reject(new Error("unauthorized"));
+            if (!response.ok) return [];
+            return response.json();
+        })
+        .then(function(list) {
+            allUsers = list;
+            usersLazyLoaded = true;
+            buildUsersIndex();
+        });
+    return usersLoadPromise;
+}
+
 function renderUsers() {
     userLoadingMsg.classList.add("hidden");
     userErrorMsg.classList.add("hidden");
@@ -792,7 +889,7 @@ function clearAppFilters() {
 }
 
 function clearUserFilters() {
-    [userSearch, userBatchFilter, userBranchFilter, userStatusFilter,
+    [userSearch, userBatchFilter, userBranchFilter, userStatusFilter, userJobFilter,
         userDateFrom, userDateTo].forEach(function(el) {
         if (el.tagName === "SELECT") el.selectedIndex = 0;
         else el.value = "";
@@ -1504,13 +1601,14 @@ appPagination.addEventListener("click", function(event) {
     goAppPage(Number(button.dataset.apage));
 });
 
-userSearch.addEventListener("input", function() { updateUserSearchClear(); resetUserPage(); renderUsers(); });
-userSearchClearBtn.addEventListener("click", clearUserSearch);
-userBatchFilter.addEventListener("change", function() { resetUserPage(); renderUsers(); });
-userBranchFilter.addEventListener("change", function() { resetUserPage(); renderUsers(); });
-userStatusFilter.addEventListener("change", function() { resetUserPage(); renderUsers(); });
+userSearch.addEventListener("input", function() { updateUserSearchClear(); resetUserPage(); ensureUsersLazy().then(renderUsers); });
+userSearchClearBtn.addEventListener("click", function() { clearUserSearch(); ensureUsersLazy().then(renderUsers); });
+userBatchFilter.addEventListener("change", function() { resetUserPage(); ensureUsersLazy().then(renderUsers); });
+userBranchFilter.addEventListener("change", function() { resetUserPage(); ensureUsersLazy().then(renderUsers); });
+userStatusFilter.addEventListener("change", function() { resetUserPage(); ensureUsersLazy().then(renderUsers); });
 userDateFrom.addEventListener("change", function() { resetUserPage(); renderUsers(); });
 userDateTo.addEventListener("change", function() { resetUserPage(); renderUsers(); });
+userJobFilter.addEventListener("change", function() { resetUserPage(); ensureUsersLazy().then(renderUsers); });
 userClearBtn.addEventListener("click", clearUserFilters);
 
 userPagination.addEventListener("click", function(event) {

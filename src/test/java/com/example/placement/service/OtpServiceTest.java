@@ -28,9 +28,18 @@ class OtpServiceTest {
     }
 
     @Test
-    void validateOtpRejectsWrongOtpAndConsumesEntry() {
+    void correctOtpStillValidatesAfterFewWrongAttempts() {
         otpService.storeOtp("enr1", "123456");
         assertThat(otpService.validateOtp("enr1", "999999")).isFalse();
+        assertThat(otpService.validateOtp("enr1", "123456")).isTrue();
+    }
+
+    @Test
+    void otpIsInvalidatedAfterMaxFailedAttempts() {
+        otpService.storeOtp("enr1", "123456");
+        for (int i = 0; i < OtpService.MAX_VERIFY_ATTEMPTS; i++) {
+            assertThat(otpService.validateOtp("enr1", "999999")).isFalse();
+        }
         assertThat(otpService.validateOtp("enr1", "123456")).isFalse();
     }
 

@@ -11,14 +11,16 @@ const cancelJobBtn = document.getElementById("cancelJobBtn");
 const fields = {
     company: document.getElementById("fCompany"),
     jobType: document.getElementById("fRole"),
-    stipend: document.getElementById("fSalary"),
-    location: document.getElementById("fLocation"),
     eligibility: document.getElementById("fEligibility"),
     skills: document.getElementById("fSkills"),
     applicationDeadline: document.getElementById("fDeadline"),
     openings: document.getElementById("fOpenings"),
     status: document.getElementById("fStatus"),
-    jobDescription: document.getElementById("fDescription")
+    jobDescription: document.getElementById("fDescription"),
+    website: document.getElementById("fWebsite"),
+    driveType: document.getElementById("fDriveType"),
+    mode: document.getElementById("fMode"),
+    likelyDateOfJoining: document.getElementById("fDoj")
 };
 
 const roundsEditor = document.getElementById("roundsEditor");
@@ -33,15 +35,6 @@ const newRoundName = document.getElementById("newRoundName");
 const newRoundDescription = document.getElementById("newRoundDescription");
 const addRoundSubmitBtn = document.getElementById("addRoundSubmitBtn");
 const closeRoundsBtn = document.getElementById("closeRoundsBtn");
-
-const coordinatorsModal = document.getElementById("coordinatorsModal");
-const coordinatorsJobInfo = document.getElementById("coordinatorsJobInfo");
-const coordinatorsList = document.getElementById("coordinatorsList");
-const saveCoordinatorsBtn = document.getElementById("saveCoordinatorsBtn");
-const cancelCoordinatorsBtn = document.getElementById("cancelCoordinatorsBtn");
-
-let coordinatorsCache = null;
-let coordinatorsJobId = null;
 
 let roundsJobId = null;
 let editingDialogRound = null;
@@ -96,13 +89,12 @@ function render() {
             <tr>
                 <td>${esc(job.company || "-")}</td>
                 <td>${esc(job.jobType || "-")}</td>
-                <td>${esc(job.stipend || "-")}</td>
                 <td>${esc(job.location || "-")}</td>
                 <td>${esc(job.eligibility || "-")}</td>
                 <td>${esc(job.applicationDeadline || "-")}</td>
                 <td><span class="badge ${job.status === "Closed" ? "Closed" : "Open"}">${esc(job.status || "Open")}</span></td>
                 <td>
-                    <button class="btn btn-small btn-secondary coordinators-btn" data-id="${esc(job.id)}">Coordinators</button>
+                    <button class="btn btn-small btn-secondary docs-btn" data-id="${esc(job.id)}">Documents</button>
                     <button class="btn btn-small btn-secondary rounds-btn" data-id="${esc(job.id)}">Rounds</button>
                     <button class="btn btn-small btn-secondary edit-btn" data-id="${esc(job.id)}">Edit</button>
                     <button class="btn btn-small btn-danger delete-btn" data-id="${esc(job.id)}">Delete</button>
@@ -118,7 +110,6 @@ function openModal(job) {
     modalTitle.textContent = job ? "Edit Placement" : "Add Placement";
     fields.company.value = job ? job.company || "" : "";
     fields.jobType.value = job ? job.jobType || "" : "";
-    fields.stipend.value = job ? job.stipend || "" : "";
     fields.location.value = job ? job.location || "" : "";
     fields.eligibility.value = job ? job.eligibility || "" : "";
     fields.skills.value = job ? job.skills || "" : "";
@@ -126,6 +117,10 @@ function openModal(job) {
     fields.openings.value = job ? job.openings || "" : "";
     fields.status.value = job ? (job.status || "Open") : "Open";
     fields.jobDescription.value = job ? job.jobDescription || "" : "";
+    fields.website.value = job ? job.website || "" : "";
+    fields.driveType.value = job ? job.driveType || "" : "";
+    fields.mode.value = job ? job.mode || "" : "";
+    fields.likelyDateOfJoining.value = job ? job.likelyDateOfJoining || "" : "";
 
     renderRoundsEditor(job && Array.isArray(job.rounds) ? job.rounds.map(function(entry) {
         return { round: entry.round, name: entry.name, description: null };
@@ -205,14 +200,17 @@ function collectJob() {
     return {
         company: fields.company.value.trim(),
         jobType: fields.jobType.value.trim(),
-        stipend: fields.stipend.value.trim(),
         location: fields.location.value.trim(),
         eligibility: fields.eligibility.value.trim(),
         skills: fields.skills.value.trim(),
         applicationDeadline: fields.applicationDeadline.value.trim(),
         openings: fields.openings.value.trim(),
         status: fields.status.value || "Open",
-        jobDescription: fields.jobDescription.value.trim()
+        jobDescription: fields.jobDescription.value.trim(),
+        website: fields.website.value.trim(),
+        driveType: fields.driveType.value.trim(),
+        mode: fields.mode.value.trim(),
+        likelyDateOfJoining: fields.likelyDateOfJoining.value.trim()
     };
 }
 
@@ -364,77 +362,6 @@ cancelJobBtn.addEventListener("click", closeModal);
 
 saveJobBtn.addEventListener("click", saveJob);
 
-function ensureCoordinators() {
-    if (coordinatorsCache) return Promise.resolve(coordinatorsCache);
-    return fetch("/admin/coordinators", { credentials: "include" })
-        .then(function (response) {
-            if (UI.redirectIfUnauthorized(response)) return [];
-            return response.ok ? response.json() : [];
-        })
-        .then(function (list) {
-            coordinatorsCache = Array.isArray(list) ? list : [];
-            return coordinatorsCache;
-        })
-        .catch(function () { coordinatorsCache = []; return coordinatorsCache; });
-}
-
-async function openCoordinatorsModal(job) {
-    coordinatorsJobId = job ? job.id : null;
-    const esc = window.UI.escapeHtml;
-    coordinatorsJobInfo.innerHTML = '<p><strong>Job</strong>' + esc(job.company || "-") + " — "
-        + esc(job.jobType || "-") + "</p>";
-    coordinatorsList.innerHTML = '<p class="field-hint">Loading coordinators...</p>';
-    window.UI.openModal(coordinatorsModal);
-    const coordinators = await ensureCoordinators();
-    if (!coordinators.length) {
-        coordinatorsList.innerHTML = '<p class="field-hint">No coordinators yet. Add one from the Coordinators page first.</p>';
-        return;
-    }
-    const assigned = Array.isArray(job.coordinatorIds) ? job.coordinatorIds : [];
-    coordinatorsList.innerHTML = coordinators.map(function (coordinator) {
-        const label = coordinator.name || coordinator.enrollmentno || coordinator.id;
-        const meta = [coordinator.enrollmentno, coordinator.department].filter(Boolean).join(" · ");
-        const checked = assigned.indexOf(coordinator.id) !== -1 ? " checked" : "";
-        return '<label class="selection-item">' +
-            '<input type="checkbox" value="' + esc(coordinator.id) + '"' + checked + ">" +
-            '<span class="selection-name">' + esc(label) +
-            (meta ? '<span class="selection-meta">' + esc(meta) + "</span>" : "") +
-            "</span></label>";
-    }).join("");
-}
-
-async function saveCoordinators() {
-    if (!coordinatorsJobId) return;
-    const ids = Array.prototype.slice.call(coordinatorsList.querySelectorAll('input[type="checkbox"]:checked'))
-        .map(function (box) { return box.value; });
-    saveCoordinatorsBtn.disabled = true;
-    try {
-        const response = await fetch("/admin/jobs/" + coordinatorsJobId + "/coordinators", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ coordinatorIds: ids })
-        });
-        if (UI.redirectIfUnauthorized(response)) return;
-        if (!response.ok) {
-            const error = await response.json().catch(function () { return {}; });
-            window.UI.showToast(error.message || "Could not save coordinators.", "error");
-            return;
-        }
-        window.UI.showToast("Coordinators updated.", "success");
-        window.UI.closeModal(coordinatorsModal);
-        loadJobs();
-    } catch (networkError) {
-        window.UI.showToast("Network error. Please retry.", "error");
-    } finally {
-        saveCoordinatorsBtn.disabled = false;
-    }
-}
-
-cancelCoordinatorsBtn.addEventListener("click", function () { window.UI.closeModal(coordinatorsModal); });
-
-saveCoordinatorsBtn.addEventListener("click", saveCoordinators);
-
 function resetDialogRoundForm() {
     editingDialogRound = null;
     roundFormLabel.textContent = "Add Round";
@@ -571,7 +498,7 @@ jobsBody.addEventListener("click", function(event) {
     const editBtn = event.target.closest(".edit-btn");
     const deleteBtn = event.target.closest(".delete-btn");
     const roundsBtn = event.target.closest(".rounds-btn");
-    const coordinatorsBtn = event.target.closest(".coordinators-btn");
+    const docsBtn = event.target.closest(".docs-btn");
     if (editBtn) {
         const job = jobs.find(j => j.id === editBtn.dataset.id);
         openModal(job);
@@ -580,9 +507,9 @@ jobsBody.addEventListener("click", function(event) {
     } else if (roundsBtn) {
         const job = jobs.find(function(item) { return item.id === roundsBtn.dataset.id; });
         if (job) openRoundsModal(job);
-    } else if (coordinatorsBtn) {
-        const job = jobs.find(function(item) { return item.id === coordinatorsBtn.dataset.id; });
-        if (job) openCoordinatorsModal(job);
+    } else if (docsBtn) {
+        const job = jobs.find(function(item) { return item.id === docsBtn.dataset.id; });
+        if (job) openDocsModal(job);
     }
 });
 
@@ -618,5 +545,146 @@ exportJobsBtn.addEventListener("click", async function() {
         window.UI.setButtonLoading(exportJobsBtn, false);
     }
 });
+
+let docsJobId = null;
+let docsReplaceId = null;
+const docsModal = document.getElementById("docsModal");
+const docsJobInfo = document.getElementById("docsJobInfo");
+const docsList = document.getElementById("docsList");
+const docsFileInput = document.getElementById("docsFileInput");
+const docsReplaceInput = document.getElementById("docsReplaceInput");
+const uploadDocsBtn = document.getElementById("uploadDocsBtn");
+const closeDocsBtn = document.getElementById("closeDocsBtn");
+
+function currentDocs() {
+    const job = jobs.find(function(j) { return j.id === docsJobId; });
+    return (job && Array.isArray(job.documents)) ? job.documents : [];
+}
+
+function renderDocs() {
+    const esc = window.UI.escapeHtml;
+    const docList = currentDocs();
+    if (!docList.length) {
+        docsList.innerHTML = '<p class="field-hint">No documents uploaded yet. Upload a job poster, brochure or JD PDF.</p>';
+        return;
+    }
+    docsList.innerHTML = docList.map(function(doc, index) {
+        const size = doc.size ? (Math.round(doc.size / 1024) + " KB") : "";
+        return '<div class="round-config-item">'
+            + '<div class="round-config-info">'
+            + '<a class="doc-link" href="' + esc(doc.fileUrl) + '" target="_blank" rel="noopener">'
+            + '<strong>' + esc(doc.fileName || ("Document " + (index + 1))) + "</strong></a>"
+            + (size ? '<div class="progress-meta">' + esc(size) + " · " + esc(doc.resourceType || "file") + "</div>" : "")
+            + "</div>"
+            + '<div class="table-actions">'
+            + '<button type="button" class="btn btn-small btn-secondary doc-replace-btn" data-id="'
+                + esc(doc.publicId) + '">Replace</button>'
+            + '<button type="button" class="btn btn-small btn-danger doc-delete-btn" data-id="'
+                + esc(doc.publicId) + '">Delete</button>'
+            + "</div></div>";
+    }).join("");
+}
+
+function openDocsModal(job) {
+    docsJobId = job ? job.id : null;
+    docsReplaceId = null;
+    const esc = window.UI.escapeHtml;
+    docsJobInfo.innerHTML = '<p><strong>Job</strong>' + esc(job.company || "-") + " — "
+        + esc(job.jobType || "-") + "</p>";
+    window.UI.openModal(docsModal);
+    renderDocs();
+}
+
+async function uploadDocs(file) {
+    if (!file) return confirmUploadDone();
+    if (!docsJobId) return;
+    const formData = new FormData();
+    formData.append("file", file);
+    window.UI.setButtonLoading(uploadDocsBtn, true, "Uploading...");
+    try {
+        const url = docsReplaceId
+            ? "/admin/jobs/" + docsJobId + "/documents/" + encodeURIComponent(docsReplaceId)
+            : "/admin/jobs/" + docsJobId + "/documents";
+        const response = await fetch(url, {
+            method: docsReplaceId ? "PUT" : "POST",
+            credentials: "include",
+            body: formData
+        });
+        if (UI.redirectIfUnauthorized(response)) return;
+        if (!response.ok) {
+            const error = await response.json().catch(function() { return {}; });
+            window.UI.showToast(error.message || "Could not upload the document.", "error");
+            return;
+        }
+        window.UI.showToast(docsReplaceId ? "Document replaced." : "Document uploaded.", "success");
+    } catch (networkError) {
+        window.UI.showToast("Network error. Please retry.", "error");
+    } finally {
+        window.UI.setButtonLoading(uploadDocsBtn, false);
+    }
+}
+
+function confirmUploadDone() {
+    docsReplaceId = null;
+    if (docsFileInput) docsFileInput.value = "";
+    if (docsReplaceInput) docsReplaceInput.value = "";
+    loadJobs().then(renderDocs);
+}
+
+docsList.addEventListener("click", function(event) {
+    const deleteBtn = event.target.closest(".doc-delete-btn");
+    const replaceBtn = event.target.closest(".doc-replace-btn");
+    if (!docsJobId) return;
+    if (deleteBtn) {
+        deleteDoc(deleteBtn.dataset.id);
+    } else if (replaceBtn) {
+        docsReplaceId = replaceBtn.dataset.id;
+        docsReplaceInput.click();
+    }
+});
+
+async function deleteDoc(publicId) {
+    const confirmed = await window.UI.confirmAction(
+        "Delete this document from the placement? The stored file is also removed.",
+        { title: "Delete Document", danger: true, confirmText: "Delete" });
+    if (!confirmed) return;
+    try {
+        const response = await fetch("/admin/jobs/" + docsJobId + "/documents/" + encodeURIComponent(publicId), {
+            method: "DELETE",
+            credentials: "include"
+        });
+        if (UI.redirectIfUnauthorized(response)) return;
+        if (!response.ok) {
+            const error = await response.json().catch(function() { return {}; });
+            window.UI.showToast(error.message || "Could not delete the document.", "error");
+            return;
+        }
+        window.UI.showToast("Document deleted.", "success");
+        loadJobs().then(renderDocs);
+    } catch (networkError) {
+        window.UI.showToast("Network error. Please retry.", "error");
+    }
+}
+
+uploadDocsBtn.addEventListener("click", function() {
+    docsReplaceId = null;
+    docsFileInput.click();
+});
+
+docsFileInput.addEventListener("change", function() {
+    const file = docsFileInput.files && docsFileInput.files[0];
+    uploadDocs(file).then(confirmUploadDone);
+});
+
+docsReplaceInput.addEventListener("change", function() {
+    const file = docsReplaceInput.files && docsReplaceInput.files[0];
+    if (file) {
+        uploadDocs(file).then(confirmUploadDone);
+    } else {
+        confirmUploadDone();
+    }
+});
+
+closeDocsBtn.addEventListener("click", function() { window.UI.closeModal(docsModal); });
 
 document.addEventListener("DOMContentLoaded", loadJobs);

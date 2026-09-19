@@ -36,9 +36,9 @@ class CustomAuthenticationProviderTest {
     }
 
     @Test
-    void coordinatorGetsCoordinatorRole() {
+    void coordinatorGetsAdminRole() {
         Authentication authentication = authenticate("COORD1", "9000000001", "Coordinator");
-        assertThat(authority(authentication)).isEqualTo("ROLE_COORDINATOR");
+        assertThat(authority(authentication)).isEqualTo("ROLE_ADMIN");
     }
 
     @Test

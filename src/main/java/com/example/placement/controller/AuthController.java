@@ -74,7 +74,6 @@ public class AuthController {
             }
 
             String otp = otpService.generateOtp();
-            System.out.println(otp);
             try {
                 otpService.sendOtp(email, otp);
             } catch (RuntimeException mailException) {
@@ -110,12 +109,10 @@ public class AuthController {
 
             UsersEntries user = usersRepository.findByEnrollmentno(loginRequest.getEnrollmentno());
             String role = "STUDENT";
-            if (user != null) {
-                if ("admin".equalsIgnoreCase(user.getRole())) {
-                    role = "ADMIN";
-                } else if ("coordinator".equalsIgnoreCase(user.getRole())) {
-                    role = "COORDINATOR";
-                }
+            if (user != null && user.getRole() != null
+                    && (user.getRole().equalsIgnoreCase("admin")
+                    || user.getRole().equalsIgnoreCase("coordinator"))) {
+                role = "ADMIN";
             }
             return ResponseEntity.ok(new LoginResponse("Login Successful", role));
         } catch (RuntimeException exception) {

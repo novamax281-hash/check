@@ -4,9 +4,8 @@ import com.example.placement.entity.Placement;
 import com.example.placement.entity.PlacementRound;
 import com.example.placement.repository.PlacementRepository;
 import com.example.placement.service.ApplicationService;
+import com.example.placement.service.CloudinaryService;
 import com.example.placement.service.CsvExportService;
-import com.example.placement.service.JobSelectionService;
-import com.example.placement.service.RoundService;
 import com.example.placement.repository.UsersRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,13 +31,12 @@ class AdminControllerUpdateJobTest {
     @BeforeEach
     void setUp() {
         placementRepository = mock(PlacementRepository.class);
-        RoundService roundService = mock(RoundService.class);
         ApplicationService applicationService = mock(ApplicationService.class);
         CsvExportService csvExportService = mock(CsvExportService.class);
         UsersRepository usersRepository = mock(UsersRepository.class);
-        JobSelectionService jobSelectionService = mock(JobSelectionService.class);
-        controller = new AdminController(placementRepository, applicationService, roundService,
-                csvExportService, usersRepository, jobSelectionService);
+        CloudinaryService cloudinaryService = mock(CloudinaryService.class);
+        controller = new AdminController(placementRepository, applicationService,
+                csvExportService, usersRepository, cloudinaryService);
     }
 
     private Placement existingJob() {

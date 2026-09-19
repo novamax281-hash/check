@@ -38,10 +38,6 @@ public class SecurityConfig {
                                 "/api/auth/send-otp", "/api/auth/verify-otp", "/favicon.ico", "/favicon.svg").permitAll()
                         .requestMatchers("/dashboard.html", "/placement-apply.html", "/my-applications.html",
                                 "/profile.html", "/user/**", "/api/profile").authenticated()
-                        .requestMatchers("/coordinator-dashboard.html", "/coordinator-students.html",
-                        "/coordinator-student-detail.html")
-                                .hasAnyRole("COORDINATOR", "ADMIN")
-                        .requestMatchers("/coordinator/**").hasAnyRole("COORDINATOR", "ADMIN")
                         .requestMatchers("/admin-dashboard.html", "/admin-placements.html",
                                 "/admin-applications.html", "/admin-students.html", "/admin-student-detail.html",
                                 "/admin/**").hasRole("ADMIN")
@@ -53,7 +49,6 @@ public class SecurityConfig {
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) -> {
                             if (request.getRequestURI().startsWith("/user") || request.getRequestURI().startsWith("/admin")
-                                    || request.getRequestURI().startsWith("/coordinator")
                                     || request.getRequestURI().startsWith("/api/")) {
                                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                                 response.setContentType("application/json");

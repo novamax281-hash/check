@@ -57,18 +57,24 @@ public class Placement {
 
     private String application_date;
 
-    @Indexed
-    private String status = "Open";
+    private String website;
+
+    private String driveType;
+
+    private String mode;
+
+    private String ctc;
+
+    private String likelyDateOfJoining;
 
     @Indexed
-    private String coordinatorId;
+    private String status = "Open";
 
     private String createdBy;
 
     private LocalDateTime createdAt;
 
-    @Indexed
-    private List<String> coordinatorIds = new ArrayList<>();
-
     private List<PlacementRound> rounds = new ArrayList<>();
+
+    private List<JobDocument> documents = new ArrayList<>();
 }

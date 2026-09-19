@@ -13,6 +13,8 @@ public class PlacementRound {
 
     private String name;
 
+    private String description;
+
     private String roundType;
 
     private String date;
@@ -20,6 +22,13 @@ public class PlacementRound {
     private String time;
 
     private String duration;
+
+    public PlacementRound(Integer round, String name, String description) {
+        this.round = round;
+        this.name = name;
+        this.description = description;
+        this.roundType = name;
+    }
 
     public PlacementRound(Integer round, String name) {
         this.round = round;

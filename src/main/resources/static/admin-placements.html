@@ -34,8 +34,6 @@
                 <tr>
                     <th>Company</th>
                     <th>Role</th>
-                    <th>Salary / CTC</th>
-                    <th>Location</th>
                     <th>Eligibility</th>
                     <th>Deadline</th>
                     <th>Status</th>
@@ -67,10 +65,6 @@
             <input type="text" id="fRole" required>
         </div>
         <div class="form-group">
-            <label>Salary / CTC</label>
-            <input type="text" id="fSalary">
-        </div>
-        <div class="form-group">
             <label>Location</label>
             <input type="text" id="fLocation">
         </div>
@@ -100,6 +94,18 @@
         <div class="form-group">
             <label>Job Description</label>
             <textarea id="fDescription"></textarea>
+        </div>
+        <div class="form-group">
+            <label>Website</label>
+            <input type="text" id="fWebsite" placeholder="https://...">
+        </div>
+        <div class="form-group">
+            <label>Drive Type</label>
+            <input type="text" id="fDriveType" placeholder="e.g. On Campus, Off Campus, Walk-In">
+        </div>
+        <div class="form-group">
+            <label>Mode</label>
+            <input type="text" id="fMode" placeholder="e.g. Online, Offline">
         </div>
         <div class="form-group">
             <label>Selection Rounds</label>
@@ -136,20 +142,22 @@
     </div>
 </div>
 
-<div class="modal" id="coordinatorsModal">
+<div class="modal" id="docsModal">
     <div class="modal-box">
         <div class="modal-header">
-            <h2>Assign Coordinators</h2>
+            <h2>Job Documents</h2>
         </div>
-        <div class="detail-list" id="coordinatorsJobInfo"></div>
+        <div class="detail-list" id="docsJobInfo"></div>
+        <div id="docsList" class="rounds-config-list"></div>
         <div class="form-group">
-            <label>Coordinators</label>
-            <div id="coordinatorsList" class="selection-list"></div>
-            <p class="field-hint">Only coordinators assigned here can pick students for this job. A student sees the job only after one of their coordinators selects them.</p>
+            <label>Upload a document</label>
+            <button type="button" class="btn btn-small btn-secondary" id="uploadDocsBtn">+ Choose File</button>
+            <input type="file" id="docsFileInput" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt" hidden>
+            <input type="file" id="docsReplaceInput" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt" hidden>
+            <p class="field-hint">Job posters, brochures and JD PDFs are stored on Cloudinary (max 10 MB) and shown to students with the placement.</p>
         </div>
         <div class="modal-actions">
-            <button class="btn btn-secondary" id="cancelCoordinatorsBtn">Cancel</button>
-            <button class="btn" id="saveCoordinatorsBtn">Save</button>
+            <button class="btn btn-secondary" id="closeDocsBtn">Close</button>
         </div>
     </div>
 </div>

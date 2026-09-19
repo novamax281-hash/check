@@ -6,7 +6,6 @@ import com.example.placement.entity.UsersEntries;
 import com.example.placement.repository.PlacementRepository;
 import com.example.placement.repository.UsersRepository;
 import com.example.placement.service.ApplicationService;
-import com.example.placement.service.JobSelectionService;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,14 +21,12 @@ public class UserController {
 
     private final UsersRepository usersRepository;
     private final ApplicationService applicationService;
-    private final JobSelectionService jobSelectionService;
     private final PlacementRepository placementRepository;
 
     public UserController(UsersRepository usersRepository, ApplicationService applicationService,
-                          JobSelectionService jobSelectionService, PlacementRepository placementRepository) {
+                          PlacementRepository placementRepository) {
         this.usersRepository = usersRepository;
         this.applicationService = applicationService;
-        this.jobSelectionService = jobSelectionService;
         this.placementRepository = placementRepository;
     }
 
@@ -53,7 +50,7 @@ public class UserController {
         if (userId == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(List.of());
         }
-        return ResponseEntity.ok(jobSelectionService.getJobsVisibleToStudent(userId));
+        return ResponseEntity.ok(placementRepository.findVisibleJobs());
     }
 
     @PostMapping("/apply")

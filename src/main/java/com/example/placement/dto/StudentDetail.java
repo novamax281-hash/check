@@ -17,7 +17,6 @@ public class StudentDetail {
     private String batch;
     private String branch;
     private String section;
-    private List<String> coordinatorIds;
     private String course;
     private String college;
     private Double cgpa;

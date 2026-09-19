@@ -390,18 +390,11 @@
             { href: "/my-applications.html", id: "applications", label: "My Applications", icon: "list" },
             { href: "/profile.html", id: "profile", label: "My Profile", icon: "users" }
         ],
-        coordinator: [
-            { href: "/coordinator-dashboard.html", id: "dashboard", label: "Dashboard", icon: "dashboard" },
-            { href: "/coordinator-students.html", id: "students", label: "My Students", icon: "users" },
-            { href: "/profile.html", id: "profile", label: "My Profile", icon: "users" }
-        ],
         admin: [
             { href: "/admin-dashboard.html", id: "dashboard", label: "Dashboard", icon: "dashboard" },
             { href: "/admin-students.html", id: "students", label: "Students", icon: "users" },
             { href: "/admin-applications.html", id: "applications", label: "View Applications", icon: "list" },
             { href: "/admin-placements.html", id: "placements", label: "Manage Placements", icon: "briefcase" },
-            { href: "/admin-coordinators.html", id: "coordinators", label: "Coordinators", icon: "users" },
-            { href: "/admin-assignments.html", id: "assignments", label: "Assignments", icon: "list" },
             { href: "/profile.html", id: "profile", label: "My Profile", icon: "users" }
         ]
     };
@@ -411,15 +404,10 @@
         "student.placements": "Apply for Placements",
         "student.applications": "My Applications",
         "student.profile": "My Profile",
-        "coordinator.dashboard": "Coordinator Dashboard",
-        "coordinator.students": "My Students",
-        "coordinator.profile": "My Profile",
         "admin.dashboard": "Admin Dashboard",
         "admin.placements": "Manage Placements",
         "admin.applications": "View Applications",
         "admin.students": "Students",
-        "admin.coordinators": "Coordinators",
-        "admin.assignments": "Assignments",
         "admin.profile": "My Profile"
     };
 
@@ -435,8 +423,7 @@
     function mapRole(userRole) {
         if (!userRole) return null;
         var value = String(userRole).toLowerCase();
-        if (value === "admin") return "admin";
-        if (value === "coordinator") return "coordinator";
+        if (value === "admin" || value === "coordinator") return "admin";
         return "student";
     }
 
@@ -449,8 +436,7 @@
                 '<span class="item-text">' + item.label + "</span></a>";
         }).join("");
 
-        var brandText = config.role === "admin" ? "PlacementLink Admin"
-            : config.role === "coordinator" ? "PlacementLink Coordinator" : "PlacementLink";
+        var brandText = config.role === "admin" ? "PlacementLink Admin" : "PlacementLink";
 
         return "" +
             '<div class="sidebar-brand">' +

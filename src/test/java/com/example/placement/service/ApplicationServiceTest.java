@@ -11,7 +11,6 @@ import com.example.placement.entity.UsersEntries;
 import com.example.placement.repository.ApplicationRepository;
 import com.example.placement.repository.PlacementRepository;
 import com.example.placement.repository.UsersRepository;
-import com.example.placement.service.RoundService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -48,7 +47,6 @@ class ApplicationServiceTest {
     private PlacementRepository placementRepository;
     private UsersRepository usersRepository;
     private MongoTemplate mongoTemplate;
-    private RoundService roundService;
     private ApplicationService applicationService;
 
     @BeforeEach
@@ -57,9 +55,8 @@ class ApplicationServiceTest {
         placementRepository = mock(PlacementRepository.class);
         usersRepository = mock(UsersRepository.class);
         mongoTemplate = mock(MongoTemplate.class);
-        roundService = mock(RoundService.class);
         applicationService = new ApplicationService(
-                applicationRepository, placementRepository, usersRepository, roundService, mongoTemplate);
+                applicationRepository, placementRepository, usersRepository, mongoTemplate);
     }
 
     private void stubFindAllByIds(Integer... placementRounds) {

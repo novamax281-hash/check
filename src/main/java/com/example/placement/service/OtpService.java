@@ -14,6 +14,7 @@ public class OtpService {
     private static final int OTP_EXPIRY_SECONDS = 300;
     private static final int OTP_LENGTH = 6;
     private static final int RESEND_COOLDOWN_SECONDS = 30;
+    static final int MAX_VERIFY_ATTEMPTS = 5;
 
     private final JavaMailSender mailSender;
     private final SecureRandom random = new SecureRandom();
@@ -56,7 +57,7 @@ public class OtpService {
     }
 
     public void storeOtp(String key, String otp) {
-        otpStore.put(key, new OtpEntry(otp, Instant.now().plusSeconds(OTP_EXPIRY_SECONDS), Instant.now()));
+        otpStore.put(key, new OtpEntry(otp, Instant.now().plusSeconds(OTP_EXPIRY_SECONDS), Instant.now(), 0));
     }
 
     public boolean canResend(String key) {
@@ -88,13 +89,23 @@ public class OtpService {
         if (entry == null) {
             return false;
         }
-        otpStore.remove(key);
         if (Instant.now().isAfter(entry.expiresAt())) {
+            otpStore.remove(key);
             return false;
         }
-        return entry.otp().equals(otp.trim());
+        if (!entry.otp().equals(otp.trim())) {
+            int failed = entry.failedAttempts() + 1;
+            if (failed >= MAX_VERIFY_ATTEMPTS) {
+                otpStore.remove(key);
+            } else {
+                otpStore.put(key, new OtpEntry(entry.otp(), entry.expiresAt(), entry.requestedAt(), failed));
+            }
+            return false;
+        }
+        otpStore.remove(key);
+        return true;
     }
 
-    private record OtpEntry(String otp, Instant expiresAt, Instant requestedAt) {
+    private record OtpEntry(String otp, Instant expiresAt, Instant requestedAt, int failedAttempts) {
     }
 }

@@ -2,20 +2,20 @@ package com.example.placement.controller;
 
 import com.example.placement.dto.ApplicationDetail;
 import com.example.placement.dto.BulkRequest;
-import com.example.placement.dto.CoordinatorAssignmentRequest;
 import com.example.placement.dto.EvaluationRequest;
 import com.example.placement.dto.RoundRequest;
+import com.example.placement.entity.JobDocument;
 import com.example.placement.entity.Placement;
-import com.example.placement.entity.Round;
+import com.example.placement.entity.PlacementRound;
 import com.example.placement.entity.UsersEntries;
 import com.example.placement.repository.PlacementRepository;
 import com.example.placement.repository.UsersRepository;
 import com.example.placement.service.ApplicationService;
+import com.example.placement.service.CloudinaryService;
 import com.example.placement.service.CsvExportService;
-import com.example.placement.service.JobSelectionService;
-import com.example.placement.service.RoundService;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
@@ -29,6 +29,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.BufferedOutputStream;
@@ -38,6 +39,8 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -47,20 +50,18 @@ public class AdminController {
 
     private final PlacementRepository placementRepository;
     private final ApplicationService applicationService;
-    private final RoundService roundService;
     private final CsvExportService csvExportService;
     private final UsersRepository usersRepository;
-    private final JobSelectionService jobSelectionService;
+    private final CloudinaryService cloudinaryService;
 
     public AdminController(PlacementRepository placementRepository, ApplicationService applicationService,
-                           RoundService roundService, CsvExportService csvExportService,
-                           UsersRepository usersRepository, JobSelectionService jobSelectionService) {
+                           CsvExportService csvExportService, UsersRepository usersRepository,
+                           CloudinaryService cloudinaryService) {
         this.placementRepository = placementRepository;
         this.applicationService = applicationService;
-        this.roundService = roundService;
         this.csvExportService = csvExportService;
         this.usersRepository = usersRepository;
-        this.jobSelectionService = jobSelectionService;
+        this.cloudinaryService = cloudinaryService;
     }
 
     @ExceptionHandler(ResponseStatusException.class)
@@ -126,6 +127,11 @@ public class AdminController {
         copyIfPresent(incoming.getBatch(), existing::setBatch);
         copyIfPresent(incoming.getBranch(), existing::setBranch);
         copyIfPresent(incoming.getApplication_date(), existing::setApplication_date);
+        copyIfPresent(incoming.getWebsite(), existing::setWebsite);
+        copyIfPresent(incoming.getDriveType(), existing::setDriveType);
+        copyIfPresent(incoming.getMode(), existing::setMode);
+        copyIfPresent(incoming.getCtc(), existing::setCtc);
+        copyIfPresent(incoming.getLikelyDateOfJoining(), existing::setLikelyDateOfJoining);
         if (incoming.getStatus() != null && !isBlank(incoming.getStatus())) {
             existing.setStatus(incoming.getStatus());
         }
@@ -145,24 +151,9 @@ public class AdminController {
         if (!placementRepository.existsById(id)) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Job not found"));
         }
-        jobSelectionService.deleteSelectionsForJob(id);
         applicationService.deleteApplicationsForJob(id);
         placementRepository.deleteById(id);
         return ResponseEntity.ok(Map.of("message", "Job deleted"));
-    }
-
-    @GetMapping("/jobs/{jobId}/coordinators")
-    public List<String> jobCoordinators(@PathVariable String jobId) {
-        Placement job = placementRepository.findById(jobId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Job not found"));
-        return job.getCoordinatorIds() == null ? List.of() : job.getCoordinatorIds();
-    }
-
-    @PostMapping("/jobs/{jobId}/coordinators")
-    public Placement assignCoordinators(@PathVariable String jobId,
-                                        @RequestBody(required = false) CoordinatorAssignmentRequest request) {
-        return jobSelectionService.assignCoordinatorsToJob(jobId,
-                request == null ? null : request.getCoordinatorIds());
     }
 
     private void validateJob(Placement job) {
@@ -179,26 +170,168 @@ public class AdminController {
     }
 
     @PostMapping("/jobs/{jobId}/rounds")
-    public ResponseEntity<Round> addRound(@PathVariable String jobId, @RequestBody(required = false) RoundRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(roundService.addRound(jobId, request));
+    public ResponseEntity<Map<String, Object>> addRound(@PathVariable String jobId,
+                                                        @RequestBody(required = false) RoundRequest request) {
+        Placement job = requireJob(jobId);
+        Integer number = request == null ? null : request.getRoundNumber();
+        if (number == null || number < 1) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Round number must be a positive integer");
+        }
+        List<PlacementRound> rounds = job.getRounds() == null ? new ArrayList<>() : new ArrayList<>(job.getRounds());
+        if (rounds.stream().anyMatch(round -> round != null && number.equals(round.getRound()))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Round " + number + " already exists for this job");
+        }
+        String name = request.getRoundName() == null || request.getRoundName().isBlank()
+                ? "Round " + number : request.getRoundName().trim();
+        PlacementRound created = new PlacementRound(number, name, cleanDescription(request.getDescription()));
+        rounds.add(created);
+        job.setRounds(rounds);
+        placementRepository.save(job);
+        return ResponseEntity.status(HttpStatus.CREATED).body(roundInfo(created));
     }
 
     @GetMapping("/jobs/{jobId}/rounds")
-    public List<Round> listRounds(@PathVariable String jobId) {
-        return roundService.listRounds(jobId);
+    public List<Map<String, Object>> listRounds(@PathVariable String jobId) {
+        Placement job = requireJob(jobId);
+        return job.getRounds() == null ? List.of() : job.getRounds().stream()
+                .filter(round -> round != null)
+                .sorted(Comparator.comparing(round -> round.getRound() == null ? 0 : round.getRound()))
+                .map(this::roundInfo)
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @PutMapping("/jobs/{jobId}/rounds/{roundNumber}")
-    public Round updateRound(@PathVariable String jobId,
-                             @PathVariable int roundNumber,
-                             @RequestBody(required = false) RoundRequest request) {
-        return roundService.updateRound(jobId, roundNumber, request);
+    public Map<String, Object> updateRound(@PathVariable String jobId,
+                                           @PathVariable int roundNumber,
+                                           @RequestBody(required = false) RoundRequest request) {
+        Placement job = requireJob(jobId);
+        PlacementRound target = requireRound(job, roundNumber);
+        if (request != null && request.getRoundName() != null) {
+            String name = request.getRoundName().isBlank()
+                    ? "Round " + roundNumber : request.getRoundName().trim();
+            target.setName(name);
+            target.setRoundType(name);
+        }
+        if (request != null && request.getDescription() != null) {
+            target.setDescription(cleanDescription(request.getDescription()));
+        }
+        placementRepository.save(job);
+        return roundInfo(target);
     }
 
     @DeleteMapping("/jobs/{jobId}/rounds/{roundNumber}")
     public Map<String, String> deleteRound(@PathVariable String jobId, @PathVariable int roundNumber) {
-        roundService.deleteRound(jobId, roundNumber);
+        Placement job = requireJob(jobId);
+        List<PlacementRound> rounds = new ArrayList<>(job.getRounds() == null ? List.of() : job.getRounds());
+        boolean removed = rounds.removeIf(round -> round != null && roundNumber == round.getRound().intValue());
+        if (!removed) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "Round " + roundNumber + " does not exist for this job");
+        }
+        job.setRounds(rounds);
+        placementRepository.save(job);
         return Map.of("message", "Round " + roundNumber + " deleted");
+    }
+
+    private Placement requireJob(String jobId) {
+        return placementRepository.findById(jobId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Job not found"));
+    }
+
+    private PlacementRound requireRound(Placement job, int roundNumber) {
+        if (job.getRounds() == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "Round " + roundNumber + " does not exist for this job");
+        }
+        return job.getRounds().stream()
+                .filter(round -> round != null && round.getRound() != null
+                        && round.getRound() == roundNumber)
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Round " + roundNumber + " does not exist for this job"));
+    }
+
+    private Map<String, Object> roundInfo(PlacementRound round) {
+        Map<String, Object> info = new LinkedHashMap<>();
+        info.put("roundNumber", round.getRound());
+        info.put("roundName", round.getName() == null ? "" : round.getName());
+        info.put("description", round.getDescription() == null ? "" : round.getDescription());
+        return info;
+    }
+
+    private String cleanDescription(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    @PostMapping(value = "/jobs/{jobId}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> uploadDocument(@PathVariable String jobId,
+                                            @RequestParam("file") MultipartFile file) {
+        Placement job = requireJob(jobId);
+        if (file == null || file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a file to upload");
+        }
+        try {
+            JobDocument document = cloudinaryService.upload(file, jobId);
+            List<JobDocument> documents = job.getDocuments() == null ? new ArrayList<>() : job.getDocuments();
+            documents.add(document);
+            job.setDocuments(documents);
+            placementRepository.save(job);
+            return ResponseEntity.status(HttpStatus.CREATED).body(document);
+        } catch (IllegalStateException e) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage());
+        }
+    }
+
+    @PutMapping(value = "/jobs/{jobId}/documents/{publicId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> replaceDocument(@PathVariable String jobId,
+                                             @PathVariable String publicId,
+                                             @RequestParam("file") MultipartFile file) {
+        Placement job = requireJob(jobId);
+        JobDocument existing = findDocument(job, publicId);
+        if (existing == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found");
+        }
+        if (file == null || file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose a file to upload");
+        }
+        try {
+            JobDocument replacement = cloudinaryService.upload(file, jobId);
+            List<JobDocument> documents = job.getDocuments() == null ? new ArrayList<>() : job.getDocuments();
+            documents.remove(existing);
+            documents.add(replacement);
+            job.setDocuments(documents);
+            placementRepository.save(job);
+            cloudinaryService.delete(existing.getPublicId());
+            return ResponseEntity.ok(replacement);
+        } catch (IllegalStateException e) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/jobs/{jobId}/documents/{publicId}")
+    public ResponseEntity<Map<String, String>> deleteDocument(@PathVariable String jobId,
+                                                              @PathVariable String publicId) {
+        Placement job = requireJob(jobId);
+        JobDocument existing = findDocument(job, publicId);
+        if (existing == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Document not found");
+        }
+        List<JobDocument> documents = new ArrayList<>(job.getDocuments() == null ? List.of() : job.getDocuments());
+        documents.remove(existing);
+        job.setDocuments(documents);
+        placementRepository.save(job);
+        cloudinaryService.delete(existing.getPublicId());
+        return ResponseEntity.ok(Map.of("message", "Document deleted"));
+    }
+
+    private JobDocument findDocument(Placement job, String publicId) {
+        if (job.getDocuments() == null) {
+            return null;
+        }
+        return job.getDocuments().stream()
+                .filter(document -> document != null && publicId.equals(document.getPublicId()))
+                .findFirst()
+                .orElse(null);
     }
 
     @PostMapping("/applications/bulk/advance")
@@ -224,8 +357,12 @@ public class AdminController {
     }
 
     @GetMapping("/applications")
-    public List<ApplicationDetail> getAllApplications() {
-        return applicationService.getAllApplications();
+    public Map<String, Object> getApplications(@RequestParam(required = false) Integer page,
+                                               @RequestParam(required = false) Integer pageSize,
+                                               @RequestParam(required = false) String search,
+                                               @RequestParam(required = false) String status,
+                                               @RequestParam(required = false) String jobId) {
+        return applicationService.getApplicationsPage(page, pageSize, search, status, jobId);
     }
 
     @GetMapping("/users")

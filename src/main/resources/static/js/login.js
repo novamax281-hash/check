@@ -77,8 +77,6 @@ async function verifyOtp() {
         if (response.ok) {
             if (result.role === "ADMIN") {
                 window.location.href = "/admin-dashboard.html";
-            } else if (result.role === "COORDINATOR") {
-                window.location.href = "/coordinator-dashboard.html";
             } else {
                 window.location.href = "/dashboard.html";
             }

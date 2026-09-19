@@ -7,7 +7,6 @@ import com.example.placement.entity.ApplicationRound;
 import com.example.placement.entity.ApplicationStatus;
 import com.example.placement.entity.PlacementRound;
 import com.example.placement.entity.Placement;
-import com.example.placement.entity.Round;
 import com.example.placement.entity.RoundStatus;
 import com.example.placement.entity.UsersEntries;
 import com.example.placement.repository.ApplicationRepository;
@@ -66,18 +65,15 @@ public class ApplicationService {
     private final ApplicationRepository applicationRepository;
     private final PlacementRepository placementRepository;
     private final UsersRepository usersRepository;
-    private final RoundService roundService;
     private final MongoTemplate mongoTemplate;
 
     public ApplicationService(ApplicationRepository applicationRepository,
                               PlacementRepository placementRepository,
                               UsersRepository usersRepository,
-                              RoundService roundService,
                               MongoTemplate mongoTemplate) {
         this.applicationRepository = applicationRepository;
         this.placementRepository = placementRepository;
         this.usersRepository = usersRepository;
-        this.roundService = roundService;
         this.mongoTemplate = mongoTemplate;
     }
 
@@ -97,6 +93,61 @@ public class ApplicationService {
 
     public List<ApplicationDetail> getAllApplications() {
         return buildDetails(applicationRepository.findAll());
+    }
+
+    public Map<String, Object> getApplicationsPage(Integer page, Integer pageSize,
+                                                   String search, String status, String jobId) {
+        List<ApplicationDetail> details = buildDetails(applicationRepository.findAll());
+        details = filterDetails(details, search, status, jobId);
+
+        long total = details.size();
+        int safeSize = pageSize == null || pageSize < 1 ? 20 : Math.min(pageSize, 100);
+        int safePage = page == null || page < 1 ? 1 : page;
+        List<ApplicationDetail> sorted = details.stream()
+                .sorted(Comparator.comparing(ApplicationDetail::getApplicationDate,
+                        Comparator.nullsLast(Comparator.reverseOrder())))
+                .collect(Collectors.toList());
+        int fromIndex = (int) Math.min((long) (safePage - 1) * safeSize, sorted.size());
+        int toIndex = Math.min(fromIndex + safeSize, sorted.size());
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("total", total);
+        response.put("page", safePage);
+        response.put("pageSize", safeSize);
+        response.put("applications", sorted.subList(fromIndex, toIndex));
+        return response;
+    }
+
+    public List<ApplicationDetail> filterDetails(List<ApplicationDetail> details, String search,
+                                                 String status, String jobId) {
+        if (details == null || details.isEmpty()) {
+            return List.of();
+        }
+        List<ApplicationDetail> filtered = details;
+        if (status != null && !status.isBlank()) {
+            String requested = status.trim();
+            filtered = filtered.stream()
+                    .filter(detail -> requested.equalsIgnoreCase(detail.getStatus()))
+                    .collect(Collectors.toList());
+        }
+        if (jobId != null && !jobId.isBlank()) {
+            filtered = filtered.stream()
+                    .filter(detail -> jobId.equals(detail.getPlacementId()))
+                    .collect(Collectors.toList());
+        }
+        String query = search == null ? null : search.trim().toLowerCase();
+        if (query != null && !query.isEmpty()) {
+            filtered = filtered.stream().filter(detail -> matchesSearch(detail, query))
+                    .collect(Collectors.toList());
+        }
+        return filtered;
+    }
+
+    private static boolean matchesSearch(ApplicationDetail detail, String query) {
+        return Stream.of(detail.getEnrollmentno(), detail.getStudentName(), detail.getStudentEmail(),
+                        detail.getCompany(), detail.getRole())
+                .filter(value -> value != null && !value.isBlank())
+                .anyMatch(value -> value.toLowerCase().contains(query));
     }
 
     public List<ApplicationDetail> getApplicationsForPlacement(String placementId) {
@@ -437,31 +488,23 @@ public class ApplicationService {
     }
 
     public List<PlacementRound> effectiveRoundConfig(Placement placement) {
-        List<Round> stored = roundService.findByJob(placement.getId());
-        if (!stored.isEmpty()) {
-            return stored.stream()
-                    .map(round -> new PlacementRound(round.getRoundNumber(), round.getRoundName()))
-                    .collect(Collectors.toList());
+        if (placement == null || placement.getRounds() == null) {
+            return List.of();
         }
-        return placement.getRounds() == null ? List.of() : placement.getRounds();
+        return placement.getRounds().stream()
+                .filter(round -> round != null)
+                .sorted(Comparator.comparing(round -> round.getRound() == null ? 0 : round.getRound()))
+                .collect(Collectors.toList());
     }
 
     public Map<String, List<PlacementRound>> roundConfigByJob(Set<String> jobIds, Map<String, Placement> jobMap) {
         if (jobIds == null || jobIds.isEmpty()) {
             return Map.of();
         }
-        Map<String, List<Round>> storedByJob = roundService.findByJobs(jobIds);
         Map<String, List<PlacementRound>> configs = new HashMap<>();
         for (String jobId : jobIds) {
-            List<PlacementRound> stored = storedByJob.getOrDefault(jobId, List.of()).stream()
-                    .map(round -> new PlacementRound(round.getRoundNumber(), round.getRoundName()))
-                    .collect(Collectors.toList());
-            if (!stored.isEmpty()) {
-                configs.put(jobId, stored);
-            } else {
-                Placement job = jobMap == null ? null : jobMap.get(jobId);
-                configs.put(jobId, job == null || job.getRounds() == null ? List.of() : job.getRounds());
-            }
+            Placement job = jobMap == null ? null : jobMap.get(jobId);
+            configs.put(jobId, job == null ? List.of() : effectiveRoundConfig(job));
         }
         return configs;
     }
