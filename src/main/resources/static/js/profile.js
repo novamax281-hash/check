@@ -3,24 +3,25 @@
 
     var esc = window.UI.escapeHtml;
     var fields = {
+        enrollment: document.getElementById("pEnrollment"),
         name: document.getElementById("pName"),
         email: document.getElementById("pEmail"),
         phone: document.getElementById("pPhone"),
+        batch: document.getElementById("pBatch"),
+        branch: document.getElementById("pBranch"),
+        section: document.getElementById("pSection"),
         department: document.getElementById("pDepartment"),
+        course: document.getElementById("pCourse"),
+        college: document.getElementById("pCollege"),
         dob: document.getElementById("pDob"),
         gender: document.getElementById("pGender"),
+        cgpa: document.getElementById("pCgpa"),
+        tenth: document.getElementById("pTenth"),
+        twelfth: document.getElementById("pTwelfth"),
+        grad: document.getElementById("pGrad"),
         address: document.getElementById("pAddress"),
         city: document.getElementById("pCity"),
         state: document.getElementById("pState")
-    };
-
-    var wraps = {
-        department: document.getElementById("pDepartmentWrap"),
-        dob: document.getElementById("pDobWrap"),
-        gender: document.getElementById("pGenderWrap"),
-        address: document.getElementById("pAddressWrap"),
-        city: document.getElementById("pCityWrap"),
-        state: document.getElementById("pStateWrap")
     };
 
     var currentRole = "";
@@ -30,30 +31,18 @@
         return value !== "admin" && value !== "coordinator";
     }
 
-    function showEditable(role) {
-    var value = String(role || "").toLowerCase();
-    var isCoordinator = value === "coordinator";
-    var isAdmin = value === "admin";
-
-    Object.keys(wraps).forEach(function (key) {
-        var visible = !isCoordinator && !isAdmin && !(key === "department");
-        wraps[key].classList.toggle("hidden", !visible);
-    });
-    if (isCoordinator) {
-        wraps.department.classList.remove("hidden");
-    }
-}
-
     function renderDetails(user) {
         var role = user.role || "Student";
         var rows = [
-            ["Enrollment Number", user.enrollmentno || "-"],
-            ["Role", role],
-            ["Status", user.studentStatus || "-"]
+            ["Enrollment Number:", user.enrollmentno || "-"],
+            ["Role:", role]
         ];
         if (isStudent(role)) {
+            rows.push(["Status:", user.studentStatus || "-"]);
             rows.push(["Branch", user.branch || "-"], ["Section", user.section || "-"], ["Batch", user.batch || "-"]);
             rows.push(["Course", user.course || "-"], ["College", user.college || "-"]);
+        } else {
+            rows.push(["Name:", user.name || "-"], ["Email:", user.email || "-"], ["Mobile:", user.phoneno || "-"]);
         }
         if (role.toLowerCase() === "coordinator") {
             rows.push(["Department", user.department || "-"]);
@@ -64,16 +53,34 @@
     }
 
     function populateForm(user) {
+        var student = isStudent(user.role || "");
+        fields.enrollment.value = user.enrollmentno || "";
         fields.name.value = user.name || "";
-        fields.email.value = user.email || "";
-        fields.phone.value = user.phoneno || "";
+        fields.batch.innerHTML = window.UI.batchOptions(user.batch || "");
+        fields.batch.value = user.batch || "";
+        fields.branch.value = user.branch || "";
+        fields.section.value = user.section || "";
         fields.department.value = user.department || "";
+        fields.course.value = user.course || "";
+        fields.college.value = user.college || "";
         fields.dob.value = user.dob || "";
         fields.gender.value = user.gender || "";
+        fields.cgpa.value = user.cgpa != null ? user.cgpa : "";
+        fields.tenth.value = user.tenthPercentage != null ? user.tenthPercentage : "";
+        fields.twelfth.value = user.twelfthPercentage != null ? user.twelfthPercentage : "";
+        fields.grad.value = user.graduationPercentage != null ? user.graduationPercentage : "";
         fields.address.value = user.address || "";
         fields.city.value = user.city || "";
         fields.state.value = user.state || "";
-        showEditable(user.role);
+        fields.email.value = user.email || "";
+        fields.phone.value = user.phoneno || "";
+        document.getElementById("pStudentFields").style.display = student ? "block" : "none";
+        fields.enrollment.readOnly = true;
+        fields.email.readOnly = !student ? false : true;
+        fields.phone.readOnly = !student ? false : true;
+        fields.batch.disabled = student;
+        fields.tenth.readOnly = student;
+        fields.twelfth.readOnly = student;
     }
 
     async function loadProfile() {
@@ -91,8 +98,11 @@
             renderDetails(user);
             populateForm(user);
         } catch (error) {
-            // profile load failed silently
         }
+    }
+
+    function numeric(field) {
+        return field.value !== "" ? Number(field.value) : undefined;
     }
 
     async function saveProfile(event) {
@@ -100,20 +110,29 @@
         const saveBtn = document.getElementById("saveProfileBtn");
         window.UI.setButtonLoading(saveBtn, true, "Saving...");
 
-        const payload = {
-            name: fields.name.value,
-            email: fields.email.value,
-            phoneno: fields.phone.value
-        };
-        if (currentRole.toLowerCase() === "coordinator") {
+        const payload = { name: fields.name.value };
+        if (isStudent(currentRole)) {
+            payload.branch = fields.branch.value;
+            payload.section = fields.section.value;
             payload.department = fields.department.value;
-        } else if (isStudent(currentRole)) {
+            payload.course = fields.course.value;
+            payload.college = fields.college.value;
             payload.dob = fields.dob.value;
             payload.gender = fields.gender.value;
+            payload.cgpa = numeric(fields.cgpa);
+            payload.graduationPercentage = numeric(fields.grad);
             payload.address = fields.address.value;
             payload.city = fields.city.value;
             payload.state = fields.state.value;
+        } else {
+            payload.email = fields.email.value;
+            payload.phoneno = fields.phone.value;
         }
+        Object.keys(payload).forEach(function (key) {
+            if (payload[key] === undefined) {
+                delete payload[key];
+            }
+        });
 
         try {
             const response = await fetch("/api/profile", {

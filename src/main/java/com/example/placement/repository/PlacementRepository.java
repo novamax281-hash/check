@@ -10,7 +10,6 @@ import java.util.List;
 @Repository
 public interface PlacementRepository extends MongoRepository<Placement, String> {
 
-    // Jobs a student may see: anything not marked "Closed" (case-insensitive, null-safe), pushed to the database.
     @Query("{ 'status': { $not: { $regex: '^Closed$', $options: 'i' } } }")
     List<Placement> findVisibleJobs();
 }

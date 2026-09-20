@@ -9,6 +9,8 @@ public interface UsersRepository extends MongoRepository<UsersEntries, String> {
 
     UsersEntries findByEnrollmentno(String enrollmentno);
 
+    UsersEntries findByEmail(String email);
+
     UsersEntries findByEnrollmentnoAndEmail(String enrollmentno, String email);
 
     UsersEntries findByEnrollmentnoAndPhoneno(String enrollmentno, String phoneno);

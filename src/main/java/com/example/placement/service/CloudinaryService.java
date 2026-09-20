@@ -72,7 +72,6 @@ public class CloudinaryService {
         try {
             cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
         } catch (Exception ignored) {
-            // Deletion on the file host failing is not critical; metadata removal already happened.
         }
     }
 

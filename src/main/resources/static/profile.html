@@ -4,8 +4,8 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Profile | PlacementLink</title>
-    <link rel="stylesheet" href="css/portal.css?v=1">
+    <title>My Profile | LLOYD Carrer</title>
+    <link rel="stylesheet" href="css/portal.css?v=9">
     <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
 </head>
 <body data-role="" data-active="profile" data-title="My Profile">
@@ -18,48 +18,75 @@
     <main class="page-content">
         <div class="page-heading">
             <h1>My Profile</h1>
-            <p>View and update your profile information.</p>
+            <p>View and update your institutional profile details.</p>
         </div>
 
-        <div class="profile-summary" id="profileSummary">
-            <span class="profile-avatar" id="profileAvatar">?</span>
+        <div class="step-card" id="profileSummary" style="flex-direction: row; align-items: center; gap: 20px;">
+            <span class="user-avatar" id="profileAvatar" style="width: 64px; height: 64px; font-size: 24px;">?</span>
             <div>
-                <div class="profile-name" id="profileName">Loading...</div>
-                <div class="profile-meta" id="profileMeta">-</div>
+                <h2 id="profileName" style="font-size: 20px; font-weight: 700; color: var(--text-main);">Loading...</h2>
+                <div id="profileMeta" style="font-size: 14px; color: var(--text-muted);">-</div>
             </div>
         </div>
 
-        <div class="detail-card">
-            <div class="card-title" id="profileDetailsTitle">Profile Details</div>
+        <div class="step-card">
+            <h3 class="card-title" id="profileDetailsTitle">Profile Details</h3>
             <div class="detail-list" id="profileDetails"></div>
         </div>
 
-        <div class="detail-card">
-            <div class="card-title">Edit Profile</div>
-            <p class="section-help">Fields that cannot be changed by you are read-only and enforced by the server.</p>
-            <form id="profileForm">
-                <div class="form-grid">
+        <div class="step-card">
+            <h3>Edit Profile</h3>
+            <p class="section-help" style="font-size: 13px; color: var(--text-muted);">Email address and mobile number cannot be changed here — they are managed by the placement cell.</p>
+            <form id="profileForm" class="auth-form" style="margin-top: 12px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+                    <div class="form-group">
+                        <label for="pEnrollment">Enrollment Number</label>
+                        <input type="text" id="pEnrollment" readonly>
+                    </div>
                     <div class="form-group">
                         <label for="pName">Full Name</label>
                         <input type="text" id="pName">
                     </div>
                     <div class="form-group">
-                        <label for="pEmail">Email</label>
+                        <label for="pEmail">Email Address</label>
                         <input type="email" id="pEmail">
                     </div>
                     <div class="form-group">
                         <label for="pPhone">Mobile Number</label>
                         <input type="tel" id="pPhone" maxlength="10" pattern="[0-9]{10}">
                     </div>
-                    <div class="form-group hidden" id="pDepartmentWrap">
+                </div>
+                <div id="pStudentFields">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 16px;">
+                    <div class="form-group">
+                        <label for="pBatch">Batch</label>
+                        <select id="pBatch"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="pBranch">Branch</label>
+                        <input type="text" id="pBranch">
+                    </div>
+                    <div class="form-group">
+                        <label for="pSection">Section</label>
+                        <input type="text" id="pSection">
+                    </div>
+                    <div class="form-group">
                         <label for="pDepartment">Department</label>
                         <input type="text" id="pDepartment">
                     </div>
-                    <div class="form-group hidden" id="pDobWrap">
+                    <div class="form-group">
+                        <label for="pCourse">Course</label>
+                        <input type="text" id="pCourse">
+                    </div>
+                    <div class="form-group">
+                        <label for="pCollege">College</label>
+                        <input type="text" id="pCollege">
+                    </div>
+                    <div class="form-group">
                         <label for="pDob">Date of Birth</label>
                         <input type="date" id="pDob">
                     </div>
-                    <div class="form-group hidden" id="pGenderWrap">
+                    <div class="form-group">
                         <label for="pGender">Gender</label>
                         <select id="pGender">
                             <option value="">Select</option>
@@ -68,20 +95,37 @@
                             <option value="Other">Other</option>
                         </select>
                     </div>
-                    <div class="form-group hidden" id="pAddressWrap">
+                    <div class="form-group">
+                        <label for="pCgpa">CGPA</label>
+                        <input type="number" id="pCgpa" min="0" max="10" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="pTenth">10th Percentage</label>
+                        <input type="number" id="pTenth" min="0" max="100" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="pTwelfth">12th Percentage</label>
+                        <input type="number" id="pTwelfth" min="0" max="100" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label for="pGrad">Graduation Percentage</label>
+                        <input type="number" id="pGrad" min="0" max="100" step="0.01">
+                    </div>
+                    <div class="form-group">
                         <label for="pAddress">Address</label>
                         <input type="text" id="pAddress">
                     </div>
-                    <div class="form-group hidden" id="pCityWrap">
+                    <div class="form-group">
                         <label for="pCity">City</label>
                         <input type="text" id="pCity">
                     </div>
-                    <div class="form-group hidden" id="pStateWrap">
+                    <div class="form-group">
                         <label for="pState">State</label>
                         <input type="text" id="pState">
                     </div>
+                    </div>
                 </div>
-                <div class="modal-actions" style="padding-top:8px;">
+                <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
                     <button type="submit" class="btn" id="saveProfileBtn">Save Changes</button>
                 </div>
             </form>
@@ -89,7 +133,7 @@
     </main>
 </div>
 
-<script src="js/ui.js?v=1"></script>
-<script src="js/profile.js?v=1"></script>
+<script src="js/ui.js?v=6"></script>
+<script src="js/profile.js?v=6"></script>
 </body>
 </html>

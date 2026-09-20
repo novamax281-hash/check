@@ -35,7 +35,9 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/index.html", "/login.html", "/css/**", "/js/**",
-                                "/api/auth/send-otp", "/api/auth/verify-otp", "/favicon.ico", "/favicon.svg").permitAll()
+                                "/api/auth/send-otp", "/api/auth/verify-otp", "/api/auth/register/**",
+                                "/actuator/health", "/actuator/health/**",
+                                "/favicon.ico", "/favicon.svg").permitAll()
                         .requestMatchers("/dashboard.html", "/placement-apply.html", "/my-applications.html",
                                 "/profile.html", "/user/**", "/api/profile").authenticated()
                         .requestMatchers("/admin-dashboard.html", "/admin-placements.html",

@@ -29,6 +29,8 @@ public class Placement {
 
     private String company;
 
+    private String jobRole;
+
     private String jobType;
 
     private String stipend;
@@ -64,6 +66,16 @@ public class Placement {
     private String mode;
 
     private String ctc;
+
+    private String salaryLpa;
+
+    private Double minTenth;
+
+    private Double minTwelfth;
+
+    private Double minGraduation;
+
+    private Double minCgpa;
 
     private String likelyDateOfJoining;
 

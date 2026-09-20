@@ -67,7 +67,6 @@ const userBatchFilter = document.getElementById("userBatchFilter");
 const userBranchFilter = document.getElementById("userBranchFilter");
 const userStatusFilter = document.getElementById("userStatusFilter");
 const userJobFilter = document.getElementById("userJobFilter");
-const userJobFilter = document.getElementById("userJobFilter");
 const userDateFrom = document.getElementById("userDateFrom");
 const userDateTo = document.getElementById("userDateTo");
 const userClearBtn = document.getElementById("userClearBtn");
@@ -84,8 +83,6 @@ const statuses = ["IN_PROGRESS", "SELECTED", "REJECTED", "WITHDRAWN",
 
 let applications = [];
 let allUsers = [];
-let usersLazyLoaded = false;
-let usersLoadPromise = null;
 let usersLazyLoaded = false;
 let usersLoadPromise = null;
 let usersById = {};
@@ -255,16 +252,6 @@ function fillFilters() {
         branches.map(b => '<option value="' + esc(b) + '">' + esc(b) + "</option>").join("");
     userStatusFilter.innerHTML = '<option value="">All application statuses</option>' +
         presentStatuses.map(s => '<option value="' + esc(s) + '">' + esc(s) + "</option>").join("");
-    const jobItems = [...new Set((Array.isArray(applications) ? applications : []).map(function(app) {
-        const company = app && app.company || (app.job && app.job.company) || "";
-        const role = app && app.jobType || (app.job && app.job.jobType) || "";
-        return company && role ? company + " – " + role : (company || role || "");
-    }).filter(Boolean))].sort();
-    userJobFilter.innerHTML = '<option value="">All jobs</option>' +
-        jobItems.map(function(item) {
-            const key = item;
-            return '<option value="' + esc(key) + '">' + esc(key) + "</option>";
-        }).join("");
 }
 
 function fillJobFilters() {
@@ -277,6 +264,7 @@ function fillJobFilters() {
     mgmtJobs.forEach(function(job) { jobsById[job.id] = job; });
     jobFilter.innerHTML = '<option value="">All Jobs</option>' + options;
     mgmtJobSelect.innerHTML = '<option value="">Select a Job…</option>' + options;
+    userJobFilter.innerHTML = '<option value="">All jobs</option>' + options;
 }
 
 function ensureConfig(jobId) {
@@ -388,7 +376,7 @@ function latestScore(app) {
 }
 
 function formatDate(value) {
-    return value ? String(value).replace("T", " ").slice(0, 16) : "-";
+    return window.UI.fmtDateTime(value);
 }
 
 function inDateRange(value, fromMs, toMs) {
@@ -401,15 +389,17 @@ function inDateRange(value, fromMs, toMs) {
 function actionsMenuHtml(app) {
     const esc = window.UI.escapeHtml;
     const evaluable = isCurrentRoundPending(app);
+    const term = isTerminal(app);
     const id = esc(app.applicationId);
     const disabled = evaluable ? "" : " disabled";
+    const rejectDisabled = term ? " disabled" : "";
     return '<div class="menu-wrap">'
         + '<button type="button" class="menu-btn" data-menu="' + id + '" aria-label="Actions">⋮</button>'
         + '<div class="row-menu hidden" data-menu-for="' + id + '">'
         + '<button type="button" class="menu-item view-btn" data-id="' + id + '">View Details</button>'
         + '<button type="button" class="menu-item qualify-btn" data-id="' + id + '"' + disabled + '>Evaluate Round</button>'
         + '<button type="button" class="menu-item advance-btn" data-id="' + id + '"' + disabled + '>Send to Next Round</button>'
-        + '<button type="button" class="menu-item reject-btn" data-id="' + id + '"' + disabled + '>Reject</button>'
+        + '<button type="button" class="menu-item reject-btn" data-id="' + id + '"' + rejectDisabled + '>Reject</button>'
         + '<button type="button" class="menu-item status-btn" data-id="' + id + '">Update Status</button>'
         + "</div></div>";
 }
@@ -577,7 +567,6 @@ function groupUsers() {
 }
 
 function filterUsers() {
-    const jobKeyword = userJobFilter ? userJobFilter.value.trim().toLowerCase() : "";
     const keyword = userSearch.value.toLowerCase().trim();
     const batch = userBatchFilter.value;
     const branch = userBranchFilter.value;
@@ -588,17 +577,8 @@ function filterUsers() {
     return groupUsers().filter(function(user) {
         const jobFilterVal = userJobFilter ? userJobFilter.value : "";
         if (jobFilterVal) {
-            const hasJob = user.apps.some(function(app) {
-                const company = (app.company || "") + " " + app.role;
-                return company.toLowerCase().includes(jobFilterVal.toLowerCase());
-            });
+            const hasJob = user.apps.some(function(app) { return jobIdOf(app) === jobFilterVal; });
             if (!hasJob) return false;
-        }
-        if (jobKeyword) {
-            const jobHaystack = user.apps.map(function(app) {
-                return (app.company || "") + " " + (app.role || "") + " " + (app.jobId || "");
-            }).join(" ").toLowerCase();
-            if (!jobHaystack.includes(jobKeyword)) return false;
         }
         if (keyword) {
             const haystack = (user.studentName + " " + user.studentEmail + " " + user.enrollmentno
@@ -651,14 +631,12 @@ function fmtDateTimeNice(value) {
     const ms = window.UI.parseTimestamp(value);
     if (ms === null) return "-";
     const d = new Date(ms);
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     let hours = d.getHours();
     const ampm = hours >= 12 ? "PM" : "AM";
     hours = hours % 12 || 12;
     const minutes = String(d.getMinutes()).padStart(2, "0");
-    return d.getDate() + " " + months[d.getMonth()] + " " + d.getFullYear()
-        + ", " + hours + ":" + minutes + " " + ampm;
+    return String(d.getDate()).padStart(2, "0") + "-" + String(d.getMonth() + 1).padStart(2, "0")
+        + "-" + d.getFullYear() + ", " + hours + ":" + minutes + " " + ampm;
 }
 
 function roundLadderHtml(jobId, app) {
@@ -1025,8 +1003,8 @@ function openActionModal(mode, app) {
         + window.UI.progressList(app);
     actionScore.value = entry && entry.score != null ? entry.score : "";
     actionRemark.value = entry && entry.adminRemark ? entry.adminRemark : "";
-    confirmQualifyBtn.style.display = mode === "qualify" ? "" : "none";
-    confirmRejectBtn.style.display = mode === "reject" ? "" : "none";
+    confirmQualifyBtn.style.display = mode === "qualify" ? "inline-flex" : "none";
+    confirmRejectBtn.style.display = mode === "reject" ? "inline-flex" : "none";
     window.UI.openModal(actionModal);
 }
 
@@ -1080,6 +1058,26 @@ async function submitAction(mode) {
     const app = pendingAction.app;
     const body = buildEvaluationBody();
     if (body === null) return;
+
+    if (mode === "reject" && !isCurrentRoundPending(app)) {
+        const remark = (body.adminRemark || "").trim();
+        const response = await fetch("/admin/applications/" + app.applicationId + "/status", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ status: "REJECTED", remark: remark })
+        });
+        if (UI.redirectIfUnauthorized(response)) return;
+        closeActionModal();
+        if (response.ok) {
+            window.UI.showToast("Application rejected.", "success");
+            refreshMgmtApplicants();
+            loadApplications();
+        } else {
+            window.UI.showToast("Unable to reject this application.", "error");
+        }
+        return;
+    }
 
     const updated = await postEvaluation(
         "/admin/applications/" + app.applicationId + "/rounds/" + (Number(app.currentRound) || 1) + "/" + mode,
@@ -1645,13 +1643,15 @@ userResults.addEventListener("click", function(event) {
         const row = expand.closest(".user-row");
         const detail = row && row.querySelector(".user-row-detail");
         if (!detail) return;
-        const open = detail.classList.toggle("hidden");
-        expand.classList.toggle("open", !open);
-        expand.setAttribute("aria-expanded", String(!open));
+        const nowHidden = detail.classList.toggle("hidden");
+        expand.classList.toggle("open", !nowHidden);
+        expand.setAttribute("aria-expanded", String(!nowHidden));
         const text = expand.querySelector(".user-expand-text");
         if (text) {
             const count = (row && row.dataset.appcount) || "";
-            text.textContent = open ? "Hide applications" : (count ? "View " + count + " applications" : "View applications");
+            text.textContent = nowHidden
+                ? (count ? "View " + count + " applications" : "View applications")
+                : "Hide applications";
         }
         return;
     }

@@ -34,20 +34,26 @@ public class ProfileController {
         String role = user.getRole();
 
         copyIfPresent(update.getName(), user::setName);
+        copyIfPresent(update.getDob(), user::setDob);
+        copyIfPresent(update.getGender(), user::setGender);
+        copyIfPresent(update.getAddress(), user::setAddress);
+        copyIfPresent(update.getCity(), user::setCity);
+        copyIfPresent(update.getState(), user::setState);
+        copyIfPresent(update.getBatch(), user::setBatch);
+        copyIfPresent(update.getBranch(), user::setBranch);
+        copyIfPresent(update.getSection(), user::setSection);
+        copyIfPresent(update.getDepartment(), user::setDepartment);
+        copyIfPresent(update.getCourse(), user::setCourse);
+        copyIfPresent(update.getCollege(), user::setCollege);
+        copyIfPresent(update.getCgpa(), user::setCgpa);
+        copyIfPresent(update.getTenthPercentage(), user::setTenthPercentage);
+        copyIfPresent(update.getTwelfthPercentage(), user::setTwelfthPercentage);
+        copyIfPresent(update.getGraduationPercentage(), user::setGraduationPercentage);
+
         boolean canEditContact = isCoordinator(role) || "admin".equalsIgnoreCase(role);
         if (canEditContact) {
             copyIfPresent(update.getEmail(), user::setEmail);
             copyIfPresent(update.getPhoneno(), user::setPhoneno);
-        }
-
-        if (isCoordinator(role)) {
-            copyIfPresent(update.getDepartment(), user::setDepartment);
-        } else if (isStudent(role)) {
-            copyIfPresent(update.getDob(), user::setDob);
-            copyIfPresent(update.getGender(), user::setGender);
-            copyIfPresent(update.getAddress(), user::setAddress);
-            copyIfPresent(update.getCity(), user::setCity);
-            copyIfPresent(update.getState(), user::setState);
         }
 
         return usersRepository.save(user);
@@ -65,13 +71,15 @@ public class ProfileController {
         return role != null && role.equalsIgnoreCase("coordinator");
     }
 
-    private boolean isStudent(String role) {
-        return role == null || (!role.equalsIgnoreCase("admin") && !role.equalsIgnoreCase("coordinator"));
-    }
-
     private void copyIfPresent(String incoming, Consumer<String> setter) {
         if (incoming != null && !incoming.isBlank()) {
             setter.accept(incoming.trim());
+        }
+    }
+
+    private void copyIfPresent(Double incoming, Consumer<Double> setter) {
+        if (incoming != null) {
+            setter.accept(incoming);
         }
     }
 }

@@ -44,7 +44,7 @@ public class MongoConfig {
         return builder -> builder
             .applyToClusterSettings(settings -> settings.serverSelectionTimeout(10, TimeUnit.SECONDS))
             .applyToConnectionPoolSettings(settings -> settings
-                .maxSize(50)
+                .maxSize(20)
                 .minSize(5)
                 .maxConnectionIdleTime(60, TimeUnit.SECONDS)
                 .maxWaitTime(10, TimeUnit.SECONDS))

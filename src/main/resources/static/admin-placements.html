@@ -4,8 +4,8 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Placements | PlacementLink</title>
-    <link rel="stylesheet" href="css/portal.css?v=1">
+    <title>Manage Placements | LLOYD Carrer</title>
+    <link rel="stylesheet" href="css/portal.css?v=9">
     <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
 </head>
 <body data-role="admin" data-active="placements" data-title="Manage Placements">
@@ -17,15 +17,17 @@
 
     <main class="page-content">
         <div class="page-heading">
-            <h1>Manage Placements</h1>
-            <p>Add, edit, or remove company job placements.</p>
+            <h1>Manage Placement Drives</h1>
+            <p>Post company drives, edit requirements, manage document attachments, and configure interview rounds.</p>
         </div>
 
-        <div class="toolbar">
-            <input type="search" id="searchBox" class="search" placeholder="Search company or role...">
-            <select id="companyFilter"><option value="">All companies</option></select>
-            <button class="btn btn-secondary" id="exportJobsBtn" type="button" title="Download all placements as CSV">Export CSV</button>
-            <button class="btn" id="addJobBtn">+ Add Placement</button>
+        <div class="step-card" style="padding: 20px;">
+            <div class="toolbar">
+                <input type="search" id="searchBox" class="search" placeholder="Search company or role...">
+                <select id="companyFilter" class="btn btn-secondary"><option value="">All companies</option></select>
+                <button class="btn btn-secondary" id="exportJobsBtn" type="button" title="Download all placements as CSV">Export CSV</button>
+                <button class="btn" id="addJobBtn">+ Add Placement Drive</button>
+            </div>
         </div>
 
         <div class="table-responsive">
@@ -34,106 +36,161 @@
                 <tr>
                     <th>Company</th>
                     <th>Role</th>
+                    <th>Location</th>
                     <th>Eligibility</th>
                     <th>Deadline</th>
                     <th>Status</th>
-                    <th>Actions</th>
+                    <th style="text-align:right;">Actions</th>
                 </tr>
                 </thead>
                 <tbody id="jobsBody"></tbody>
             </table>
         </div>
+        
         <div class="empty" id="emptyMsg" style="display:none;">
-            <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4.2l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg></div>
-            <div class="empty-title">No placements found</div>
-            <p>Add a new placement to get started.</p>
+            <div class="empty-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 7a2 2 0 0 1 2-2h4.2l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <path d="M3 10h18"/>
+                </svg>
+            </div>
+            <div class="empty-title">No placement drives found</div>
+            <p>Add a new placement drive to get started.</p>
         </div>
     </main>
 </div>
 
+
 <div class="modal" id="jobModal">
-    <div class="modal-box">
+    <div class="modal-box modal-lg">
         <div class="modal-header">
-            <h2 id="modalTitle">Add Placement</h2>
+            <h2 id="modalTitle">Add Placement Drive</h2>
         </div>
-        <div class="form-group">
-            <label>Company Name</label>
-            <input type="text" id="fCompany" required>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+            <div class="form-group">
+                <label>Company Name</label>
+                <input type="text" id="fCompany" required>
+            </div>
+            <div class="form-group">
+                <label>Job Role</label>
+                <input type="text" id="fJobRole">
+            </div>
+            <div class="form-group">
+                <label>Job Type</label>
+                <input type="text" id="fRole" required>
+            </div>
+            <div class="form-group">
+                <label>Location</label>
+                <input type="text" id="fLocation">
+            </div>
+            <div class="form-group">
+                <label>Eligibility</label>
+                <input type="text" id="fEligibility">
+            </div>
+            <div class="form-group">
+                <label>Required Skills</label>
+                <input type="text" id="fSkills">
+            </div>
+            <div class="form-group">
+                <label>Application Deadline</label>
+                <input type="date" id="fDeadline">
+            </div>
+            <div class="form-group">
+                <label>Number of Openings</label>
+                <input type="text" id="fOpenings">
+            </div>
+            <div class="form-group">
+                <label>Status</label>
+                <select id="fStatus">
+                    <option value="Open">Open</option>
+                    <option value="Closed">Closed</option>
+                </select>
+            </div>
         </div>
-        <div class="form-group">
-            <label>Job Role</label>
-            <input type="text" id="fRole" required>
-        </div>
-        <div class="form-group">
-            <label>Location</label>
-            <input type="text" id="fLocation">
-        </div>
-        <div class="form-group">
-            <label>Eligibility</label>
-            <input type="text" id="fEligibility">
-        </div>
-        <div class="form-group">
-            <label>Required Skills</label>
-            <input type="text" id="fSkills">
-        </div>
-        <div class="form-group">
-            <label>Application Deadline</label>
-            <input type="text" id="fDeadline">
-        </div>
-        <div class="form-group">
-            <label>Number of Openings</label>
-            <input type="text" id="fOpenings">
-        </div>
-        <div class="form-group">
-            <label>Status</label>
-            <select id="fStatus">
-                <option value="Open">Open</option>
-                <option value="Closed">Closed</option>
-            </select>
-        </div>
-        <div class="form-group">
+        
+        <div class="form-group" style="margin-top: 12px;">
             <label>Job Description</label>
-            <textarea id="fDescription"></textarea>
+            <textarea id="fDescription" rows="4"></textarea>
         </div>
-        <div class="form-group">
-            <label>Website</label>
-            <input type="text" id="fWebsite" placeholder="https://...">
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 12px;">
+            <div class="form-group">
+                <label>Website</label>
+                <input type="text" id="fWebsite" placeholder="https://...">
+            </div>
+            <div class="form-group">
+                <label>Drive Type</label>
+                <input type="text" id="fDriveType" placeholder="e.g. On Campus, Off Campus">
+            </div>
+            <div class="form-group">
+                <label>Mode</label>
+                <input type="text" id="fMode" placeholder="e.g. Online, Offline">
+            </div>
+            <div class="form-group">
+                <label>Likely Date of Joining</label>
+                <input type="date" id="fDoj">
+            </div>
         </div>
-        <div class="form-group">
-            <label>Drive Type</label>
-            <input type="text" id="fDriveType" placeholder="e.g. On Campus, Off Campus, Walk-In">
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 12px;">
+            <div class="form-group">
+                <label>Salary (LPA)</label>
+                <input type="number" id="fSalaryLpa" min="0" step="0.01" placeholder="e.g. 12">
+            </div>
+            <div class="form-group">
+                <label>Eligible Batch</label>
+                <select id="fBatch"><option value="">All batches</option></select>
+            </div>
+            <div class="form-group">
+                <label>Branches Allowed</label>
+                <input type="text" id="fBranch" placeholder="e.g. CSE, IT or All">
+            </div>
+            <div class="form-group">
+                <label>Min 10th Percentage</label>
+                <input type="number" id="fMinTenth" min="0" max="100" step="0.01">
+            </div>
+            <div class="form-group">
+                <label>Min 12th Percentage</label>
+                <input type="number" id="fMinTwelfth" min="0" max="100" step="0.01">
+            </div>
+            <div class="form-group">
+                <label>Min Graduation Percentage</label>
+                <input type="number" id="fMinGrad" min="0" max="100" step="0.01">
+            </div>
+            <div class="form-group">
+                <label>Min CGPA</label>
+                <input type="number" id="fMinCgpa" min="0" max="10" step="0.01">
+            </div>
         </div>
-        <div class="form-group">
-            <label>Mode</label>
-            <input type="text" id="fMode" placeholder="e.g. Online, Offline">
-        </div>
-        <div class="form-group">
+
+        <div class="form-group" style="margin-top: 12px;">
             <label>Selection Rounds</label>
             <div id="roundsEditor" class="rounds-editor"></div>
             <button type="button" class="btn btn-small btn-secondary" id="addRoundBtn" style="margin-top:8px;">+ Add Round</button>
-            <p class="field-hint">Optional — numbers are assigned automatically and can be changed. Saved to the job's round configuration, which drives evaluation order, filters and progression.</p>
         </div>
+
         <div class="modal-actions">
             <button class="btn btn-secondary" id="cancelJobBtn">Cancel</button>
-            <button class="btn" id="saveJobBtn">Save</button>
+            <button class="btn" id="saveJobBtn">Save Placement Drive</button>
         </div>
     </div>
 </div>
 
+
 <div class="modal" id="roundsModal">
     <div class="modal-box">
         <div class="modal-header">
-            <h2>Interview Rounds</h2>
+            <h2>Interview Rounds Configuration</h2>
         </div>
         <div class="detail-list" id="roundsJobInfo"></div>
         <div id="roundsList" class="rounds-config-list"></div>
         <div class="form-group">
-            <label id="roundFormLabel">Add Round</label>
-            <div class="round-add-row">
-                <input type="number" id="newRoundNumber" min="1" placeholder="#">
-                <input type="text" id="newRoundName" placeholder="Round name (e.g. Technical Interview)">
+            <label id="roundFormLabel">Add Selection Round</label>
+            <div class="round-add-row" style="display:flex; gap:10px;">
+                <input type="number" id="newRoundNumber" min="1" placeholder="#" style="width:70px;">
+                <input type="text" id="newRoundName" placeholder="Round name (e.g. Technical Interview)" style="flex:1;">
             </div>
-            <textarea id="newRoundDescription" placeholder="Description (optional)"></textarea>
+            <textarea id="newRoundDescription" placeholder="Description (optional)" style="margin-top:8px;"></textarea>
         </div>
         <div class="modal-actions">
             <button class="btn btn-secondary" id="closeRoundsBtn">Close</button>
@@ -142,19 +199,19 @@
     </div>
 </div>
 
+
 <div class="modal" id="docsModal">
     <div class="modal-box">
         <div class="modal-header">
-            <h2>Job Documents</h2>
+            <h2>Job Drive Documents</h2>
         </div>
         <div class="detail-list" id="docsJobInfo"></div>
         <div id="docsList" class="rounds-config-list"></div>
         <div class="form-group">
-            <label>Upload a document</label>
-            <button type="button" class="btn btn-small btn-secondary" id="uploadDocsBtn">+ Choose File</button>
+            <label>Upload Attachment</label>
+            <button type="button" class="btn btn-small btn-secondary" id="uploadDocsBtn">+ Choose Document</button>
             <input type="file" id="docsFileInput" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt" hidden>
             <input type="file" id="docsReplaceInput" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.txt" hidden>
-            <p class="field-hint">Job posters, brochures and JD PDFs are stored on Cloudinary (max 10 MB) and shown to students with the placement.</p>
         </div>
         <div class="modal-actions">
             <button class="btn btn-secondary" id="closeDocsBtn">Close</button>
@@ -162,7 +219,7 @@
     </div>
 </div>
 
-<script src="js/ui.js?v=1"></script>
-<script src="js/admin-placements.js?v=1"></script>
+<script src="js/ui.js?v=6"></script>
+<script src="js/admin-placements.js?v=6"></script>
 </body>
 </html>

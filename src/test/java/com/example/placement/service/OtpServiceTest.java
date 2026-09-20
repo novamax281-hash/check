@@ -55,4 +55,43 @@ class OtpServiceTest {
         assertThat(otpService.canResend("none")).isTrue();
         assertThat(otpService.resendWaitSeconds("none")).isZero();
     }
+
+    @Test
+    void rateLimitAllowsFiveThenBlocksSameIp() {
+        for (int i = 0; i < OtpService.MAX_OTPS_PER_IP_PER_HOUR; i++) {
+            assertThat(otpService.isRateLimited("10.0.0.1")).isFalse();
+        }
+        assertThat(otpService.isRateLimited("10.0.0.1")).isTrue();
+    }
+
+    @Test
+    void rateLimitIsIndependentPerIp() {
+        for (int i = 0; i < OtpService.MAX_OTPS_PER_IP_PER_HOUR; i++) {
+            assertThat(otpService.isRateLimited("10.0.0.1")).isFalse();
+        }
+        assertThat(otpService.isRateLimited("10.0.0.2")).isFalse();
+    }
+
+    @Test
+    void blankIpStillSharesGlobalLimitsAndGetsItsOwnBucket() {
+        assertThat(otpService.isRateLimited("")).isFalse();
+        assertThat(otpService.isRateLimited("")).isFalse();
+    }
+
+    @Test
+    void cleanupRemovesExpiredOtps() {
+        otpService = new OtpService(mock(JavaMailSender.class), -1);
+        otpService.storeOtp("enr1", "123456");
+        assertThat(otpService.storedOtpCount()).isEqualTo(1);
+        otpService.cleanupExpired();
+        assertThat(otpService.storedOtpCount()).isZero();
+    }
+
+    @Test
+    void cleanupKeepsUnexpiredOtps() {
+        otpService.storeOtp("enr1", "123456");
+        otpService.cleanupExpired();
+        assertThat(otpService.storedOtpCount()).isEqualTo(1);
+        assertThat(otpService.validateOtp("enr1", "123456")).isTrue();
+    }
 }

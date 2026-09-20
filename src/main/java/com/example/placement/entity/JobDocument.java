@@ -6,7 +6,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
-// Metadata for a file stored on Cloudinary that is attached to a placement (job poster, JD PDF, etc.).
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

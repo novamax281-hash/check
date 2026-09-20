@@ -4,8 +4,8 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Profile | PlacementLink</title>
-    <link rel="stylesheet" href="css/portal.css?v=1">
+    <title>Student Profile | LLOYD Carrer</title>
+    <link rel="stylesheet" href="css/portal.css?v=9">
     <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
 </head>
 <body data-role="admin" data-active="students" data-title="Student Profile">
@@ -18,155 +18,162 @@
     <main class="page-content">
         <div class="page-heading heading-row">
             <div>
-                <a class="btn btn-small btn-secondary" href="admin-students.html">← Back to Students</a>
+                <a class="btn btn-small btn-secondary" href="admin-students.html">&larr; Back to Students</a>
             </div>
         </div>
 
         <div id="loadingBox" class="empty">
-            <div class="empty-icon"><span class="empty-spinner" aria-hidden="true"></span></div>
-            <div class="empty-title">Loading student…</div>
+            <div class="empty-title">Loading student&hellip;</div>
         </div>
 
         <div id="errorBox" class="empty hidden">
-            <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4.2l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg></div>
             <div class="empty-title">Unable to load student</div>
             <p id="errorText"></p>
         </div>
 
-        <div id="profileContent" class="hidden">
-            <div class="profile-head">
-                <span class="profile-avatar-lg" id="profileAvatar">?</span>
-                <div class="profile-meta">
-                    <h1 id="profileName">—</h1>
-                    <p id="profileEmail">—</p>
-                    <p id="profileEnrollment">Enrollment: —</p>
+        <div id="profileContent" class="hidden" style="display:flex; flex-direction:column; gap:24px;">
+            <div class="step-card" style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:20px;">
+                <div style="display:flex; align-items:center; gap:20px;">
+                    <span class="user-avatar" id="profileAvatar" style="width: 72px; height: 72px; font-size: 28px;">?</span>
+                    <div>
+                        <h1 id="profileName" style="font-size: 24px; font-weight: 800; color: var(--text-main);">&mdash;</h1>
+                        <p id="profileEmail" style="color: var(--text-muted); font-size: 14px;">&mdash;</p>
+                        <p id="profileEnrollment" style="color: var(--text-subtle); font-size: 13px; margin-top:2px;">Enrollment: &mdash;</p>
+                    </div>
                 </div>
-                <div class="profile-actions">
+                <div style="display:flex; gap:10px; flex-wrap:wrap;">
                     <button type="button" class="btn btn-secondary" id="editStudentBtn">Edit Student</button>
                     <button type="button" class="btn btn-secondary" id="exportStudentBtn">Export Student</button>
                     <button type="button" class="btn btn-secondary" id="emailStudentBtn">Email Student Data</button>
                 </div>
             </div>
 
-            <div class="profile-tabs" id="profileTabs">
-                <button class="tab-btn active" data-tab="personal">Personal</button>
-                <button class="tab-btn" data-tab="academic">Academic</button>
-                <button class="tab-btn" data-tab="applications">Applications</button>
-                <button class="tab-btn" data-tab="rounds">Rounds</button>
+            
+            <div class="profile-tabs" id="profileTabs" style="display:flex; gap:8px; border-bottom:1px solid var(--border-color); padding-bottom:8px;">
+                <button class="tab-btn btn btn-small btn-secondary active" data-tab="personal">Personal</button>
+                <button class="tab-btn btn btn-small btn-secondary" data-tab="academic">Academic</button>
+                <button class="tab-btn btn btn-small btn-secondary" data-tab="applications">Applications</button>
+                <button class="tab-btn btn btn-small btn-secondary" data-tab="rounds">Rounds</button>
             </div>
 
             <div class="tab-panel active" id="tab-personal">
-                <div class="detail-grid" id="personalGrid"></div>
+                <div class="step-card">
+                    <div class="detail-grid" id="personalGrid"></div>
+                </div>
             </div>
 
             <div class="tab-panel" id="tab-academic">
-                <div class="detail-grid" id="academicGrid"></div>
+                <div class="step-card">
+                    <div class="detail-grid" id="academicGrid"></div>
+                </div>
             </div>
 
             <div class="tab-panel" id="tab-applications">
-                <div class="toolbar">
-                    <input type="search" id="appSearch" class="search" placeholder="Search applications...">
-                    <select id="appStatusFilter"><option value="">All statuses</option></select>
-                </div>
-                <div class="list-meta"><span id="appResultCount"></span></div>
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                        <tr>
-                            <th>Company</th>
-                            <th>Job/Role</th>
-                            <th>Applied Date</th>
-                            <th>Current Round</th>
-                            <th>Score</th>
-                            <th>Status</th>
-                            <th class="th-actions">Action</th>
-                        </tr>
-                        </thead>
-                        <tbody id="appsBody"></tbody>
-                    </table>
-                </div>
-                <div class="empty hidden" id="noAppsMsg">
-                    <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4.2l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg></div>
-                    <div class="empty-title">No applications found</div>
-                    <p>This student has not applied to any placements yet.</p>
+                <div class="step-card">
+                    <div class="toolbar" style="margin-bottom:12px;">
+                        <input type="search" id="appSearch" class="search" placeholder="Search applications...">
+                        <select id="appStatusFilter"><option value="">All statuses</option></select>
+                    </div>
+                    <div class="list-meta"><span id="appResultCount"></span></div>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>Company</th>
+                                <th>Job/Role</th>
+                                <th>Applied Date</th>
+                                <th>Current Round</th>
+                                <th>Score</th>
+                                <th>Status</th>
+                                <th style="text-align:right;">Action</th>
+                            </tr>
+                            </thead>
+                            <tbody id="appsBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="empty hidden" id="noAppsMsg">
+                        <div class="empty-title">No applications found</div>
+                    </div>
                 </div>
             </div>
 
             <div class="tab-panel" id="tab-rounds">
-                <div id="roundsList"></div>
-                <div class="empty hidden" id="noRoundsMsg">
-                    <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4.2l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg></div>
-                    <div class="empty-title">No round progress yet</div>
-                    <p>So far this student has no evaluated round history.</p>
+                <div class="step-card">
+                    <div id="roundsList"></div>
+                    <div class="empty hidden" id="noRoundsMsg">
+                        <div class="empty-title">No round progress yet</div>
+                    </div>
                 </div>
             </div>
         </div>
     </main>
 </div>
 
-<!-- Edit student modal -->
+
 <div class="modal" id="editStudentModal">
-    <div class="modal-box">
+    <div class="modal-box modal-lg">
         <div class="modal-header">
-            <h2>Edit Student</h2>
+            <h2>Edit Student Record</h2>
         </div>
-        <div class="form-group">
-            <label>Name</label>
-            <input type="text" id="eName">
-        </div>
-        <div class="form-group">
-            <label>Email</label>
-            <input type="email" id="eEmail">
-        </div>
-        <div class="form-group">
-            <label>Phone</label>
-            <input type="text" id="ePhone">
-        </div>
-        <div class="form-group">
-            <label>Batch</label>
-            <input type="text" id="eBatch">
-        </div>
-        <div class="form-group">
-            <label>Branch</label>
-            <input type="text" id="eBranch">
-        </div>
-        <div class="form-group">
-            <label>Section</label>
-            <input type="text" id="eSection">
-        </div>
-        <div class="form-group">
-            <label>Student Status</label>
-            <select id="eStatus">
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-                <option value="Placed">Placed</option>
-                <option value="Not Placed">Not Placed</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <label>Course</label>
-            <input type="text" id="eCourse">
-        </div>
-        <div class="form-group">
-            <label>College</label>
-            <input type="text" id="eCollege">
-        </div>
-        <div class="form-group">
-            <label>CGPA</label>
-            <input type="number" id="eCgpa" min="0" max="10" step="0.01">
-        </div>
-        <div class="form-group">
-            <label>Date of Birth</label>
-            <input type="text" id="eDob" placeholder="yyyy-mm-dd">
-        </div>
-        <div class="form-group">
-            <label>Gender</label>
-            <select id="eGender">
-                <option value="">Prefer not to say</option>
-                <option>Male</option>
-                <option>Female</option>
-                <option>Other</option>
-            </select>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+            <div class="form-group">
+                <label>Name</label>
+                <input type="text" id="eName">
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="eEmail">
+            </div>
+            <div class="form-group">
+                <label>Phone</label>
+                <input type="text" id="ePhone">
+            </div>
+            <div class="form-group">
+                <label>Batch</label>
+                <input type="text" id="eBatch">
+            </div>
+            <div class="form-group">
+                <label>Branch</label>
+                <input type="text" id="eBranch">
+            </div>
+            <div class="form-group">
+                <label>Section</label>
+                <input type="text" id="eSection">
+            </div>
+            <div class="form-group">
+                <label>Student Status</label>
+                <select id="eStatus">
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                    <option value="Placed">Placed</option>
+                    <option value="Not Placed">Not Placed</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Course</label>
+                <input type="text" id="eCourse">
+            </div>
+            <div class="form-group">
+                <label>College</label>
+                <input type="text" id="eCollege">
+            </div>
+            <div class="form-group">
+                <label>CGPA</label>
+                <input type="number" id="eCgpa" min="0" max="10" step="0.01">
+            </div>
+            <div class="form-group">
+                <label>Date of Birth</label>
+                <input type="text" id="eDob" placeholder="yyyy-mm-dd">
+            </div>
+            <div class="form-group">
+                <label>Gender</label>
+                <select id="eGender">
+                    <option value="">Prefer not to say</option>
+                    <option>Male</option>
+                    <option>Female</option>
+                    <option>Other</option>
+                </select>
+            </div>
         </div>
         <div class="modal-actions">
             <button class="btn btn-secondary" id="cancelEditBtn">Cancel</button>
@@ -175,13 +182,12 @@
     </div>
 </div>
 
-<!-- Email student modal -->
+
 <div class="modal" id="emailStudentModal">
     <div class="modal-box">
         <div class="modal-header">
             <h2>Email Student Data</h2>
         </div>
-        <p class="field-hint">Sends a CSV containing this student's data to the recipient.</p>
         <div class="form-group">
             <label>Recipient Email</label>
             <input type="email" id="esRecipient" placeholder="student@example.com" required>
@@ -197,7 +203,7 @@
     </div>
 </div>
 
-<script src="js/ui.js?v=1"></script>
-<script src="js/admin-student-detail.js?v=1"></script>
+<script src="js/ui.js?v=6"></script>
+<script src="js/admin-student-detail.js?v=4"></script>
 </body>
 </html>

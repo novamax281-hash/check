@@ -10,7 +10,9 @@ const cancelJobBtn = document.getElementById("cancelJobBtn");
 
 const fields = {
     company: document.getElementById("fCompany"),
+    jobRole: document.getElementById("fJobRole"),
     jobType: document.getElementById("fRole"),
+    location: document.getElementById("fLocation"),
     eligibility: document.getElementById("fEligibility"),
     skills: document.getElementById("fSkills"),
     applicationDeadline: document.getElementById("fDeadline"),
@@ -20,7 +22,14 @@ const fields = {
     website: document.getElementById("fWebsite"),
     driveType: document.getElementById("fDriveType"),
     mode: document.getElementById("fMode"),
-    likelyDateOfJoining: document.getElementById("fDoj")
+    likelyDateOfJoining: document.getElementById("fDoj"),
+    salaryLpa: document.getElementById("fSalaryLpa"),
+    batch: document.getElementById("fBatch"),
+    branch: document.getElementById("fBranch"),
+    minTenth: document.getElementById("fMinTenth"),
+    minTwelfth: document.getElementById("fMinTwelfth"),
+    minGraduation: document.getElementById("fMinGrad"),
+    minCgpa: document.getElementById("fMinCgpa")
 };
 
 const roundsEditor = document.getElementById("roundsEditor");
@@ -79,7 +88,7 @@ function render() {
     const search = searchBox.value.toLowerCase().trim();
     const company = companyFilter.value;
     const filtered = jobs.filter(function(job) {
-        const text = (job.company + " " + job.jobType).toLowerCase();
+        const text = (job.company + " " + job.jobRole + " " + job.jobType).toLowerCase();
         return (!search || text.includes(search)) && (!company || job.company === company);
     });
     emptyMsg.style.display = filtered.length === 0 ? "block" : "none";
@@ -88,10 +97,10 @@ function render() {
         return `
             <tr>
                 <td>${esc(job.company || "-")}</td>
-                <td>${esc(job.jobType || "-")}</td>
+                <td>${esc(job.jobRole || job.jobType || "-")}</td>
                 <td>${esc(job.location || "-")}</td>
                 <td>${esc(job.eligibility || "-")}</td>
-                <td>${esc(job.applicationDeadline || "-")}</td>
+                <td>${esc(window.UI.fmtDate(job.applicationDeadline))}</td>
                 <td><span class="badge ${job.status === "Closed" ? "Closed" : "Open"}">${esc(job.status || "Open")}</span></td>
                 <td>
                     <button class="btn btn-small btn-secondary docs-btn" data-id="${esc(job.id)}">Documents</button>
@@ -104,23 +113,40 @@ function render() {
     }).join("");
 }
 
+function toDateInputValue(value) {
+    if (!value) return "";
+    var text = String(value).trim();
+    var match = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (!match) return "";
+    return match[1] + "-" + match[2].padStart(2, "0") + "-" + match[3].padStart(2, "0");
+}
+
 function openModal(job) {
     editingId = job ? job.id : null;
     currentModalJobId = job ? job.id : null;
     modalTitle.textContent = job ? "Edit Placement" : "Add Placement";
     fields.company.value = job ? job.company || "" : "";
+    fields.jobRole.value = job ? job.jobRole || "" : "";
     fields.jobType.value = job ? job.jobType || "" : "";
     fields.location.value = job ? job.location || "" : "";
     fields.eligibility.value = job ? job.eligibility || "" : "";
     fields.skills.value = job ? job.skills || "" : "";
-    fields.applicationDeadline.value = job ? job.applicationDeadline || "" : "";
+    fields.applicationDeadline.value = toDateInputValue(job ? job.applicationDeadline : "");
     fields.openings.value = job ? job.openings || "" : "";
     fields.status.value = job ? (job.status || "Open") : "Open";
     fields.jobDescription.value = job ? job.jobDescription || "" : "";
     fields.website.value = job ? job.website || "" : "";
     fields.driveType.value = job ? job.driveType || "" : "";
     fields.mode.value = job ? job.mode || "" : "";
-    fields.likelyDateOfJoining.value = job ? job.likelyDateOfJoining || "" : "";
+    fields.likelyDateOfJoining.value = toDateInputValue(job ? job.likelyDateOfJoining : "");
+    fields.salaryLpa.value = job ? (job.salaryLpa != null ? job.salaryLpa : "") : "";
+    fields.batch.innerHTML = '<option value="">All batches</option>' + (window.UI.batchOptions(job ? job.batch : ""));
+    fields.batch.value = job ? job.batch || "" : "";
+    fields.branch.value = job ? job.branch || "" : "";
+    fields.minTenth.value = job && job.minTenth != null ? job.minTenth : "";
+    fields.minTwelfth.value = job && job.minTwelfth != null ? job.minTwelfth : "";
+    fields.minGraduation.value = job && job.minGraduation != null ? job.minGraduation : "";
+    fields.minCgpa.value = job && job.minCgpa != null ? job.minCgpa : "";
 
     renderRoundsEditor(job && Array.isArray(job.rounds) ? job.rounds.map(function(entry) {
         return { round: entry.round, name: entry.name, description: null };
@@ -197,8 +223,12 @@ function closeModal() {
 }
 
 function collectJob() {
+    function num(field) {
+        return field.value !== "" ? Number(field.value) : undefined;
+    }
     return {
         company: fields.company.value.trim(),
+        jobRole: fields.jobRole.value.trim(),
         jobType: fields.jobType.value.trim(),
         location: fields.location.value.trim(),
         eligibility: fields.eligibility.value.trim(),
@@ -210,7 +240,14 @@ function collectJob() {
         website: fields.website.value.trim(),
         driveType: fields.driveType.value.trim(),
         mode: fields.mode.value.trim(),
-        likelyDateOfJoining: fields.likelyDateOfJoining.value.trim()
+        likelyDateOfJoining: fields.likelyDateOfJoining.value.trim(),
+        salaryLpa: fields.salaryLpa.value.trim(),
+        batch: fields.batch.value.trim(),
+        branch: fields.branch.value.trim(),
+        minTenth: num(fields.minTenth),
+        minTwelfth: num(fields.minTwelfth),
+        minGraduation: num(fields.minGraduation),
+        minCgpa: num(fields.minCgpa)
     };
 }
 
@@ -373,7 +410,7 @@ function openRoundsModal(job) {
     roundsJobId = job ? job.id : null;
     const esc = window.UI.escapeHtml;
     roundsJobInfo.innerHTML = '<p><strong>Job</strong>' + esc(job.company || "-") + " — "
-        + esc(job.jobType || "-") + ' <span class="mgmt-job-id">ID: ' + esc(job.id || "") + "</span></p>";
+        + esc(job.jobRole || job.jobType || "-") + ' <span class="mgmt-job-id">ID: ' + esc(job.id || "") + "</span></p>";
     resetDialogRoundForm();
     newRoundNumber.value = "";
     newRoundName.value = "";
@@ -590,7 +627,7 @@ function openDocsModal(job) {
     docsReplaceId = null;
     const esc = window.UI.escapeHtml;
     docsJobInfo.innerHTML = '<p><strong>Job</strong>' + esc(job.company || "-") + " — "
-        + esc(job.jobType || "-") + "</p>";
+        + esc(job.jobRole || job.jobType || "-") + "</p>";
     window.UI.openModal(docsModal);
     renderDocs();
 }

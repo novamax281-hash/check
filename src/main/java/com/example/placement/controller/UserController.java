@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/user")
@@ -46,11 +47,14 @@ public class UserController {
 
     @GetMapping("/placements")
     public ResponseEntity<List<Placement>> getAllPlacements(Authentication authentication) {
-        String userId = currentUserId(authentication);
-        if (userId == null) {
+        UsersEntries user = usersRepository.findByEnrollmentno(authentication.getName());
+        if (user == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(List.of());
         }
-        return ResponseEntity.ok(placementRepository.findVisibleJobs());
+        List<Placement> visible = placementRepository.findVisibleJobs();
+        return ResponseEntity.ok(visible.stream()
+                .filter(job -> applicationService.isEligible(job, user))
+                .collect(Collectors.toList()));
     }
 
     @PostMapping("/apply")
@@ -77,6 +81,10 @@ public class UserController {
         }
         if ("Closed".equalsIgnoreCase(job.getStatus())) {
             return ResponseEntity.badRequest().body(Map.of("message", "This placement is closed for applications"));
+        }
+        if (!applicationService.isEligible(job, user)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("message", "You do not meet this placement's eligibility criteria"));
         }
         try {
             String result = applicationService.apply(user.getId(), jobId);

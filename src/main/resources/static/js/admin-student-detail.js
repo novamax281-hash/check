@@ -103,10 +103,7 @@
     }
 
     function formatDate(value) {
-        if (!value) return "—";
-        var date = new Date(value);
-        if (isNaN(date.getTime())) return value;
-        return date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+        return value ? window.UI.fmtDate(value) : "—";
     }
 
     function renderApplications() {

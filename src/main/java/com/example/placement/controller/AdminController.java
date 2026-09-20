@@ -113,6 +113,7 @@ public class AdminController {
     private void mergeJob(Placement existing, Placement incoming) {
         validateJob(incoming);
         copyIfPresent(incoming.getCompany(), existing::setCompany);
+        copyIfPresent(incoming.getJobRole(), existing::setJobRole);
         copyIfPresent(incoming.getJobType(), existing::setJobType);
         copyIfPresent(incoming.getStipend(), existing::setStipend);
         copyIfPresent(incoming.getProgramFee(), existing::setProgramFee);

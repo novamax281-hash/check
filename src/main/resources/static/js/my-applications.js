@@ -20,7 +20,7 @@ let page = 1;
 const PAGE_SIZE = 20;
 
 function fmtDay(value) {
-    return value ? String(value).slice(0, 10) : "-";
+    return window.UI.fmtDate(value);
 }
 
 function statusOf(app) {
@@ -196,7 +196,7 @@ function detailRowHtml(app) {
         + kv("Branch", app.branch)
         + kv("Eligibility", app.eligibility)
         + kv("Skills", app.skills)
-        + kv("Application Deadline", app.applicationDeadline)
+        + kv("Application Deadline", window.UI.fmtDate(app.applicationDeadline))
         + "</div>"
         + (app.jobDescription ? '<div class="expand-desc">' + esc(app.jobDescription) + "</div>" : "")
         + (app.applicationLink

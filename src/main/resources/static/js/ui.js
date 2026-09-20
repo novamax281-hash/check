@@ -153,7 +153,7 @@
             if (entry && entry.adminRemark) rows += '<div class="progress-meta">Remark: ' + escapeHtml(entry.adminRemark) + "</div>";
             if (entry && entry.evaluatedAt) {
                 rows += '<div class="progress-meta">Evaluated: '
-                    + escapeHtml(String(entry.evaluatedAt).replace("T", " ").slice(0, 16)) + "</div>";
+                    + escapeHtml(fmtDateTime(entry.evaluatedAt)) + "</div>";
             }
             rows += "</div></div>";
         }
@@ -234,7 +234,47 @@
     }
 
     function fmtDateTime(value) {
-        return value ? String(value).replace("T", " ").slice(0, 16) : "-";
+        if (!value) return "-";
+        const date = parseDate(value);
+        if (!date) return String(value);
+        return pad2(date.getDate()) + "-" + pad2(date.getMonth() + 1) + "-" + date.getFullYear()
+            + " " + pad2(date.getHours()) + ":" + pad2(date.getMinutes());
+    }
+
+    function fmtDate(value) {
+        if (!value) return "-";
+        const date = parseDate(value);
+        if (!date) return String(value);
+        return pad2(date.getDate()) + "-" + pad2(date.getMonth() + 1) + "-" + date.getFullYear();
+    }
+
+    function pad2(value) {
+        return String(value).padStart(2, "0");
+    }
+
+    function parseDate(value) {
+        if (!value) return null;
+        const text = String(value).trim();
+        if (text.indexOf("T") >= 0) {
+            const ms = new Date(text).getTime();
+            return Number.isNaN(ms) ? null : new Date(ms);
+        }
+        let match = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+        if (match) {
+            const d = new Date(+match[1], +match[2] - 1, +match[3]);
+            return Number.isNaN(d.getTime()) ? null : d;
+        }
+        match = text.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+        if (match) {
+            const month = +match[1] > 12 ? +match[2] : +match[1];
+            const day = +match[1] > 12 ? +match[1] : +match[2];
+            if (month >= 1 && month <= 12) {
+                const d2 = new Date(+match[3], month - 1, day);
+                return Number.isNaN(d2.getTime()) ? null : d2;
+            }
+        }
+        const fallback = new Date(text).getTime();
+        return Number.isNaN(fallback) ? null : new Date(fallback);
     }
 
     function parseTimestamp(value) {
@@ -266,6 +306,26 @@
         return a.includes(s) || s.includes(a);
     }
 
+    function batchOptions(currentValue) {
+        var existing = currentValue ? String(currentValue).trim() : "";
+        var seen = {};
+        var options = "";
+        if (existing) {
+            options += '<option value="' + escapeHtml(existing) + '">' + escapeHtml(existing) + "</option>";
+            seen[existing] = true;
+        }
+        var year = new Date().getFullYear();
+        for (var y = year - 5; y <= year + 1; y++) {
+            [y + "-" + (y + 1), y + "-" + (y + 4)].forEach(function (label) {
+                if (!seen[label]) {
+                    options += '<option value="' + escapeHtml(label) + '">' + escapeHtml(label) + "</option>";
+                    seen[label] = true;
+                }
+            });
+        }
+        return options;
+    }
+
     window.UI = {
         showToast: showToast,
         openModal: openModal,
@@ -281,9 +341,11 @@
         logout: logout,
         initials: initials,
         fmtDateTime: fmtDateTime,
+        fmtDate: fmtDate,
         parseTimestamp: parseTimestamp,
         batchYears: batchYears,
-        batchMatches: batchMatches
+        batchMatches: batchMatches,
+        batchOptions: batchOptions
     };
 })();
 
@@ -299,7 +361,17 @@
     };
 
     function getTheme() {
-        return document.documentElement.getAttribute(THEME_ATTR) === "dark" ? "dark" : "light";
+        var attr = document.documentElement.getAttribute(THEME_ATTR);
+        if (attr === "dark") return "dark";
+        if (attr === "light") return "light";
+        try {
+            var stored = localStorage.getItem(STORAGE_KEY);
+            if (stored === "dark" || stored === "light") return stored;
+        } catch (e) {}
+        if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+            return "dark";
+        }
+        return "light";
     }
 
     function hasStoredPreference() {
@@ -312,7 +384,11 @@
 
     function setTheme(theme) {
         if (theme !== "dark" && theme !== "light") theme = "light";
-        document.documentElement.setAttribute(THEME_ATTR, theme);
+        if (theme === "dark") {
+            document.documentElement.setAttribute(THEME_ATTR, "dark");
+        } else {
+            document.documentElement.removeAttribute(THEME_ATTR);
+        }
         try {
             localStorage.setItem(STORAGE_KEY, theme);
         } catch (e) {}
@@ -325,7 +401,7 @@
 
     function syncToggles() {
         var isDark = getTheme() === "dark";
-        document.querySelectorAll("[data-theme-toggle]").forEach(function (btn) {
+        document.querySelectorAll("[data-theme-toggle], .theme-toggle").forEach(function (btn) {
             btn.setAttribute("aria-label", isDark ? "Switch to light mode" : "Switch to dark mode");
             btn.setAttribute("aria-pressed", String(isDark));
             btn.innerHTML = isDark ? ICONS.sun : ICONS.moon;
@@ -344,16 +420,20 @@
         syncToggles();
 
         document.addEventListener("click", function (e) {
-            var toggleBtn = e.target.closest("[data-theme-toggle]");
-            if (toggleBtn) toggle();
+            var toggleBtn = e.target.closest("[data-theme-toggle], .theme-toggle");
+            if (toggleBtn) {
+                toggle();
+                if (window.UI && typeof window.UI.syncThemeOptions === "function") {
+                    window.UI.syncThemeOptions();
+                }
+            }
         });
 
         var systemQuery = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)");
         if (systemQuery && systemQuery.addEventListener) {
             systemQuery.addEventListener("change", function (e) {
                 if (!hasStoredPreference()) {
-                    document.documentElement.setAttribute(THEME_ATTR, e.matches ? "dark" : "light");
-                    syncToggles();
+                    setTheme(e.matches ? "dark" : "light");
                 }
             });
         }
@@ -436,7 +516,7 @@
                 '<span class="item-text">' + item.label + "</span></a>";
         }).join("");
 
-        var brandText = config.role === "admin" ? "PlacementLink Admin" : "PlacementLink";
+        var brandText = config.role === "admin" ? "LLOYD Carrer Admin" : "LLOYD Carrer";
 
         return "" +
             '<div class="sidebar-brand">' +
@@ -529,10 +609,14 @@
 
                 var accName = document.getElementById("accName");
                 if (accName) accName.textContent = name || "-";
-                document.getElementById("accEnrollment").textContent = enrollment || "-";
-                document.getElementById("accEmail").textContent = email || "-";
-                document.getElementById("accPhone").textContent = phone || "-";
-                document.getElementById("accRole").textContent = role || "-";
+                var accEnrollment = document.getElementById("accEnrollment");
+                if (accEnrollment) accEnrollment.textContent = enrollment || "-";
+                var accEmail = document.getElementById("accEmail");
+                if (accEmail) accEmail.textContent = email || "-";
+                var accPhone = document.getElementById("accPhone");
+                if (accPhone) accPhone.textContent = phone || "-";
+                var accRole = document.getElementById("accRole");
+                if (accRole) accRole.textContent = role || "-";
 
                 var current = getBodyConfig();
                 var mapped = mapRole(role);
@@ -547,12 +631,14 @@
     var boundGlobal = false;
 
     function syncThemeOptions() {
+        if (!window.ThemeManager) return;
         var current = window.ThemeManager.getTheme();
         document.querySelectorAll("[data-theme-option]").forEach(function (btn) {
             var active = btn.getAttribute("data-theme-option") === current;
             btn.classList.toggle("active", active);
         });
     }
+    if (window.UI) window.UI.syncThemeOptions = syncThemeOptions;
 
     function ensureGlobalHandlers() {
         if (boundGlobal) return;

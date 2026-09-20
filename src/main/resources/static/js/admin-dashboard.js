@@ -11,7 +11,6 @@ async function loadStats() {
             document.getElementById("statRejected").textContent = stats.rejected || 0;
         }
     } catch (e) {
-        // stats load failed silently
     }
 }
 
@@ -24,7 +23,6 @@ async function loadPlacements() {
             document.getElementById("statPlacements").textContent = (jobs || []).length;
         }
     } catch (e) {
-        // placements load failed silently
     }
 }
 

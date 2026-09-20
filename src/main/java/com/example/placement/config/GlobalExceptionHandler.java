@@ -41,7 +41,6 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(NoResourceFoundException.class)
     public ResponseEntity<Map<String, Object>> handleMissingResource(NoResourceFoundException exception) {
-        // A request for a missing static file (commonly /favicon.ico) is a normal 404, not a server error.
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("message", "Resource not found");
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);

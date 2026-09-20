@@ -2,7 +2,6 @@
     "use strict";
 
     var UI = window.UI;
-    var STORAGE_KEY = "portal-saved-filters";
 
     var state = {
         page: 1,
@@ -180,8 +179,7 @@
             return "<tr>" +
                 '<td><input type="checkbox" class="row-checkbox" data-id="' + UI.escapeHtml(student.id) + '"' + checked + "></td>" +
                 '<td><div class="student-cell">' +
-                '<span class="student-avatar">' + UI.escapeHtml(UI.initials(student.name, student.enrollmentno)) + "</span>" +
-                '<div><div class="student-name">' + UI.escapeHtml(student.name || "—") + "</div>" +
+                 '<div><div class="student-name">' + UI.escapeHtml(student.name || "—") + "</div>" +
                 '<div class="student-sub">' + UI.escapeHtml(student.enrollmentno || "") + "</div></div></div></td>" +
                 "<td>" + UI.escapeHtml(student.email || "—") + "</td>" +
                 "<td>" + UI.escapeHtml(student.enrollmentno || "—") + "</td>" +
@@ -272,75 +270,7 @@
         }
     }
 
-    /* ---------- Saved filters ---------- */
-
-    function loadSavedFilters() {
-        try {
-            var raw = localStorage.getItem(STORAGE_KEY);
-            return raw ? JSON.parse(raw) : [];
-        } catch (e) {
-            return [];
-        }
-    }
-
-    function renderSavedFilters() {
-        var dropdown = el("savedFiltersDropdown");
-        var saved = loadSavedFilters();
-        if (!saved.length) {
-            dropdown.innerHTML = '<div class="field-hint" style="padding:8px 10px;">No saved filters yet.</div>' +
-                "<div class=\"save-filter-row\"><input type=\"text\" id=\"saveFilterNameInput\" class=\"search\" placeholder=\"Filter name...\">" +
-                "<button class=\"btn btn-small\" id=\"saveFilterBtn\">Save</button></div>";
-        } else {
-            dropdown.innerHTML = saved.map(function (item, index) {
-                return '<div class="saved-filter-item" data-index="' + index + '">' +
-                    '<span class="saved-filter-label">' + UI.escapeHtml(item.name) + "</span>" +
-                    '<button type="button" class="remove-saved" data-remove="' + index + '" aria-label="Remove">✕</button></div>';
-            }).join("") +
-                "<div class=\"save-filter-row\"><input type=\"text\" id=\"saveFilterNameInput\" class=\"search\" placeholder=\"Filter name...\">" +
-                "<button class=\"btn btn-small\" id=\"saveFilterBtn\">Save</button></div>";
-        }
-        dropdown.classList.add("open");
-        dropdown.querySelectorAll(".saved-filter-item").forEach(function (item) {
-            item.addEventListener("click", function (e) {
-                if (e.target.getAttribute("data-remove") != null) {
-                    var idx = parseInt(e.target.getAttribute("data-remove"), 10);
-                    var list = loadSavedFilters();
-                    list.splice(idx, 1);
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-                    renderSavedFilters();
-                    return;
-                }
-                var idx = parseInt(item.getAttribute("data-index"), 10);
-                applySavedFilter(loadSavedFilters()[idx]);
-                dropdown.classList.remove("open");
-            });
-        });
-        var saveBtn = dropdown.querySelector("#saveFilterBtn");
-        if (saveBtn) {
-            saveBtn.addEventListener("click", function () {
-                var nameInput = dropdown.querySelector("#saveFilterNameInput");
-                var name = nameInput ? nameInput.value.trim() : "";
-                if (!name) {
-                    UI.showToast("Enter a name for this filter", "error");
-                    return;
-                }
-                var list = loadSavedFilters();
-                list.push({ name: name, filters: Object.assign({}, state.filters) });
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-                renderSavedFilters();
-                UI.showToast("Filter saved as '" + name + "'", "success");
-            });
-        }
-    }
-
-    function applySavedFilter(saved) {
-        if (!saved || !saved.filters) return;
-        state.filters = Object.assign({}, saved.filters);
-        syncFilterControls();
-        state.page = 1;
-        loadStudents();
-        UI.showToast("Applied saved filter: " + saved.name, "success");
-    }
+    
 
     function syncFilterControls() {
         var f = state.filters;
@@ -357,7 +287,7 @@
         updateFilterCount();
     }
 
-    /* ---------- Bulk actions ---------- */
+    
 
     function bulkStatus() {
         if (!state.selected.size) return;
@@ -376,7 +306,7 @@
         return Array.from(state.selected);
     }
 
-    /* ---------- CSV import ---------- */
+    
 
     function fileText(file) {
         return new Promise(function (resolve, reject) {
@@ -556,7 +486,7 @@
         });
     }
 
-    /* ---------- Export / Email ---------- */
+    
 
     function columnOptions() {
         return [
@@ -700,7 +630,7 @@
         });
     }
 
-    /* ---------- Add student ---------- */
+    
 
     function saveStudent() {
         var payload = {
@@ -738,7 +668,7 @@
         });
     }
 
-    /* ---------- Event wiring ---------- */
+    
 
     function init() {
         loadStats();
@@ -801,21 +731,6 @@
             el("searchClearBtn").classList.add("hidden");
             state.search = "";
             el("resetFiltersBtn").click();
-        });
-
-        el("savedFiltersBtn").addEventListener("click", function (e) {
-            e.stopPropagation();
-            var dropdown = el("savedFiltersDropdown");
-            if (dropdown.classList.contains("open")) {
-                dropdown.classList.remove("open");
-            } else {
-                renderSavedFilters();
-            }
-        });
-        document.addEventListener("click", function (e) {
-            if (!e.target.closest(".saved-filters-wrap")) {
-                el("savedFiltersDropdown").classList.remove("open");
-            }
         });
 
         el("selectAllCheckbox").addEventListener("change", function () {
@@ -901,7 +816,7 @@
             UI.openModal(el("studentModal"));
         });
 
-        /* CSV import */
+        
         el("importCsvBtn").addEventListener("click", function () {
             state.csvContent = null;
             state.operation = "ADD";
@@ -954,8 +869,11 @@
         el("confirmImportBtn").addEventListener("click", confirmImport);
         el("downloadErrorReportBtn").addEventListener("click", downloadErrorReport);
         el("doneImportBtn").addEventListener("click", function () { UI.closeModal(el("importModal")); });
+        el("importModal").querySelector("[data-import-close]").addEventListener("click", function () {
+            UI.closeModal(el("importModal"));
+        });
 
-        /* Export */
+        
         el("exportCsvBtn").addEventListener("click", function () {
             renderColumns("exportColumns");
             UI.openModal(el("exportModal"));
@@ -974,7 +892,7 @@
             UI.openModal(el("exportModal"));
         });
 
-        /* Email */
+        
         el("emailCsvBtn").addEventListener("click", function () {
             el("emailRecipient").value = "";
             el("emailScopeSelect").value = state.selected.size ? "selected" : "filtered";

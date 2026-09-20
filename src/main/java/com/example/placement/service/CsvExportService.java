@@ -52,8 +52,8 @@ public class CsvExportService {
         switch (column.trim()) {
             case "Name": return text(student.getName());
             case "Email": return text(student.getEmail());
-            case "Phone": return "=\"" + text(student.getPhoneno()) + "\"";
-            case "Enrollment": return "=\"" + text(student.getEnrollmentno()) + "\"";
+            case "Phone": return "\"" + text(student.getPhoneno()) + "\"";
+            case "Enrollment": return "\"" + text(student.getEnrollmentno()) + "\"";
             case "Branch": return text(student.getBranch());
             case "Section": return text(student.getSection());
             case "Batch": return text(student.getBatch());

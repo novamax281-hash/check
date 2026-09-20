@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -84,6 +85,59 @@ public class ApplicationService {
         }
         applicationRepository.save(new Application(studentId, placementId));
         return "applied";
+    }
+
+    public boolean isEligible(Placement job, UsersEntries student) {
+        if (job == null || student == null) {
+            return false;
+        }
+        if (!batchAllows(job.getBatch(), student.getBatch())) {
+            return false;
+        }
+        return meetsCutoff(job.getMinTenth(), student.getTenthPercentage())
+                && meetsCutoff(job.getMinTwelfth(), student.getTwelfthPercentage())
+                && meetsCutoff(job.getMinGraduation(), student.getGraduationPercentage())
+                && meetsCutoff(job.getMinCgpa(), student.getCgpa());
+    }
+
+    private static boolean meetsCutoff(Double requirement, Double value) {
+        if (requirement == null) {
+            return true;
+        }
+        return value != null && value >= requirement;
+    }
+
+    private static boolean batchAllows(String jobBatch, String studentBatch) {
+        if (jobBatch == null || jobBatch.trim().isEmpty()) {
+            return true;
+        }
+        if (studentBatch == null || studentBatch.trim().isEmpty()) {
+            return false;
+        }
+        String job = jobBatch.trim();
+        String student = studentBatch.trim();
+        if (job.equalsIgnoreCase(student)) {
+            return true;
+        }
+        Long[] jobYears = batchYears(job);
+        Long[] studentYears = batchYears(student);
+        if (jobYears != null && studentYears != null) {
+            return jobYears[0] <= studentYears[1] && studentYears[0] <= jobYears[1];
+        }
+        return job.contains(student) || student.contains(job);
+    }
+
+    private static Long[] batchYears(String value) {
+        List<Long> years = new ArrayList<>();
+        Matcher matcher = Pattern.compile("\\d{4}").matcher(value);
+        while (matcher.find()) {
+            years.add(Long.parseLong(matcher.group()));
+        }
+        if (years.isEmpty()) {
+            return null;
+        }
+        years.sort(null);
+        return new Long[]{years.get(0), years.get(years.size() - 1)};
     }
 
     public List<ApplicationDetail> getStudentApplications(String studentId) {
@@ -219,7 +273,6 @@ public class ApplicationService {
         return bulkEvaluate(applicationIds, adminRemark, false, guard);
     }
 
-    // Lets a caller (for example a coordinator) veto individual applications without failing the whole bulk run.
     @FunctionalInterface
     public interface ApplicationGuard {
         void check(Application application);
@@ -666,8 +719,9 @@ public class ApplicationService {
         if (job != null) {
             detail.setJobId(job.getId());
             detail.setCompany(job.getCompany());
-            detail.setRole(job.getJobType());
-            detail.setJobType(job.getJobType());
+            detail.setRole(job.getJobRole() != null && !job.getJobRole().isBlank()
+                    ? job.getJobRole() : job.getJobType());
+            detail.setJobType(detail.getRole());
             detail.setSalary(job.getStipend());
             detail.setSkills(job.getSkills());
             detail.setEligibility(job.getEligibility());
@@ -763,7 +817,6 @@ public class ApplicationService {
         return countStats(applications);
     }
 
-    // Counts every application up front in Mongo instead of shipping the whole collection to the JVM.
     public Map<String, Long> adminStats() {
         Aggregation aggregation = Aggregation.newAggregation(
                 Aggregation.project().and("status").toUpper().as("normalizedStatus"),

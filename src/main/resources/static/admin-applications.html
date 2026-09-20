@@ -4,8 +4,8 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Applications | PlacementLink</title>
-    <link rel="stylesheet" href="css/portal.css?v=1">
+    <title>Applications | LLOYD Carrer</title>
+    <link rel="stylesheet" href="css/portal.css?v=9">
     <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
 </head>
 <body data-role="admin" data-active="applications" data-title="Applications">
@@ -17,31 +17,26 @@
 
     <main class="page-content">
         <div class="page-heading">
-            <h1>Applications</h1>
-            <p>Review student applications and manage placement progression.</p>
+            <h1>Application Management &amp; Evaluation</h1>
+            <p>Review student submissions, evaluate selection rounds, and advance candidates.</p>
         </div>
 
-        <div class="toolbar">
-            <div class="search-wrap search-prominent">
-                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
-                <input type="search" id="searchBox" class="search" placeholder="Search student name, email, enrollment, company or job..." aria-label="Search applications" autocomplete="off">
+        <div class="step-card" style="padding: 20px;">
+            <div class="toolbar">
+                <input type="search" id="searchBox" class="search" placeholder="Search student, email, company, job..." aria-label="Search applications" autocomplete="off">
+                <button type="button" class="btn btn-secondary" id="appFilterToggleBtn">
+                    <span>Filters</span><span class="badge" id="appFilterBadge" style="margin-left:4px;">0</span>
+                </button>
+                <button type="button" class="btn btn-secondary" id="selectQualifiedBtn">Select All Qualified</button>
+                <button type="button" class="btn btn-secondary" id="appBulkBtn">Bulk Actions</button>
+                <button type="button" class="btn btn-secondary" id="exportBtn" title="Download filtered list as CSV">Export CSV</button>
+                <button type="button" class="btn btn-secondary" id="appAdvancedToggleBtn">Rounds &amp; Students &blackdown;</button>
             </div>
-            <button type="button" class="btn btn-secondary filter-toggle-btn" id="appFilterToggleBtn">
-                <span>Filters</span><span class="filter-badge hidden" id="appFilterBadge">0</span>
-            </button>
-            <button type="button" class="btn btn-secondary" id="selectQualifiedBtn">Select All Qualified</button>
-            <button type="button" class="btn btn-secondary" id="appBulkBtn">Bulk Actions</button>
-            <button type="button" class="btn btn-secondary" id="exportBtn" title="Download the filtered list as CSV">Export CSV</button>
-            <button type="button" class="btn btn-secondary" id="appAdvancedToggleBtn">Rounds &amp; Students ▾</button>
-        </div>
 
-        <div class="filter-panel" id="appFilterPanel">
-            <div class="filter-card">
-                <div class="filter-head">
-                    <div class="filter-heading">
-                        <span class="filter-title">Application Filters</span>
-                        <p class="section-help">Filter individual applications by student, company, job, status, round, or date.</p>
-                    </div>
+            
+            <div class="filter-panel" id="appFilterPanel" style="margin-top: 16px; display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <span style="font-weight:700; font-size:14px; text-transform:uppercase; color:var(--text-muted);">Application Filters</span>
                     <button type="button" class="btn btn-small btn-secondary" id="clearAppFiltersBtn">Clear all</button>
                 </div>
                 <div class="toolbar">
@@ -57,22 +52,22 @@
             </div>
         </div>
 
+        
         <div class="advanced-panel hidden" id="appAdvancedPanel">
-            <section class="mgmt-card" id="roundMgmtSection">
+            <section class="step-card" id="roundMgmtSection" style="margin-bottom: 24px;">
                 <h2>Round Management</h2>
-                <p class="mgmt-sub">Pick a job to configure its rounds, review candidates, and move them to the next configured round.</p>
+                <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 12px;">Pick a job drive to configure selection rounds and manage progression.</p>
                 <div class="toolbar">
-                    <select id="mgmtJobSelect"><option value="">Select a Job…</option></select>
-                    <select id="mgmtAppSelect" disabled><option value="">Select Applicant…</option></select>
+                    <select id="mgmtJobSelect"><option value="">Select a Job&hellip;</option></select>
+                    <select id="mgmtAppSelect" disabled><option value="">Select Applicant&hellip;</option></select>
                 </div>
-                <div id="mgmtPanel"></div>
+                <div id="mgmtPanel" style="margin-top: 12px;"></div>
 
-                <div class="round-config-section" id="roundConfigSection" style="display:none;">
-                    <div class="round-config-head">
+                <div class="round-config-section" id="roundConfigSection" style="display:none; margin-top: 16px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                         <h3 id="roundConfigTitle">Round Configuration</h3>
                         <button class="btn btn-small btn-success" id="addRoundBtn" type="button">+ Add Round</button>
                     </div>
-                    <p class="field-hint">These rounds drive evaluation order, filters, progression and final-round detection. No fixed limit.</p>
                     <div class="table-responsive">
                         <table class="config-table">
                             <thead>
@@ -84,48 +79,35 @@
                 </div>
             </section>
 
-            <section class="mgmt-card" id="userSearchCard">
-                <h2>User Search &amp; Filter</h2>
-                <p class="mgmt-sub">Find students by name, email, or enrollment. Expand a student to see all placement applications and their current progress.</p>
-
-                <div class="user-search-row">
-                    <div class="search-wrap">
-                        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
-                        <input type="search" id="userSearch" class="search" placeholder="Search students by name, email or enrollment..." aria-label="Search students by name, email or enrollment" autocomplete="off">
-                        <button type="button" id="userSearchClearBtn" class="search-clear hidden" aria-label="Clear search">✕</button>
-                    </div>
+            <section class="step-card" id="userSearchCard">
+                <h2>Student Applicant Search</h2>
+                <div class="toolbar" style="margin-top: 12px;">
+                    <input type="search" id="userSearch" class="search" placeholder="Search students by name, email or enrollment..." autocomplete="off">
+                    <button type="button" id="userSearchClearBtn" class="btn btn-small btn-secondary hidden">Clear</button>
                 </div>
 
-                <div class="toolbar user-toolbar">
-                    <select id="userBatchFilter" aria-label="Filter students by batch"><option value="">All batches</option></select>
-                    <select id="userBranchFilter" aria-label="Filter students by branch"><option value="">All branches</option></select>
-                    <select id="userStatusFilter" aria-label="Filter students by application status"><option value="">All application statuses</option></select>
-                    <select id="userJobFilter" aria-label="Filter students by job"><option value="">All jobs</option></select>
-                    <input type="date" id="userDateFrom" title="Applied from" aria-label="Applied from">
-                    <input type="date" id="userDateTo" title="Applied to" aria-label="Applied to">
+                <div class="toolbar" style="margin-top: 12px;">
+                    <select id="userBatchFilter"><option value="">All batches</option></select>
+                    <select id="userBranchFilter"><option value="">All branches</option></select>
+                    <select id="userStatusFilter"><option value="">All application statuses</option></select>
+                    <select id="userJobFilter"><option value="">All jobs</option></select>
+                    <input type="date" id="userDateFrom">
+                    <input type="date" id="userDateTo">
                     <button type="button" class="btn btn-small btn-secondary" id="userClearBtn">Clear Filters</button>
                 </div>
 
-                <div class="list-meta user-list-meta">
-                    <span id="userListState">Loading students…</span>
-                </div>
-
+                <div class="list-meta" style="margin-top:12px;"><span id="userListState">Loading students&hellip;</span></div>
                 <div class="user-results" id="userResults"></div>
                 <div class="pagination" id="userPagination"></div>
 
                 <div class="empty" id="userLoadingMsg">
-                    <div class="empty-icon"><span class="empty-spinner" aria-hidden="true"></span></div>
-                    <div class="empty-title">Loading students…</div>
+                    <div class="empty-title">Loading students&hellip;</div>
                 </div>
                 <div class="empty hidden" id="userErrorMsg">
-                    <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4.2l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg></div>
                     <div class="empty-title">Unable to load students</div>
-                    <p>Please try again. If the problem persists, check your connection.</p>
                 </div>
                 <div class="empty hidden" id="userEmptyMsg">
-                    <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4.2l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg></div>
                     <div class="empty-title">No students found</div>
-                    <p>Try searching by name, email, or enrollment number.</p>
                 </div>
             </section>
         </div>
@@ -133,7 +115,7 @@
         <div class="bulk-bar hidden" id="bulkBar">
             <span id="bulkCount" class="bulk-count">0 selected</span>
             <button class="btn btn-small btn-success" id="bulkAdvanceBtn">Send to Next Round</button>
-            <button class="btn btn-small btn-secondary" id="bulkSetRoundBtn">Set Round…</button>
+            <button class="btn btn-small btn-secondary" id="bulkSetRoundBtn">Set Round&hellip;</button>
             <button class="btn btn-small btn-danger" id="bulkRejectBtn">Reject</button>
             <button class="btn btn-small btn-secondary" id="bulkClearBtn">Clear Selection</button>
         </div>
@@ -149,21 +131,27 @@
                     <th>Email</th>
                     <th>Company</th>
                     <th>Role</th>
-                    <th>Batch · Branch</th>
+                    <th>Batch &middot; Branch</th>
                     <th>Applied</th>
                     <th>Round</th>
                     <th>Score</th>
                     <th>Status</th>
-                    <th class="th-actions">Actions</th>
+                    <th style="text-align:right;">Actions</th>
                 </tr>
                 </thead>
                 <tbody id="appsBody"></tbody>
             </table>
         </div>
+        
         <div class="pagination" id="appPagination"></div>
 
         <div class="empty" id="emptyMsg" style="display:none;">
-            <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4.2l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg></div>
+            <div class="empty-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 7a2 2 0 0 1 2-2h4.2l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <path d="M3 10h18"/>
+                </svg>
+            </div>
             <div class="empty-title">No applications found</div>
             <p>Try adjusting your search or filters.</p>
             <button type="button" class="btn btn-secondary" id="emptyClearBtn" style="margin-top:14px;">Clear Filters</button>
@@ -171,10 +159,11 @@
     </main>
 </div>
 
+
 <div class="modal" id="actionModal">
     <div class="modal-box">
         <div class="modal-header">
-            <h2 id="actionTitle">Evaluate Round</h2>
+            <h2 id="actionTitle">Evaluate Selection Round</h2>
         </div>
         <div class="detail-list" id="actionInfo"></div>
         <div class="form-group">
@@ -187,16 +176,17 @@
         </div>
         <div class="modal-actions">
             <button class="btn btn-secondary" id="cancelActionBtn">Cancel</button>
-            <button class="btn btn-danger hidden-action-btn" id="confirmRejectBtn">Confirm Reject</button>
+            <button class="btn btn-danger" id="confirmRejectBtn">Confirm Reject</button>
             <button class="btn btn-success" id="confirmQualifyBtn">Confirm Qualify</button>
         </div>
     </div>
 </div>
 
+
 <div class="modal" id="statusModal">
     <div class="modal-box">
         <div class="modal-header">
-            <h2>Update Application</h2>
+            <h2>Update Application Status</h2>
         </div>
         <div class="detail-list" id="appDetail"></div>
         <div class="form-group">
@@ -222,6 +212,7 @@
     </div>
 </div>
 
+
 <div class="modal" id="roundModal">
     <div class="modal-box">
         <div class="modal-header">
@@ -234,7 +225,7 @@
             </div>
             <div class="form-group">
                 <label for="roundNameInput">Round Name</label>
-                <input type="text" id="roundNameInput" placeholder="e.g. Coding Test (blank = Round N)">
+                <input type="text" id="roundNameInput" placeholder="e.g. Coding Test">
             </div>
             <div class="form-group">
                 <label for="roundDescInput">Description</label>
@@ -248,13 +239,13 @@
     </div>
 </div>
 
+
 <div class="modal" id="setRoundModal">
     <div class="modal-box confirm-box">
         <div class="modal-header">
             <h2>Set Current Round</h2>
         </div>
-        <p class="confirm-message">Moves every selected candidate to the chosen round. An existing result for
-            that round is reset to PENDING; later history is preserved. Terminal applications are skipped.</p>
+        <p class="confirm-message">Moves every selected candidate to the chosen round.</p>
         <div class="form-group">
             <label for="setRoundInput">Target Round</label>
             <input type="number" id="setRoundInput" min="1" step="1" value="1">
@@ -270,8 +261,8 @@
     </div>
 </div>
 
-<script src="js/ui.js?v=1"></script>
-<script src="js/admin-applications.js?v=1"></script>
+<script src="js/ui.js?v=6"></script>
+<script src="js/admin-applications.js?v=7"></script>
 <script>
     (function () {
         "use strict";
@@ -295,7 +286,8 @@
 
         if (filterToggle) {
             filterToggle.addEventListener("click", function () {
-                filterPanel.classList.toggle("open");
+                var isHidden = filterPanel.style.display === "none";
+                filterPanel.style.display = isHidden ? "block" : "none";
             });
         }
 

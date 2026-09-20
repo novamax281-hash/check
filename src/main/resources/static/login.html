@@ -4,76 +4,94 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sign in | PlacementLink</title>
-    <link rel="stylesheet" href="css/portal.css?v=1">
+    <title>Sign in | LLOYD Carrer</title>
+    <link rel="stylesheet" href="css/portal.css?v=9">
     <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
 </head>
-<body class="auth-page">
+<body>
 
-<div class="auth-topbar">
+<nav class="lp-nav">
     <a href="index.html" class="lp-brand">
-        <span class="lp-mark">PL</span>
+        <img src="https://liet.in/wp-content/uploads/2025/12/LIET-new-logo.webp" alt="LIET Logo" style="height:40px;">
         <span class="lp-nameblock">
-            <span class="lp-name">PlacementLink</span>
+            <span class="lp-name">LLOYD Career</span>
             <span class="lp-sub">Training &amp; Placement Cell</span>
         </span>
     </a>
-    <button class="theme-toggle" data-theme-toggle aria-label="Toggle theme"></button>
-</div>
-
-<div class="auth-wrap">
-    <div class="auth-story">
-        <span class="lp-kicker">Sign in</span>
-        <h1>Your enrollment number is the key.</h1>
-        <p>There's no password to remember and nothing to sign up for. If you're on the college rolls and your mobile number matches our records, you're already on the list.</p>
-
-        <div class="steps">
-            <div><b>1</b><span>Enter your enrollment number and registered mobile number.</span></div>
-            <div><b>2</b><span>We email a six-digit OTP to the address on file.</span></div>
-            <div><b>3</b><span>Enter it, and you land on the dashboard for your role.</span></div>
-        </div>
-
-        <p class="auth-hero-note">Wrong mobile number showing against your name? Don't retry — ask the placement cell to correct it first. The portal won't let a mismatched number through, by design.</p>
+    <div class="lp-actions">
+        <button class="theme-toggle" data-theme-toggle aria-label="Toggle theme"></button>
+        <a href="index.html" class="lp-signin">Back to Home</a>
     </div>
+</nav>
 
-    <div class="auth-card">
-        <h2>Student &amp; staff sign in</h2>
-        <p class="auth-subtitle">Use your enrollment number (students) or your staff enrollment, plus the mobile number registered with the placement cell.</p>
+<section class="lp-hero-wrapper">
+    <div class="lp-hero-content">
+        <div class="auth-hero-card">
+            <h2 id="authHeading">Student &amp; Staff Sign In</h2>
+            <p class="auth-subtitle" id="authSubtitle">Use your enrollment number (students) or staff enrollment, plus your registered mobile number.</p>
 
-        <form id="loginForm" class="auth-form">
-            <div class="input-group">
-                <label for="enrollmentno">Enrollment number</label>
-                <input type="text" id="enrollmentno" placeholder="e.g. 2021XXXXXX" autocomplete="username" required>
-            </div>
-            <div class="input-group">
-                <label for="mobile">Registered mobile number</label>
-                <input type="tel" id="mobile" placeholder="10-digit number" autocomplete="username" maxlength="10" pattern="[0-9]{10}" required>
-            </div>
-            <button type="submit" id="loginButton" class="btn auth-submit">Send OTP</button>
-        </form>
-
-        <div id="otpSection" style="display:none;">
-            <p class="message success" id="otpSentMessage"></p>
-            <form id="otpForm" class="auth-form">
-                <div class="input-group">
-                    <label for="otp">Six-digit OTP</label>
-                    <input type="text" id="otp" inputmode="numeric" maxlength="6" placeholder="······" autocomplete="one-time-code" required>
+            <form id="loginForm" class="auth-form">
+                <div class="input-group" id="regNameGroup" style="display:none;">
+                    <label for="regName">Full Name</label>
+                    <input type="text" id="regName" placeholder="Your full name" maxlength="80">
                 </div>
-                <button type="submit" id="otpButton" class="btn auth-submit">Verify OTP</button>
+                <div class="input-group" id="regEmailGroup" style="display:none;">
+                    <label for="regEmail">College Email</label>
+                    <input type="email" id="regEmail" placeholder="you@liet.in">
+                </div>
+                <div class="input-group" id="regBatchGroup" style="display:none;">
+                    <label>Batch (start – end year)</label>
+                    <div class="batch-row">
+                        <input type="number" id="regBatchStart" min="2000" max="2100" placeholder="Start e.g. 2024" aria-label="Batch start year">
+                        <span class="batch-sep" aria-hidden="true">–</span>
+                        <input type="number" id="regBatchEnd" min="2000" max="2100" placeholder="End e.g. 2028" aria-label="Batch end year">
+                    </div>
+                </div>
+                <div class="input-group" id="regTenthGroup" style="display:none;">
+                    <label for="regTenth">10th Percentage</label>
+                    <input type="number" id="regTenth" min="0" max="100" step="0.01" placeholder="e.g. 75">
+                </div>
+                <div class="input-group" id="regTwelfthGroup" style="display:none;">
+                    <label for="regTwelfth">12th Percentage</label>
+                    <input type="number" id="regTwelfth" min="0" max="100" step="0.01" placeholder="e.g. 72">
+                </div>
+                <div class="input-group">
+                    <label for="enrollmentno">Enrollment Number</label>
+                    <input type="text" id="enrollmentno" placeholder="e.g. 2021XXXXXX" autocomplete="username" required>
+                </div>
+                <div class="input-group">
+                    <label for="mobile">Registered Mobile Number</label>
+                    <input type="tel" id="mobile" placeholder="10-digit number" autocomplete="username" maxlength="10" pattern="[0-9]{10}" required>
+                </div>
+                <p id="message" style="display:none; margin-top: 4px; font-size: 13px;"></p>
+                <button type="submit" id="loginButton" class="btn auth-submit">SEND OTP</button>
             </form>
-            <div class="auth-links">
-                <a href="#" id="backToLogin">Use a different number</a>
-                <a href="#" id="resendOtp">Resend OTP</a>
+
+            <div id="otpSection" style="display:none;">
+                <p class="message success" id="otpSentMessage"></p>
+                <form id="otpForm" class="auth-form">
+                    <div class="input-group">
+                        <label for="otp">Six-digit OTP</label>
+                        <input type="text" id="otp" inputmode="numeric" maxlength="6" placeholder="&middot;&middot;&middot;&middot;&middot;&middot;" autocomplete="one-time-code" required>
+                    </div>
+                    <button type="submit" id="otpButton" class="btn auth-submit">VERIFY OTP</button>
+                </form>
+                <div class="auth-links">
+                    <a href="#" id="backToLogin">&larr; Use a different number</a>
+                    <a href="#" id="resendOtp">Resend OTP</a>
+                </div>
             </div>
+
+            <p class="auth-toggle" style="margin-top: 14px; text-align: center; font-size: 13px;">
+                <a href="#" id="toggleAuthMode">New student? Register here</a>
+            </p>
+
+            <div class="auth-footer">Can't sign in? Write to the placement cell at <a href="mailto:Lloydedu@liet.in">Lloydedu@liet.in</a></div>
         </div>
-
-        <p id="message"></p>
-
-        <div class="auth-footer">Can't get in at all? Write to the placement cell at <a href="mailto:Lloydedu@liet.in">Lloydedu@liet.in</a>.</div>
     </div>
-</div>
+</section>
 
-<script src="js/ui.js?v=1"></script>
-<script src="js/login.js?v=1"></script>
+<script src="js/ui.js?v=6"></script>
+<script src="js/login.js?v=6"></script>
 </body>
 </html>

@@ -17,7 +17,6 @@ async function loadProfile() {
             welcome.textContent = "Welcome, " + (user.name || user.enrollmentno) + "!";
         }
     } catch (e) {
-        // profile load failed silently
     }
 }
 
@@ -31,7 +30,6 @@ async function loadStats() {
             document.getElementById(elementId).textContent = stats[key] || 0;
         });
     } catch (e) {
-        // stats load failed silently
     }
 }
 
@@ -53,12 +51,11 @@ async function loadRecent() {
                     <td>${esc(app.role || "-")}</td>
                     <td>${esc(app.salary || "-")}</td>
                     <td><span class="badge ${window.UI.badge(app.status)}">${esc(app.status || "Applied")}</span></td>
-                    <td>${esc(String(app.applicationDate || "-").replace("T", " ").slice(0, 16))}</td>
+                    <td>${esc(window.UI.fmtDateTime(app.applicationDate))}</td>
                 </tr>
             `;
         }).join("");
     } catch (e) {
-        // applications load failed silently
     }
 }
 

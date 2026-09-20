@@ -688,4 +688,73 @@ class ApplicationServiceTest {
         assertEquals("Reviewed", captor.getValue().getAdminRemark());
         assertTrue(captor.getValue().getLastUpdated().isAfter(java.time.LocalDateTime.now().minusMinutes(1)));
     }
+
+    private Placement job(String batch, Double minTenth, Double minTwelfth, Double minGrad, Double minCgpa) {
+        Placement job = new Placement();
+        job.setId("placement1");
+        job.setBatch(batch);
+        job.setMinTenth(minTenth);
+        job.setMinTwelfth(minTwelfth);
+        job.setMinGraduation(minGrad);
+        job.setMinCgpa(minCgpa);
+        return job;
+    }
+
+    private UsersEntries student(String batch, Double tenth, Double twelfth, Double grad, Double cgpa) {
+        UsersEntries student = new UsersEntries();
+        student.setId("student1");
+        student.setName("Rahul Sharma");
+        student.setBatch(batch);
+        student.setTenthPercentage(tenth);
+        student.setTwelfthPercentage(twelfth);
+        student.setGraduationPercentage(grad);
+        student.setCgpa(cgpa);
+        return student;
+    }
+
+    @Test
+    void eligibleWhenBatchOverlapsAndAllCutoffsMet() {
+        Placement job = job("2021-2025", 60.0, 65.0, 70.0, 7.5);
+        UsersEntries student = student("2021-2025", 82.0, 78.0, 74.0, 8.1);
+
+        assertTrue(applicationService.isEligible(job, student));
+    }
+
+    @Test
+    void ineligibleWhenBatchHasNoOverlap() {
+        Placement job = job("2027-2028", null, null, null, null);
+        UsersEntries student = student("2021-2025", null, null, null, null);
+
+        assertEquals(false, applicationService.isEligible(job, student));
+    }
+
+    @Test
+    void ineligibleWhenSingleFieldBelowCutoff() {
+        Placement job = job("2021-2025", 60.0, 65.0, 70.0, 7.5);
+        UsersEntries student = student("2023-2027", 82.0, 78.0, 55.0, 8.1);
+
+        assertEquals(false, applicationService.isEligible(job, student));
+    }
+
+    @Test
+    void ineligibleWhenStudentValueMissingButRequirementSet() {
+        Placement job = job("2021-2025", 60.0, null, null, null);
+        UsersEntries student = student("2021-2025", null, null, null, null);
+
+        assertEquals(false, applicationService.isEligible(job, student));
+    }
+
+    @Test
+    void eligibleWhenJobHasNoRequirements() {
+        Placement job = job(null, null, null, null, null);
+        UsersEntries student = student("2021-2025", 82.0, 78.0, 74.0, 8.1);
+
+        assertTrue(applicationService.isEligible(job, student));
+    }
+
+    @Test
+    void ineligibleWhenNullJobOrNullStudent() {
+        assertTrue(applicationService.isEligible(null, student("2021-2025", null, null, null, null)) == false);
+        assertTrue(applicationService.isEligible(job(null, null, null, null, null), null) == false);
+    }
 }

@@ -4,8 +4,8 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Students | PlacementLink</title>
-    <link rel="stylesheet" href="css/portal.css?v=1">
+    <title>Students | LLOYD Carrer</title>
+    <link rel="stylesheet" href="css/portal.css?v=9">
     <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
 </head>
 <body class="students-page" data-role="admin" data-active="students" data-title="Students">
@@ -17,8 +17,8 @@
 
     <main class="page-content">
         <div class="page-heading">
-            <h1>Students</h1>
-            <p>Manage students, academic information and placement progress.</p>
+            <h1>Student Management</h1>
+            <p>Manage student records, academic info, and placement drive statuses.</p>
         </div>
 
         <div class="stat-grid">
@@ -40,33 +40,27 @@
             </div>
         </div>
 
-        <div class="toolbar">
-            <div class="search-wrap search-prominent">
-                <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
-                <input type="search" id="searchBox" class="search" placeholder="Search by name, email, enrollment number or phone..." aria-label="Search students" autocomplete="off">
-                <button type="button" id="searchClearBtn" class="search-clear hidden" aria-label="Clear search">✕</button>
-            </div>
-
-            <div class="action-group">
-                <button type="button" class="btn btn-secondary filter-toggle-btn" id="filterToggleBtn">
-                    <span>Filters</span><span class="filter-badge hidden" id="filterCountBadge">0</span>
-                </button>
-                <div class="saved-filters-wrap">
-                    <button type="button" class="btn btn-secondary" id="savedFiltersBtn">Saved Filters ▾</button>
-                    <div class="saved-filters-dropdown" id="savedFiltersDropdown"></div>
+        <div class="step-card" style="padding: 20px;">
+            <div class="toolbar">
+                <div style="position:relative; flex:1; max-width:360px;">
+                    <input type="search" id="searchBox" class="search" style="max-width:100%;" placeholder="Search by name, email, enrollment..." aria-label="Search students" autocomplete="off">
+                    <button type="button" id="searchClearBtn" class="search-clear hidden" style="position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer;" aria-label="Clear search">&times;</button>
                 </div>
-                <button type="button" class="btn btn-secondary" id="importCsvBtn">Import CSV</button>
-                <button type="button" class="btn btn-secondary" id="exportCsvBtn">Export CSV</button>
-                <button type="button" class="btn btn-secondary" id="emailCsvBtn">Email CSV</button>
-                <button type="button" class="btn" id="addStudentBtn">+ Add Student</button>
-            </div>
-        </div>
 
-        <div class="filter-panel" id="filterPanel">
-            <div class="filter-section">
-                <h3>Student Filters</h3>
-                <p class="section-help">Filter by academic attributes.</p>
-                <div class="filter-grid">
+                <div class="toolbar" style="margin-left:auto;">
+                    <button type="button" class="btn btn-secondary" id="filterToggleBtn">
+                        <span>Filters</span><span class="badge" id="filterCountBadge" style="margin-left:4px;">0</span>
+                    </button>
+                    <button type="button" class="btn btn-secondary" id="importCsvBtn">Import CSV</button>
+                    <button type="button" class="btn btn-secondary" id="exportCsvBtn">Export CSV</button>
+                    <button type="button" class="btn btn-secondary" id="emailCsvBtn">Email CSV</button>
+                    <button type="button" class="btn" id="addStudentBtn">+ Add Student</button>
+                </div>
+            </div>
+
+            
+            <div class="filter-panel" id="filterPanel" style="margin-top: 16px; display: none;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; padding-top: 12px; border-top: 1px solid var(--border-color);">
                     <div class="form-group">
                         <label for="batchFilter">Batch</label>
                         <select id="batchFilter"><option value="">All Batches</option></select>
@@ -83,13 +77,6 @@
                         <label for="studentStatusFilter">Student Status</label>
                         <select id="studentStatusFilter"><option value="">All Statuses</option></select>
                     </div>
-                </div>
-            </div>
-
-            <div class="filter-section">
-                <h3>Application / Placement Filters</h3>
-                <p class="section-help">Filter students who have applications matching these criteria.</p>
-                <div class="filter-grid">
                     <div class="form-group">
                         <label for="companyFilter">Company</label>
                         <select id="companyFilter"><option value="">All Companies</option></select>
@@ -115,11 +102,11 @@
                         <input type="date" id="appliedToFilter">
                     </div>
                 </div>
-            </div>
 
-            <div class="filter-actions">
-                <button type="button" class="btn btn-secondary" id="resetFiltersBtn">Reset</button>
-                <button type="button" class="btn" id="applyFiltersBtn">Apply Filters</button>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px;">
+                    <button type="button" class="btn btn-secondary btn-small" id="resetFiltersBtn">Reset</button>
+                    <button type="button" class="btn btn-small" id="applyFiltersBtn">Apply Filters</button>
+                </div>
             </div>
         </div>
 
@@ -149,14 +136,14 @@
                     <th>Batch</th>
                     <th>Applications</th>
                     <th>Placement Status</th>
-                    <th class="th-actions">Action</th>
+                    <th style="text-align:right;">Action</th>
                 </tr>
                 </thead>
                 <tbody id="studentsBody"></tbody>
             </table>
         </div>
 
-        <div class="list-meta">
+        <div class="list-meta" style="display:flex; justify-content:space-between; align-items:center;">
             <div class="page-options">
                 <span>Rows per page:</span>
                 <select id="pageSizeSelect" aria-label="Rows per page">
@@ -165,11 +152,16 @@
                     <option value="100">100</option>
                 </select>
             </div>
+            <div class="pagination" id="pagination"></div>
         </div>
-        <div class="pagination" id="pagination"></div>
 
         <div class="empty" id="emptyMsg" style="display:none;">
-            <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4.2l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg></div>
+            <div class="empty-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 7a2 2 0 0 1 2-2h4.2l1.8 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <path d="M3 10h18"/>
+                </svg>
+            </div>
             <div class="empty-title" id="emptyTitle">No students found.</div>
             <p id="emptySub">Try adjusting your search or filters.</p>
             <button type="button" class="btn btn-secondary" id="emptyClearBtn" style="margin-top:14px;">Clear Filters</button>
@@ -177,7 +169,7 @@
     </main>
 </div>
 
-<!-- Add / Edit student modal -->
+
 <div class="modal" id="studentModal">
     <div class="modal-box">
         <div class="modal-header">
@@ -227,7 +219,7 @@
     </div>
 </div>
 
-<!-- Bulk status modal -->
+
 <div class="modal" id="bulkStatusModal">
     <div class="modal-box confirm-box">
         <div class="modal-header">
@@ -250,13 +242,13 @@
     </div>
 </div>
 
-<!-- Bulk round modal -->
+
 <div class="modal" id="bulkRoundModal">
     <div class="modal-box confirm-box">
         <div class="modal-header">
             <h2>Move Applications</h2>
         </div>
-        <p class="confirm-message">Moves the selected candidates' applications to the chosen round. Only applies to applications that are not in a terminal state. Applications for this student will be moved where possible.</p>
+        <p class="confirm-message">Moves the selected candidates' applications to the chosen round.</p>
         <div class="form-group">
             <label for="bulkRoundInput">Target Round</label>
             <input type="number" id="bulkRoundInput" min="1" step="1" value="1">
@@ -272,34 +264,31 @@
     </div>
 </div>
 
-<!-- CSV Import wizard -->
+
 <div class="modal" id="importModal">
     <div class="modal-box modal-lg">
         <div class="modal-header">
             <h2>Import Student Data</h2>
+            <button type="button" class="modal-close" data-import-close aria-label="Close">&times;</button>
         </div>
 
-        <div class="step-indicator" id="importSteps">
+        <div class="step-indicator" id="importSteps" style="display:flex; gap:12px; font-size:12px; font-weight:600; margin-bottom:16px;">
             <span class="step-dot" data-step="1">1 Upload</span>
-            <span class="step-arrow">→</span>
+            <span class="step-arrow">&rarr;</span>
             <span class="step-dot" data-step="2">2 Configure</span>
-            <span class="step-arrow">→</span>
+            <span class="step-arrow">&rarr;</span>
             <span class="step-dot" data-step="3">3 Validate</span>
-            <span class="step-arrow">→</span>
+            <span class="step-arrow">&rarr;</span>
             <span class="step-dot" data-step="4">4 Review</span>
-            <span class="step-arrow">→</span>
+            <span class="step-arrow">&rarr;</span>
             <span class="step-dot" data-step="5">5 Confirm</span>
-            <span class="step-arrow">→</span>
-            <span class="step-dot" data-step="6">6 Complete</span>
         </div>
 
         <div class="import-step" id="importStep1">
-            <p class="field-hint" style="margin-bottom:12px;">Choose the CSV file containing student data, then pick what to do with it.</p>
-            <div class="drop-zone" id="dropZone">
-                <span class="dz-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 18v-6M9.5 14.5L12 12l2.5 2.5"/></svg></span>
-                <p><strong>Drop CSV here</strong></p>
-                <p>or</p>
-                <button type="button" class="btn btn-secondary" id="chooseFileBtn">Choose CSV File</button>
+            <p class="field-hint" style="margin-bottom:12px;">Choose the CSV file containing student data.</p>
+            <div class="drop-zone" id="dropZone" style="border:2px dashed var(--border-color); padding:32px; text-align:center; border-radius:var(--radius-md);">
+                <p><strong>Drop CSV here</strong> or</p>
+                <button type="button" class="btn btn-secondary" id="chooseFileBtn" style="margin-top:8px;">Choose CSV File</button>
                 <input type="file" id="csvFileInput" accept=".csv,text/csv" style="display:none;">
                 <p class="field-hint" id="fileNameHint" style="margin-top:8px;"></p>
             </div>
@@ -309,7 +298,6 @@
         </div>
 
         <div class="import-step" id="importStep2" style="display:none;">
-            <p class="field-hint" style="margin-bottom:12px;">Choose the operation to run on the uploaded data.</p>
             <div class="operation-grid" id="operationGrid"></div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-secondary" id="backToUploadBtn">Back</button>
@@ -319,8 +307,8 @@
 
         <div class="import-step" id="importStep3" style="display:none;">
             <div class="import-summary" id="validationSummary"></div>
-            <div id="validationGlobalErrors" class="field-hint" style="color:var(--danger);margin-bottom:10px;"></div>
-            <div class="csv-preview-wrap">
+            <div id="validationGlobalErrors" style="color:var(--danger); margin-bottom:10px;"></div>
+            <div class="table-responsive">
                 <table>
                     <thead>
                     <tr><th>Row</th><th>Enrollment</th><th>Name</th><th>Email</th><th>Status</th><th>Result</th></tr>
@@ -336,7 +324,6 @@
 
         <div class="import-step" id="importStep4" style="display:none;">
             <div class="review-stats" id="reviewStats"></div>
-            <p class="field-hint">Confirming will commit the changes to the database. Only rows that pass validation are applied.</p>
             <div class="modal-actions">
                 <button type="button" class="btn btn-secondary" id="backToValidateBtn">Back</button>
                 <button type="button" class="btn btn-danger" id="confirmImportBtn">Confirm &amp; Update</button>
@@ -353,15 +340,14 @@
     </div>
 </div>
 
-<!-- Export CSV modal -->
+
 <div class="modal" id="exportModal">
     <div class="modal-box">
         <div class="modal-header">
             <h2>Export Students</h2>
         </div>
-        <p class="field-hint">Choose which students to include, then select the columns to export.</p>
         <div class="form-group">
-            <label>Students</label>
+            <label>Students Scope</label>
             <select id="exportScopeSelect">
                 <option value="selected">Selected students</option>
                 <option value="filtered">Current filtered students</option>
@@ -371,7 +357,7 @@
         <div class="form-group">
             <label>Columns</label>
             <div class="column-picker" id="exportColumns"></div>
-            <div style="margin-top:8px;display:flex;gap:8px;">
+            <div style="margin-top:8px; display:flex; gap:8px;">
                 <button type="button" class="btn btn-small btn-secondary" id="selectAllColumnsBtn">Select All</button>
                 <button type="button" class="btn btn-small btn-secondary" id="clearAllColumnsBtn">Clear All</button>
             </div>
@@ -383,19 +369,18 @@
     </div>
 </div>
 
-<!-- Email CSV modal -->
+
 <div class="modal" id="emailModal">
     <div class="modal-box">
         <div class="modal-header">
             <h2>Send Student Data</h2>
         </div>
-        <p class="field-hint">Email a CSV of student data to a recipient. The file is generated server-side and sent as an attachment.</p>
         <div class="form-group">
             <label>Recipient Email</label>
             <input type="email" id="emailRecipient" placeholder="student@example.com" required>
         </div>
         <div class="form-group">
-            <label>Students</label>
+            <label>Students Scope</label>
             <select id="emailScopeSelect">
                 <option value="selected">Selected students</option>
                 <option value="filtered">Current filtered students</option>
@@ -405,7 +390,7 @@
         <div class="form-group">
             <label>Columns</label>
             <div class="column-picker" id="emailColumns"></div>
-            <div style="margin-top:8px;display:flex;gap:8px;">
+            <div style="margin-top:8px; display:flex; gap:8px;">
                 <button type="button" class="btn btn-small btn-secondary" id="emailSelectAllBtn">Select All</button>
                 <button type="button" class="btn btn-small btn-secondary" id="emailClearAllBtn">Clear All</button>
             </div>
@@ -417,7 +402,7 @@
     </div>
 </div>
 
-<script src="js/ui.js?v=1"></script>
-<script src="js/admin-students.js?v=1"></script>
+<script src="js/ui.js?v=6"></script>
+<script src="js/admin-students.js?v=4"></script>
 </body>
 </html>
