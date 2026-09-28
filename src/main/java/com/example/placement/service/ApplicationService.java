@@ -78,12 +78,14 @@ public class ApplicationService {
         this.mongoTemplate = mongoTemplate;
     }
 
-    public String apply(String studentId, String placementId) {
+    public String apply(String studentId, String placementId, String resumeUrl) {
         Optional<Application> existing = applicationRepository.findByStudentIdAndPlacementId(studentId, placementId);
         if (existing.isPresent()) {
             return "already";
         }
-        applicationRepository.save(new Application(studentId, placementId));
+        Application application = new Application(studentId, placementId);
+        application.setResumeUrl(resumeUrl);
+        applicationRepository.save(application);
         return "applied";
     }
 
@@ -703,6 +705,7 @@ public class ApplicationService {
         detail.setRounds(mapRoundHistory(application, config));
         detail.setApplicationDate(application.getApplicationDate());
         detail.setLastUpdated(application.getLastUpdated());
+        detail.setResumeUrl(application.getResumeUrl());
         detail.setAdminRemark(application.getAdminRemark());
 
         if (student != null) {

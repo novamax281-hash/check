@@ -136,6 +136,15 @@
             }
             var status = app.status || "IN_PROGRESS";
             var badgeClass = UI.badge(status);
+            var resumeLink = "—";
+            if (app.resumeUrl) {
+                try {
+                    var resumeUrl = new URL(app.resumeUrl);
+                    if (resumeUrl.protocol === "https:" || resumeUrl.protocol === "http:") {
+                        resumeLink = '<a class="btn btn-small btn-secondary" href="' + UI.escapeHtml(resumeUrl.href) + '" target="_blank" rel="noopener noreferrer">View resume</a>';
+                    }
+                } catch (e) {}
+            }
             return "<tr>" +
                 "<td>" + UI.escapeHtml(app.company || "—") + "</td>" +
                 "<td>" + UI.escapeHtml(app.role || app.jobType || "—") + "</td>" +
@@ -143,12 +152,13 @@
                 "<td>Round " + (app.currentRound || 1) + "</td>" +
                 "<td>" + UI.escapeHtml(String(score)) + "</td>" +
                 '<td><span class="badge ' + badgeClass + '">' + UI.escapeHtml(status) + "</span></td>" +
+                "<td>" + resumeLink + "</td>" +
                 '<td class="table-actions"><a class="btn btn-small btn-secondary" href="admin-applications.html">Open in Applications</a></td>' +
                 "</tr>";
         }).join("");
 
         if (!visible.length) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted)">No matching applications.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted)">No matching applications.</td></tr>';
         }
     }
 

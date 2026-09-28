@@ -16,6 +16,7 @@ const emptyMsg = document.getElementById("emptyMsg");
 
 let allJobs = [];
 let appliedJobIds = [];
+let pendingApplication = null;
 
 function roleOf(job) {
     return (job.jobRole && String(job.jobRole).trim()) ? String(job.jobRole).trim() : job.jobType;
@@ -271,30 +272,56 @@ function openDocModal(documents, company) {
     if (docModalEl.querySelector(".modal-close")) docModalEl.querySelector(".modal-close").focus();
 }
 
-async function applyToJob(jobId, button) {
+function applyToJob(jobId, button) {
+    pendingApplication = { jobId: jobId, button: button };
+    document.getElementById("resumeModalTitle").textContent = "Add your resume for " +
+        ((allJobs.find(function(job) { return job.id === jobId; }) || {}).company || "this company");
+    document.getElementById("resumeUrlInput").value = "";
+    UI.openModal(document.getElementById("resumeModal"));
+}
+
+async function submitApplication() {
+    if (!pendingApplication) return;
+    const resumeInput = document.getElementById("resumeUrlInput");
+    if (!resumeInput.reportValidity()) return;
+
+    const jobId = pendingApplication.jobId;
+    const button = pendingApplication.button;
+    const submitButton = document.getElementById("submitApplicationBtn");
     button.disabled = true;
     button.textContent = "Applying...";
-    const response = await fetch("/user/apply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ jobId: jobId })
-    });
-    if (UI.redirectIfUnauthorized(response)) return;
-    const raw = await response.text();
-    let message = raw;
+    submitButton.disabled = true;
     try {
-        const parsed = JSON.parse(raw);
-        if (parsed && parsed.message) message = parsed.message;
-    } catch (parseError) {}
-    if (response.ok) {
-        button.textContent = "Applied";
-        appliedJobIds.push(jobId);
-        window.UI.showToast("Application submitted successfully!", "success");
-    } else {
+        const response = await fetch("/user/apply", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ jobId: jobId, resumeUrl: resumeInput.value.trim() })
+        });
+        if (UI.redirectIfUnauthorized(response)) return;
+        const raw = await response.text();
+        let message = raw;
+        try {
+            const parsed = JSON.parse(raw);
+            if (parsed && parsed.message) message = parsed.message;
+        } catch (parseError) {}
+        if (response.ok) {
+            button.textContent = "Applied";
+            appliedJobIds.push(jobId);
+            pendingApplication = null;
+            UI.closeModal(document.getElementById("resumeModal"));
+            window.UI.showToast("Application submitted successfully!", "success");
+        } else {
+            button.textContent = "Apply Now";
+            button.disabled = false;
+            window.UI.showToast(message || "Unable to apply. Please try again.", "error");
+        }
+    } catch (error) {
         button.textContent = "Apply Now";
         button.disabled = false;
-        window.UI.showToast(message || "Unable to apply. Please try again.", "error");
+        window.UI.showToast("Unable to apply. Please try again.", "error");
+    } finally {
+        submitButton.disabled = false;
     }
 }
 
@@ -318,6 +345,18 @@ cardsGrid.addEventListener("click", function(event) {
     const button = event.target.closest("[data-job-id]");
     if (!button || button.disabled) return;
     applyToJob(button.dataset.jobId, button);
+});
+
+document.getElementById("submitApplicationBtn").addEventListener("click", submitApplication);
+document.getElementById("cancelResumeBtn").addEventListener("click", function() {
+    pendingApplication = null;
+    UI.closeModal(document.getElementById("resumeModal"));
+});
+document.getElementById("resumeModal").addEventListener("click", function(event) {
+    if (event.target === this) {
+        pendingApplication = null;
+        UI.closeModal(this);
+    }
 });
 
 searchBox.addEventListener("input", render);

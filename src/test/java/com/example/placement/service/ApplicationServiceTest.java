@@ -140,10 +140,11 @@ class ApplicationServiceTest {
                 .thenReturn(Optional.empty());
 
         ArgumentCaptor<Application> captor = ArgumentCaptor.forClass(Application.class);
-        applicationService.apply("student1", "placement1");
+        applicationService.apply("student1", "placement1", "https://example.com/resume.pdf");
         verify(applicationRepository).save(captor.capture());
 
         Application saved = captor.getValue();
+        assertEquals("https://example.com/resume.pdf", saved.getResumeUrl());
         assertEquals("IN_PROGRESS", saved.getStatus());
         assertEquals(1, saved.getCurrentRound());
         assertEquals(1, saved.getRounds().size());

@@ -1,9 +1,9 @@
 package com.example.placement.dto;
 
-import lombok.Data;
-
 import java.time.LocalDateTime;
 import java.util.List;
+
+import lombok.Data;
 
 @Data
 public class ApplicationDetail {
@@ -65,6 +65,8 @@ public class ApplicationDetail {
     private LocalDateTime applicationDate;
 
     private LocalDateTime lastUpdated;
+
+    private String resumeUrl;
 
     private String adminRemark;
 }

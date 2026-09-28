@@ -57,6 +57,23 @@
     </main>
 </div>
 
+<div class="modal" id="resumeModal" role="dialog" aria-modal="true" aria-labelledby="resumeModalTitle">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2 id="resumeModalTitle">Add your resume</h2>
+        </div>
+        <p style="color:var(--text-muted);">Share a public link to the resume you want this company to review.</p>
+        <div class="form-group">
+            <label for="resumeUrlInput">Resume URL</label>
+            <input type="url" id="resumeUrlInput" placeholder="https://example.com/my-resume.pdf" required autocomplete="url">
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="cancelResumeBtn">Cancel</button>
+            <button type="button" class="btn" id="submitApplicationBtn">Submit application</button>
+        </div>
+    </div>
+</div>
+
 <script src="js/ui.js?v=6"></script>
 <script src="js/placement-apply.js?v=6"></script>
 </body>
