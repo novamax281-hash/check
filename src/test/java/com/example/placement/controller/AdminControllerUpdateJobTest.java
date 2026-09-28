@@ -1,27 +1,27 @@
 package com.example.placement.controller;
 
-import com.example.placement.entity.Placement;
-import com.example.placement.entity.PlacementRound;
-import com.example.placement.repository.PlacementRepository;
-import com.example.placement.service.ApplicationService;
-import com.example.placement.service.CloudinaryService;
-import com.example.placement.service.CsvExportService;
-import com.example.placement.repository.UsersRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+
+import com.example.placement.entity.Placement;
+import com.example.placement.entity.PlacementRound;
+import com.example.placement.repository.PlacementRepository;
+import com.example.placement.repository.UsersRepository;
+import com.example.placement.service.ApplicationService;
+import com.example.placement.service.CloudinaryService;
+import com.example.placement.service.CsvExportService;
 
 class AdminControllerUpdateJobTest {
 
@@ -80,6 +80,11 @@ class AdminControllerUpdateJobTest {
         incoming.setJobDescription("None");
         incoming.setOpenings("None");
         incoming.setSkills("None");
+        incoming.setSalaryLpa("12.5");
+        incoming.setMinTenth(75.0);
+        incoming.setMinTwelfth(78.0);
+        incoming.setMinGraduation(70.0);
+        incoming.setMinCgpa(7.5);
         incoming.setStatus("Open");
 
         ResponseEntity<?> response = controller.updateJob(existing.getId(), incoming);
@@ -98,6 +103,11 @@ class AdminControllerUpdateJobTest {
         assertEquals("2026", saved.getBatch());
         assertEquals("B.Tech/B.E./BCA/MCA", saved.getBranch());
         assertEquals("08/26", saved.getApplication_date());
+        assertEquals("12.5", saved.getSalaryLpa());
+        assertEquals(75.0, saved.getMinTenth());
+        assertEquals(78.0, saved.getMinTwelfth());
+        assertEquals(70.0, saved.getMinGraduation());
+        assertEquals(7.5, saved.getMinCgpa());
         assertEquals("Open", saved.getStatus());
         assertEquals(1, saved.getRounds().size());
         verify(placementRepository).save(any(Placement.class));

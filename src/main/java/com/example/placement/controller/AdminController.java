@@ -1,19 +1,17 @@
 package com.example.placement.controller;
 
-import com.example.placement.dto.ApplicationDetail;
-import com.example.placement.dto.BulkRequest;
-import com.example.placement.dto.EvaluationRequest;
-import com.example.placement.dto.RoundRequest;
-import com.example.placement.entity.JobDocument;
-import com.example.placement.entity.Placement;
-import com.example.placement.entity.PlacementRound;
-import com.example.placement.entity.UsersEntries;
-import com.example.placement.repository.PlacementRepository;
-import com.example.placement.repository.UsersRepository;
-import com.example.placement.service.ApplicationService;
-import com.example.placement.service.CloudinaryService;
-import com.example.placement.service.CsvExportService;
-import jakarta.servlet.http.HttpServletResponse;
+import java.io.BufferedOutputStream;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -32,17 +30,21 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.io.BufferedOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import com.example.placement.dto.ApplicationDetail;
+import com.example.placement.dto.BulkRequest;
+import com.example.placement.dto.EvaluationRequest;
+import com.example.placement.dto.RoundRequest;
+import com.example.placement.entity.JobDocument;
+import com.example.placement.entity.Placement;
+import com.example.placement.entity.PlacementRound;
+import com.example.placement.entity.UsersEntries;
+import com.example.placement.repository.PlacementRepository;
+import com.example.placement.repository.UsersRepository;
+import com.example.placement.service.ApplicationService;
+import com.example.placement.service.CloudinaryService;
+import com.example.placement.service.CsvExportService;
+
+import jakarta.servlet.http.HttpServletResponse;
 
 @RestController
 @RequestMapping("/admin")
@@ -132,6 +134,19 @@ public class AdminController {
         copyIfPresent(incoming.getDriveType(), existing::setDriveType);
         copyIfPresent(incoming.getMode(), existing::setMode);
         copyIfPresent(incoming.getCtc(), existing::setCtc);
+        copyIfPresent(incoming.getSalaryLpa(), existing::setSalaryLpa);
+        if (incoming.getMinTenth() != null) {
+            existing.setMinTenth(incoming.getMinTenth());
+        }
+        if (incoming.getMinTwelfth() != null) {
+            existing.setMinTwelfth(incoming.getMinTwelfth());
+        }
+        if (incoming.getMinGraduation() != null) {
+            existing.setMinGraduation(incoming.getMinGraduation());
+        }
+        if (incoming.getMinCgpa() != null) {
+            existing.setMinCgpa(incoming.getMinCgpa());
+        }
         copyIfPresent(incoming.getLikelyDateOfJoining(), existing::setLikelyDateOfJoining);
         if (incoming.getStatus() != null && !isBlank(incoming.getStatus())) {
             existing.setStatus(incoming.getStatus());
