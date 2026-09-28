@@ -1,11 +1,5 @@
 package com.example.placement.service;
 
-import com.example.placement.dto.ApplicationDetail;
-import com.example.placement.dto.RoundDetail;
-import com.example.placement.entity.Placement;
-import com.example.placement.entity.PlacementRound;
-import org.junit.jupiter.api.Test;
-
 import java.io.IOException;
 import java.io.StringWriter;
 import java.time.LocalDateTime;
@@ -14,6 +8,12 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+
+import com.example.placement.dto.ApplicationDetail;
+import com.example.placement.dto.RoundDetail;
+import com.example.placement.entity.Placement;
+import com.example.placement.entity.PlacementRound;
 
 class CsvExportServiceTest {
 
@@ -32,6 +32,7 @@ class CsvExportServiceTest {
         application.setStatus("IN_PROGRESS");
         application.setCurrentRound(2);
         application.setTotalRounds(3);
+        application.setResumeUrl("https://files.example.com/resumes/rahul.pdf");
 
         RoundDetail round = new RoundDetail();
         round.setRound(1);
@@ -46,7 +47,9 @@ class CsvExportServiceTest {
         String[] lines = csv.split("\n", -1);
 
         assertTrue(lines[0].startsWith("Application ID,Enrollment No,Student Name"));
+        assertTrue(lines[0].endsWith("Resume URL"));
         assertTrue(csv.contains("ENR001"));
+        assertTrue(csv.contains("https://files.example.com/resumes/rahul.pdf"));
         assertTrue(csv.contains("\"ABC, Technologies\""));
         assertTrue(csv.contains("Round 1: QUALIFIED (85.0)"));
         assertEquals("", lines[lines.length - 1]);
@@ -71,7 +74,7 @@ class CsvExportServiceTest {
         String[] lines = out.toString().split("\n");
 
         long emptyTrailers = lines[1].chars().filter(ch -> ch == ',').count();
-        assertEquals(18, emptyTrailers);
+        assertEquals(19, emptyTrailers);
         assertTrue(lines[1].startsWith("app2,,,,,,,"));
     }
 

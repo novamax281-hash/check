@@ -1,12 +1,5 @@
 package com.example.placement.service;
 
-import com.example.placement.dto.ApplicationDetail;
-import com.example.placement.dto.RoundDetail;
-import com.example.placement.dto.StudentDetail;
-import com.example.placement.entity.Placement;
-import com.example.placement.entity.PlacementRound;
-import org.springframework.stereotype.Service;
-
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.StringWriter;
@@ -14,6 +7,13 @@ import java.io.Writer;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+
+import org.springframework.stereotype.Service;
+
+import com.example.placement.dto.ApplicationDetail;
+import com.example.placement.dto.StudentDetail;
+import com.example.placement.entity.Placement;
+import com.example.placement.entity.PlacementRound;
 
 @Service
 public class CsvExportService {
@@ -93,7 +93,7 @@ public class CsvExportService {
         writeRow(out, "Application ID", "Enrollment No", "Student Name", "Email", "Phone",
                 "Company", "Role", "Salary", "Skills", "Eligibility", "Location",
                 "Status", "Current Round", "Total Rounds", "Round History",
-                "Current Round Score", "Admin Remark", "Applied On", "Last Updated");
+            "Current Round Score", "Admin Remark", "Applied On", "Last Updated", "Resume URL");
         for (ApplicationDetail application : applications) {
             writeRow(out,
                     text(application.getApplicationId()),
@@ -114,7 +114,8 @@ public class CsvExportService {
                     currentRoundScore(application),
                     text(application.getAdminRemark()),
                     dateTime(application.getApplicationDate()),
-                    dateTime(application.getLastUpdated()));
+                    dateTime(application.getLastUpdated()),
+                    text(application.getResumeUrl()));
         }
         out.flush();
     }
