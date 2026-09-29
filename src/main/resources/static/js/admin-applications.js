@@ -421,7 +421,8 @@ function filterApplications() {
 
     return applications.filter(function(app) {
         const text = (app.studentName + " " + app.studentEmail + " " + app.company + " "
-            + app.role + " " + app.applicationId + " " + (app.enrollmentno || "")).toLowerCase();
+            + app.role + " " + (app.effectiveRole || "") + " " + (app.selectedCourse || "") + " "
+            + app.applicationId + " " + (app.enrollmentno || "")).toLowerCase();
         const matchesSearch = !search || text.includes(search);
         const matchesJob = !job || jobIdOf(app) === job;
         const matchesCompany = !company || app.company === company;
@@ -467,7 +468,8 @@ function render() {
                 <td>${esc(app.studentEmail || "-")}</td>
                 <td>${esc(app.company || "-")}</td>
                 <td>${esc(app.role || "-")}</td>
-                <td>${esc(app.selectedCourse || "-")}</td>
+                <td>${esc(app.effectiveRole || app.selectedRole || app.role || "-")}</td>
+                <td>${esc(app.selectedCourse || app.studentCourse || "-")}</td>
                 <td><div class="meta-chips"><span class="meta-chip">${esc(app.batch || "—")}</span><span class="chip-sep">·</span><span class="meta-chip">${esc(app.branch || "—")}</span></div></td>
                 <td>${esc(formatDate(app.applicationDate))}</td>
                 <td>${window.UI.roundPills(app)}</td>
@@ -1461,15 +1463,26 @@ selectQualifiedBtn.addEventListener("click", function() {
 
 const exportBtn = document.getElementById("exportBtn");
 
-exportBtn.addEventListener("click", async function() {
+function currentFilterParams() {
     const params = new URLSearchParams();
     if (jobFilter.value) params.set("jobId", jobFilter.value);
+    if (companyFilter.value) params.set("company", companyFilter.value);
     if (roundFilter.value) params.set("round", roundFilter.value);
     if (statusFilter.value) params.set("status", statusFilter.value);
+    if (batchFilter.value) params.set("batch", batchFilter.value);
+    if (branchFilter.value) params.set("branch", branchFilter.value);
     if (searchBox.value.trim()) params.set("search", searchBox.value.trim());
+    if (dateFromFilter.value) params.set("from", dateFromFilter.value);
+    if (dateToFilter.value) params.set("to", dateToFilter.value);
+    return params;
+}
+
+async function downloadApplicationsCsv(button, fields) {
+    const params = currentFilterParams();
+    if (fields && fields.length) params.set("fields", fields.join(","));
     const query = params.toString();
 
-    window.UI.setButtonLoading(exportBtn, true, "Exporting...");
+    window.UI.setButtonLoading(button, true, "Exporting...");
     try {
         const response = await fetch("/admin/applications/export" + (query ? "?" + query : ""),
             { credentials: "include" });
@@ -1493,9 +1506,119 @@ exportBtn.addEventListener("click", async function() {
     } catch (networkError) {
         window.UI.showToast("Network error while exporting. Please retry.", "error");
     } finally {
-        window.UI.setButtonLoading(exportBtn, false);
+        window.UI.setButtonLoading(button, false);
     }
+}
+
+exportBtn.addEventListener("click", function() {
+    downloadApplicationsCsv(exportBtn, null);
 });
+
+/* ---------- customize export ---------- */
+
+const customizeExportBtn = document.getElementById("customizeExportBtn");
+const exportModal = document.getElementById("exportModal");
+const exportFieldsContainer = document.getElementById("exportFieldsContainer");
+const exportCountBadge = document.getElementById("exportCountBadge");
+const exportStatusHint = document.getElementById("exportStatusHint");
+const confirmExportBtn = document.getElementById("confirmExportBtn");
+const cancelExportBtn = document.getElementById("cancelExportBtn");
+const exportSelectAllBtn = document.getElementById("exportSelectAllBtn");
+const exportClearAllBtn = document.getElementById("exportClearAllBtn");
+const exportResetBtn = document.getElementById("exportResetBtn");
+
+let exportCatalog = null;
+
+function selectedExportFields() {
+    return Array.prototype.slice
+        .call(exportFieldsContainer.querySelectorAll('input[type="checkbox"]:checked'))
+        .map(function(box) { return box.value; });
+}
+
+function updateExportCount() {
+    exportCountBadge.textContent = selectedExportFields().length + " selected";
+}
+
+function renderExportGroups() {
+    const defaults = new Set(exportCatalog.defaults || []);
+    const esc = window.UI.escapeHtml;
+    const groups = exportCatalog.groups || {};
+    const names = Object.keys(groups);
+    exportFieldsContainer.innerHTML = names.map(function(group) {
+        const boxes = (groups[group] || []).map(function(field) {
+            const id = "exp-" + field.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+            return '<label class="checkbox-row" for="' + id + '">'
+                + '<input type="checkbox" id="' + id + '" value="' + esc(field) + '"'
+                + (defaults.has(field) ? " checked" : "") + ">"
+                + '<span>' + esc(field) + (defaults.has(field) ? ' <em class="field-hint">(default)</em>' : "")
+                + "</span></label>";
+        }).join("");
+        return '<div class="export-group"><h4>' + esc(group) + "</h4>" + boxes + "</div>";
+    }).join("");
+    exportFieldsContainer.addEventListener("change", updateExportCount);
+    updateExportCount();
+}
+
+async function openExportModal() {
+    exportStatusHint.textContent = "";
+    if (!exportCatalog) {
+        exportFieldsContainer.innerHTML = '<p style="color:var(--text-muted);">Loading available fields...</p>';
+        window.UI.openModal(exportModal);
+        try {
+            const response = await fetch("/admin/applications/export-fields", { credentials: "include" });
+            if (UI.redirectIfUnauthorized(response)) return;
+            if (!response.ok) throw new Error("Request failed");
+            exportCatalog = await response.json();
+            renderExportGroups();
+        } catch (loadError) {
+            exportFieldsContainer.innerHTML = "";
+            exportStatusHint.textContent = "Could not load the field list. Close and try again.";
+        }
+        return;
+    }
+    renderExportGroups();
+    window.UI.openModal(exportModal);
+}
+
+if (customizeExportBtn) {
+    customizeExportBtn.addEventListener("click", openExportModal);
+}
+if (cancelExportBtn) {
+    cancelExportBtn.addEventListener("click", function() { window.UI.closeModal(exportModal); });
+}
+if (exportSelectAllBtn) {
+    exportSelectAllBtn.addEventListener("click", function() {
+        exportFieldsContainer.querySelectorAll('input[type="checkbox"]')
+            .forEach(function(box) { box.checked = true; });
+        updateExportCount();
+    });
+}
+if (exportClearAllBtn) {
+    exportClearAllBtn.addEventListener("click", function() {
+        exportFieldsContainer.querySelectorAll('input[type="checkbox"]')
+            .forEach(function(box) { box.checked = false; });
+        updateExportCount();
+    });
+}
+if (exportResetBtn) {
+    exportResetBtn.addEventListener("click", function() {
+        const defaults = new Set((exportCatalog && exportCatalog.defaults) || []);
+        exportFieldsContainer.querySelectorAll('input[type="checkbox"]')
+            .forEach(function(box) { box.checked = defaults.has(box.value); });
+        updateExportCount();
+    });
+}
+if (confirmExportBtn) {
+    confirmExportBtn.addEventListener("click", function() {
+        const fields = selectedExportFields();
+        if (!fields.length) {
+            exportStatusHint.textContent = "Select at least one column to export.";
+            return;
+        }
+        window.UI.closeModal(exportModal);
+        downloadApplicationsCsv(confirmExportBtn, fields);
+    });
+}
 
 bulkAdvanceBtn.addEventListener("click", function() { runBulkAction("advance"); });
 bulkRejectBtn.addEventListener("click", function() { runBulkAction("reject"); });

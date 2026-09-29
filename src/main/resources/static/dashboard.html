@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Dashboard | LLOYD Career</title>
-    <link rel="stylesheet" href="css/portal.css?v=15">
+    <link rel="stylesheet" href="css/portal.css?v=17">
     <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
 </head>
 <body data-role="student" data-active="dashboard" data-title="Dashboard">
@@ -24,7 +24,18 @@
         <div class="dashboard-columns">
 
         <div class="dashboard-main">
-        <div class="stat-grid">
+        <div class="stat-grid dashboard-stats-skeleton" id="statsLoading" aria-hidden="true">
+            <div class="stat-card"><strong><span></span></strong><span>Total Applications</span></div>
+            <div class="stat-card"><strong><span></span></strong><span>Under Review</span></div>
+            <div class="stat-card"><strong><span></span></strong><span>Shortlisted</span></div>
+            <div class="stat-card"><strong><span></span></strong><span>Selected</span></div>
+            <div class="stat-card"><strong><span></span></strong><span>Rejected</span></div>
+        </div>
+        <div class="dashboard-section-error hidden" id="statsError" role="alert">
+            <span id="statsErrorMessage">Unable to load application statistics.</span>
+            <button class="notice-retry" id="statsRetry" type="button">Retry</button>
+        </div>
+        <div class="stat-grid hidden" id="statsGrid">
             <div class="stat-card">
                 <strong id="statTotal">0</strong>
                 <span>Total Applications</span>
@@ -60,7 +71,7 @@
             <p>Your five most recent placement applications.</p>
         </div>
 
-        <div class="table-responsive">
+        <div class="table-responsive hidden" id="recentTable">
             <table>
                 <thead>
                 <tr>
@@ -74,7 +85,12 @@
                 <tbody id="recentBody"></tbody>
             </table>
         </div>
-        
+
+        <div class="dashboard-section-error hidden" id="recentError" role="alert">
+            <span id="recentErrorMessage">Unable to load applications.</span>
+            <button class="notice-retry" id="recentRetry" type="button">Retry</button>
+        </div>
+
         <div class="empty hidden" id="recentEmpty">
             <div class="empty-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -114,7 +130,7 @@
                 </div>
 
                 <div class="notice-error hidden" id="noticeError" role="alert">
-                    <span>Could not load notices.</span>
+                    <span>Unable to load notices</span>
                     <button class="notice-retry" id="noticeRetry" type="button">Retry</button>
                 </div>
 
@@ -141,8 +157,8 @@
     </main>
 </div>
 
-<script src="js/ui.js?v=8"></script>
-<script src="js/notices.js?v=1"></script>
-<script src="js/dashboard.js?v=5"></script>
+<script src="js/ui.js?v=9"></script>
+<script src="js/notices.js?v=2"></script>
+<script src="js/dashboard.js?v=6"></script>
 </body>
 </html>

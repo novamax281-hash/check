@@ -122,7 +122,8 @@
         var visible = apps.filter(function (app) {
             if (statusFilter && String(app.status || "").toLowerCase() !== statusFilter.toLowerCase()) return false;
             if (searchTerm) {
-                var haystack = (app.company || "") + " " + (app.role || "") + " " + (app.jobType || "");
+                var haystack = (app.company || "") + " " + (app.role || "") + " "
+                    + (app.effectiveRole || app.selectedRole || "");
                 if (!haystack.toLowerCase().includes(searchTerm)) return false;
             }
             return true;
@@ -147,7 +148,7 @@
             }
             return "<tr>" +
                 "<td>" + UI.escapeHtml(app.company || "—") + "</td>" +
-                "<td>" + UI.escapeHtml(app.role || app.jobType || "—") + "</td>" +
+                "<td>" + UI.escapeHtml(app.effectiveRole || app.selectedRole || app.role || "—") + "</td>" +
                 "<td>" + formatDate(app.applicationDate) + "</td>" +
                 "<td>Round " + (app.currentRound || 1) + "</td>" +
                 "<td>" + UI.escapeHtml(String(score)) + "</td>" +

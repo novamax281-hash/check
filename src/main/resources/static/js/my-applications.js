@@ -164,7 +164,7 @@ function rowHtml(app) {
     return '<tr class="app-row" data-id="' + esc(app.applicationId || "") + '">'
         + '<td class="cell-company">'
         + '<div class="job-company">' + esc(app.company || "-") + "</div>"
-        + '<div class="job-role">' + esc(app.role || app.jobType || "-") + "</div>"
+        + '<div class="job-role">' + esc(app.effectiveRole || app.selectedRole || app.role || "-") + "</div>"
         + "</td>"
         + '<td><div class="meta-chips"><span class="meta-chip">' + esc(app.batch || "—")
         + '</span><span class="chip-sep">·</span><span class="meta-chip">' + esc(app.branch || "—")

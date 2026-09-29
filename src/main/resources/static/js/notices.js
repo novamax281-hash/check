@@ -41,6 +41,10 @@
         el.count = byId("noticeCount");
     }
 
+    function ensureElements() {
+        if (!el.panel) cacheElements();
+    }
+
     function show(node, visible) {
         if (node) node.classList.toggle("hidden", !visible);
     }
@@ -143,37 +147,45 @@
     }
 
     function showLoading() {
+        ensureElements();
         show(el.skeleton, true);
         show(el.empty, false);
         show(el.error, false);
         show(el.carousel, false);
         show(el.count, false);
+        if (el.retry) el.retry.disabled = true;
     }
 
     function showEmpty() {
+        ensureElements();
         show(el.skeleton, false);
         show(el.empty, true);
         show(el.error, false);
         show(el.carousel, false);
         show(el.count, true);
         if (el.count) el.count.textContent = "0";
+        if (el.retry) el.retry.disabled = false;
     }
 
     function showError() {
+        ensureElements();
         show(el.skeleton, false);
         show(el.empty, false);
         show(el.error, true);
         show(el.carousel, false);
         show(el.count, false);
+        if (el.retry) el.retry.disabled = false;
     }
 
     function showNotices() {
+        ensureElements();
         show(el.skeleton, false);
         show(el.empty, false);
         show(el.error, false);
         show(el.carousel, true);
         show(el.count, true);
         if (el.count) el.count.textContent = String(notices.length);
+        if (el.retry) el.retry.disabled = false;
         // Carousel chrome only makes sense with more than one notice.
         show(el.controls, notices.length > 1);
     }

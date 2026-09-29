@@ -1,17 +1,22 @@
 package com.example.placement.service;
 
-import com.example.placement.dto.ApplicationDetail;
-import com.example.placement.dto.RoundDetail;
-import com.example.placement.entity.Application;
-import com.example.placement.entity.ApplicationRound;
-import com.example.placement.entity.ApplicationStatus;
-import com.example.placement.entity.PlacementRound;
-import com.example.placement.entity.Placement;
-import com.example.placement.entity.RoundStatus;
-import com.example.placement.entity.UsersEntries;
-import com.example.placement.repository.ApplicationRepository;
-import com.example.placement.repository.PlacementRepository;
-import com.example.placement.repository.UsersRepository;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
 import org.bson.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,21 +33,18 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import com.example.placement.dto.ApplicationDetail;
+import com.example.placement.dto.RoundDetail;
+import com.example.placement.entity.Application;
+import com.example.placement.entity.ApplicationRound;
+import com.example.placement.entity.ApplicationStatus;
+import com.example.placement.entity.Placement;
+import com.example.placement.entity.PlacementRound;
+import com.example.placement.entity.RoundStatus;
+import com.example.placement.entity.UsersEntries;
+import com.example.placement.repository.ApplicationRepository;
+import com.example.placement.repository.PlacementRepository;
+import com.example.placement.repository.UsersRepository;
 
 @Service
 public class ApplicationService {
@@ -79,10 +81,15 @@ public class ApplicationService {
     }
 
     public String apply(String studentId, String placementId, String resumeUrl) {
-        return apply(studentId, placementId, resumeUrl, null);
+        return apply(studentId, placementId, resumeUrl, null, null);
     }
 
     public String apply(String studentId, String placementId, String resumeUrl, String selectedCourse) {
+        return apply(studentId, placementId, resumeUrl, selectedCourse, null);
+    }
+
+    public String apply(String studentId, String placementId, String resumeUrl, String selectedCourse,
+                        String selectedRole) {
         Optional<Application> existing = applicationRepository.findByStudentIdAndPlacementId(studentId, placementId);
         if (existing.isPresent()) {
             return "already";
@@ -90,6 +97,7 @@ public class ApplicationService {
         Application application = new Application(studentId, placementId);
         application.setResumeUrl(resumeUrl);
         application.setSelectedCourse(selectedCourse);
+        application.setSelectedRole(selectedRole);
         applicationRepository.save(application);
         return "applied";
     }
@@ -126,25 +134,21 @@ public class ApplicationService {
         if (job.equalsIgnoreCase(student)) {
             return true;
         }
-        Long[] jobYears = batchYears(job);
-        Long[] studentYears = batchYears(student);
-        if (jobYears != null && studentYears != null) {
-            return jobYears[0] <= studentYears[1] && studentYears[0] <= jobYears[1];
+        if (BatchRanges.overlapsAny(job, student)) {
+            return true;
         }
         return job.contains(student) || student.contains(job);
     }
 
-    private static Long[] batchYears(String value) {
-        List<Long> years = new ArrayList<>();
-        Matcher matcher = Pattern.compile("\\d{4}").matcher(value);
-        while (matcher.find()) {
-            years.add(Long.parseLong(matcher.group()));
+    /** Mirrors UI.batchMatches so an export honours exactly the batch filter shown on screen. */
+    private static boolean batchMatches(String batch, String requested) {
+        if (batch == null || batch.isBlank()) {
+            return false;
         }
-        if (years.isEmpty()) {
-            return null;
+        if (batch.trim().equalsIgnoreCase(requested.trim())) {
+            return true;
         }
-        years.sort(null);
-        return new Long[]{years.get(0), years.get(years.size() - 1)};
+        return BatchRanges.overlapsAny(batch, requested);
     }
 
     public List<ApplicationDetail> getStudentApplications(String studentId) {
@@ -161,14 +165,11 @@ public class ApplicationService {
             return getStudentApplications(studentId);
         }
         List<Application> applications = applicationRepository.findByStudentId(studentId);
-        if (applications.size() <= limit) {
-            return buildDetails(applications);
-        }
         List<Application> sorted = new ArrayList<>(applications);
         sorted.sort(Comparator.comparing(
                 (Application application) -> application.getApplicationDate(),
                 Comparator.nullsLast(Comparator.reverseOrder())));
-        return buildDetails(sorted.subList(0, limit));
+        return buildDetails(sorted.subList(0, Math.min(limit, sorted.size())));
     }
 
     public List<ApplicationDetail> getAllApplications() {
@@ -223,9 +224,55 @@ public class ApplicationService {
         return filtered;
     }
 
+    /**
+     * Applies the remaining applications-table filters (company, batch, branch, applied-date range)
+     * so an export honours exactly what the admin sees on screen.
+     */
+    public List<ApplicationDetail> filterDetails(List<ApplicationDetail> details, String search,
+                                                 String status, String jobId, String company,
+                                                 String batch, String branch,
+                                                 LocalDate appliedFrom, LocalDate appliedTo) {
+        List<ApplicationDetail> filtered = filterDetails(details, search, status, jobId);
+        if (filtered.isEmpty()) {
+            return filtered;
+        }
+        if (company != null && !company.isBlank()) {
+            String requested = company.trim();
+            filtered = filtered.stream()
+                    .filter(detail -> requested.equalsIgnoreCase(detail.getCompany()))
+                    .collect(Collectors.toList());
+        }
+        if (batch != null && !batch.isBlank()) {
+            String requested = batch.trim();
+            filtered = filtered.stream()
+                    .filter(detail -> batchMatches(detail.getBatch(), requested))
+                    .collect(Collectors.toList());
+        }
+        if (branch != null && !branch.isBlank()) {
+            String requested = branch.trim();
+            filtered = filtered.stream()
+                    .filter(detail -> requested.equalsIgnoreCase(detail.getBranch()))
+                    .collect(Collectors.toList());
+        }
+        if (appliedFrom != null) {
+            filtered = filtered.stream()
+                    .filter(detail -> detail.getApplicationDate() != null
+                            && !detail.getApplicationDate().toLocalDate().isBefore(appliedFrom))
+                    .collect(Collectors.toList());
+        }
+        if (appliedTo != null) {
+            filtered = filtered.stream()
+                    .filter(detail -> detail.getApplicationDate() != null
+                            && !detail.getApplicationDate().toLocalDate().isAfter(appliedTo))
+                    .collect(Collectors.toList());
+        }
+        return filtered;
+    }
+
     private static boolean matchesSearch(ApplicationDetail detail, String query) {
         return Stream.of(detail.getEnrollmentno(), detail.getStudentName(), detail.getStudentEmail(),
-                        detail.getCompany(), detail.getRole())
+                        detail.getCompany(), detail.getEffectiveRole(), detail.getSelectedCourse(),
+                        detail.getStudentCourse())
                 .filter(value -> value != null && !value.isBlank())
                 .anyMatch(value -> value.toLowerCase().contains(query));
     }
@@ -768,6 +815,7 @@ public class ApplicationService {
             detail.setRole(job.getJobRole() != null && !job.getJobRole().isBlank()
                     ? job.getJobRole() : job.getJobType());
             detail.setJobType(detail.getRole());
+            detail.setSelectedRole(application.getSelectedRole());
                 detail.setSalary(job.getSalaryLpa() != null && !job.getSalaryLpa().isBlank()
                     ? job.getSalaryLpa() : job.getStipend());
             detail.setSkills(job.getSkills());
@@ -916,34 +964,41 @@ public class ApplicationService {
     private Map<String, Long> countStats(List<Application> applications) {
         Map<String, Long> stats = new HashMap<>();
         stats.put("total", (long) applications.size());
-        long underReview = 0;
         long shortlisted = 0;
         long selected = 0;
         long rejected = 0;
         long inProgress = 0;
         long withdrawn = 0;
         for (Application application : applications) {
-            String status = application.getStatus();
-            if ("Under Review".equalsIgnoreCase(status)) {
-                underReview++;
-            } else if ("Shortlisted".equalsIgnoreCase(status)) {
-                shortlisted++;
-            } else if (STATUS_SELECTED.equalsIgnoreCase(status)) {
+            String status = application.getStatus() == null ? ""
+                    : application.getStatus().trim().toUpperCase(Locale.ROOT);
+            if (STATUS_SELECTED.equals(status) || "PLACED".equals(status)) {
                 selected++;
-            } else if (STATUS_REJECTED.equalsIgnoreCase(status)) {
+            } else if (STATUS_REJECTED.equals(status)) {
                 rejected++;
-            } else if (STATUS_IN_PROGRESS.equalsIgnoreCase(status)) {
-                inProgress++;
-            } else if (STATUS_WITHDRAWN.equalsIgnoreCase(status)) {
+            } else if (STATUS_WITHDRAWN.toUpperCase(Locale.ROOT).equals(status)) {
                 withdrawn++;
+            } else if ("SHORTLISTED".equals(status) || hasQualifiedRound(application)) {
+                shortlisted++;
+            } else if (STATUS_IN_PROGRESS.equals(status) || "APPLIED".equals(status)
+                    || "IN PROCESS".equals(status) || "UNDER REVIEW".equals(status)
+                    || "INTERVIEW SCHEDULED".equals(status)) {
+                inProgress++;
             }
         }
-        stats.put("underReview", underReview);
+        stats.put("underReview", inProgress);
         stats.put("shortlisted", shortlisted);
         stats.put("selected", selected);
         stats.put("rejected", rejected);
         stats.put("inProgress", inProgress);
         stats.put("withdrawn", withdrawn);
         return stats;
+    }
+
+    private boolean hasQualifiedRound(Application application) {
+        return application.getRounds() != null && application.getRounds().stream()
+                .filter(round -> round != null)
+                .anyMatch(round -> round.getStatus() == RoundStatus.QUALIFIED
+                        || round.getStatus() == RoundStatus.CLEARED);
     }
 }

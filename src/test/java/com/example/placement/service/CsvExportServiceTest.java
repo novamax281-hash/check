@@ -72,14 +72,19 @@ class CsvExportServiceTest {
         application.setApplicationDate(LocalDateTime.of(2026, 8, 20, 10, 30));
 
         StringWriter out = new StringWriter();
-        csvExportService.writeApplications(out, List.of(application));
+        csvExportService.writeApplications(out, List.of(application),
+                List.of("Application ID", "Enrollment No", "Student Name", "Email", "Phone",
+                        "Student Course", "Selected Course", "Student Batch", "Student ID",
+                        "Company", "Job Role", "Selected Job Role", "Status", "Current Round",
+                        "Total Rounds", "Round History", "Current Round Score", "Resume URL"));
         String csv = out.toString();
         String[] lines = csv.split("\n", -1);
 
-        assertTrue(lines[0].startsWith("Application ID,Student ID,Enrollment No,Student Name"));
+        assertTrue(lines[0].startsWith("Application ID,Enrollment No,Student Name,Email,Phone"));
         assertTrue(lines[0].trim().endsWith("Resume URL"));
         assertTrue(lines[0].contains("Selected Course"));
         assertTrue(lines[0].contains("Student Course"));
+        assertTrue(lines[0].contains("Selected Job Role"));
         assertTrue(csv.contains("ENR001"));
         assertTrue(csv.contains("https://files.example.com/resumes/rahul.pdf"));
         assertTrue(csv.contains("Data Science"));
@@ -87,6 +92,90 @@ class CsvExportServiceTest {
         assertTrue(csv.contains("\"ABC, Technologies\""));
         assertTrue(csv.contains("Round 1: QUALIFIED (85.0)"));
         assertEquals("", lines[lines.length - 1]);
+    }
+
+    @Test
+    void applicationsCsvDefaultsToExactlyTwentyFields() throws IOException {
+        StringWriter out = new StringWriter();
+        csvExportService.writeApplications(out, List.of(new ApplicationDetail()));
+        String header = out.toString().split("\\R", -1)[0];
+
+        assertEquals(20, CsvExportService.APPLICATION_DEFAULT_COLUMNS.size());
+        assertEquals("Application ID,Student ID,Enrollment No,Student Name,Email,Phone,"
+                + "Student Course,Student Batch,Branch,Department,CGPA,Company,Job Role,Salary / CTC,"
+                + "Application Status,Current Round,Current Round Score,Admin Remark,Applied On,Last Updated",
+                header);
+    }
+
+    @Test
+    void applicationsCsvExportsOnlySelectedColumns() throws IOException {
+        ApplicationDetail application = new ApplicationDetail();
+        application.setApplicationId("app1");
+        application.setCompany("Northwind");
+        application.setRole("Software Engineer, Gen AI");
+        application.setSelectedRole("Gen AI");
+        application.setSelectedCourse("B.Tech");
+        application.setStudentCourse("Computer Science");
+
+        StringWriter out = new StringWriter();
+        csvExportService.writeApplications(out, List.of(application),
+                List.of("Company", "Job Role", "Selected Job Role", "Selected Course", "Student Course"));
+        String[] lines = out.toString().split("\\R");
+
+        assertEquals("Company,Job Role,Selected Job Role,Selected Course,Student Course", lines[0]);
+        assertEquals("Northwind,\"Software Engineer, Gen AI\",Gen AI,B.Tech,Computer Science", lines[1]);
+    }
+
+    @Test
+    void applicationsCsvKeepsConfiguredRoleListAndSelectedRoleSeparate() throws IOException {
+        ApplicationDetail application = new ApplicationDetail();
+        application.setRole("Backend Developer, Gen AI");
+        application.setSelectedRole("Gen AI");
+
+        StringWriter out = new StringWriter();
+        csvExportService.writeApplications(out, List.of(application),
+                List.of("Job Role", "Selected Job Role"));
+        String[] lines = out.toString().split("\\R");
+
+        assertEquals("Job Role,Selected Job Role", lines[0]);
+        assertEquals("\"Backend Developer, Gen AI\",Gen AI", lines[1]);
+    }
+
+    @Test
+    void applicationsCsvFallsBackToPlacementRoleForLegacyApplications() throws IOException {
+        ApplicationDetail application = new ApplicationDetail();
+        application.setRole("Backend Developer");
+
+        StringWriter out = new StringWriter();
+        csvExportService.writeApplications(out, List.of(application), List.of("Selected Job Role"));
+        String[] lines = out.toString().split("\\R");
+
+        assertEquals("Selected Job Role", lines[0]);
+        assertEquals("Backend Developer", lines[1]);
+    }
+
+    @Test
+    void resolveApplicationColumnsRejectsUnknownAndDuplicates() {
+        assertEquals(CsvExportService.APPLICATION_DEFAULT_COLUMNS,
+                CsvExportService.resolveApplicationColumns(null));
+        assertEquals(CsvExportService.APPLICATION_DEFAULT_COLUMNS,
+                CsvExportService.resolveApplicationColumns(List.of()));
+        assertEquals(CsvExportService.APPLICATION_DEFAULT_COLUMNS,
+                CsvExportService.resolveApplicationColumns(List.of("  ", "Not A Column")));
+        assertEquals(List.of("Company", "Email", "Application ID"),
+                CsvExportService.resolveApplicationColumns(
+                        List.of("Company", "Email", "Company", "Application ID", "Nope")));
+    }
+
+    @Test
+    void everyAdvertisedFieldIsResolvable() {
+        for (String field : CsvExportService.APPLICATION_COLUMNS) {
+            assertEquals(List.of(field), CsvExportService.resolveApplicationColumns(List.of(field)),
+                    "field should resolve to itself: " + field);
+        }
+        assertEquals(CsvExportService.APPLICATION_COLUMNS.size(),
+                CsvExportService.APPLICATION_FIELD_GROUPS.values().stream()
+                        .flatMap(List::stream).distinct().count());
     }
 
     @Test
@@ -108,7 +197,7 @@ class CsvExportServiceTest {
         String[] lines = out.toString().split("\n");
 
         long emptyTrailers = lines[1].chars().filter(ch -> ch == ',').count();
-        assertEquals(47, emptyTrailers);
+        assertEquals(19, emptyTrailers);
         assertTrue(lines[1].startsWith("app2,,,,,,,"));
     }
 

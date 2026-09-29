@@ -851,6 +851,11 @@ a.btn-secondary:hover, button.btn-secondary:hover {
   font-weight: 500;
 }
 
+.auth-links a.is-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 .message {
   padding: 10px 14px;
   border-radius: var(--radius-sm);
@@ -2406,6 +2411,35 @@ tr:hover td {
   margin-bottom: 8px;
 }
 
+.export-group + .export-group {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
+.export-group h4 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.export-group .checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.export-group .checkbox-row:hover {
+  background: var(--surface-hover, rgba(127, 127, 127, 0.08));
+}
+
 .list-meta {
   font-size: 13px;
   color: var(--text-muted);
@@ -3919,6 +3953,49 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   min-width: 0;
 }
 
+.dashboard-main .table-responsive {
+  overflow-x: auto;
+}
+
+.dashboard-section-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--danger-border, var(--border-color));
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--text-main);
+  font-size: 13px;
+}
+
+.dashboard-stats-skeleton .stat-card strong span,
+.dashboard-skeleton-row span {
+  display: block;
+  height: 28px;
+  border-radius: 5px;
+  background: linear-gradient(90deg,
+      var(--bg-subtle) 25%,
+      var(--border-color) 50%,
+      var(--bg-subtle) 75%);
+  background-size: 200% 100%;
+  animation: noticeShimmer 1.3s linear infinite;
+}
+
+.dashboard-stats-skeleton .stat-card strong span {
+  width: 58px;
+}
+
+.dashboard-skeleton-row span {
+  width: 82%;
+  height: 12px;
+}
+
+.dashboard-skeleton-row td:first-child span {
+  width: 94%;
+}
+
 .dashboard-aside {
   min-width: 0;
   position: sticky;
@@ -4328,6 +4405,11 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   }
 
   .notice-skeleton span {
+    animation: none;
+  }
+
+  .dashboard-stats-skeleton .stat-card strong span,
+  .dashboard-skeleton-row span {
     animation: none;
   }
 }

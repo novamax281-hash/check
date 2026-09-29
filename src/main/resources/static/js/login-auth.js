@@ -51,6 +51,58 @@ let pendingOtpData = null;
 let resetVerified = false;
 let cooldownInterval = null;
 let resetCooldownInterval = null;
+let dailyLimitInterval = null;
+let otpDailyLimitReached = false;
+
+function setLinkDisabled(link, disabled) {
+    if (disabled) {
+        link.setAttribute("aria-disabled", "true");
+        link.classList.add("is-disabled");
+    } else {
+        link.removeAttribute("aria-disabled");
+        link.classList.remove("is-disabled");
+    }
+}
+
+function otpMessageWithAttempts(messageText, response) {
+    const remaining = response && response.otpAttemptsRemaining;
+    if (!Number.isInteger(remaining)) return messageText;
+    let message = messageText + " OTP attempts remaining today: " + remaining + "/5.";
+    if (remaining === 0 && !messageText.includes("Daily OTP limit reached.")) {
+        message += " Daily OTP limit reached. Please try again tomorrow.";
+    }
+    return message;
+}
+
+function applyDailyLimit(response) {
+    if (response && (response.otpAttemptsRemaining === 0
+            || String(response.message || "").includes("Daily OTP limit reached."))) {
+        otpDailyLimitReached = true;
+        loginButton.disabled = true;
+        setLinkDisabled(resendLink, true);
+        setLinkDisabled(resendResetLink, true);
+        startDailyLimitCountdown(response.retryAfterSeconds);
+        return true;
+    }
+    return false;
+}
+
+function startDailyLimitCountdown(duration) {
+    if (dailyLimitInterval) window.clearInterval(dailyLimitInterval);
+    const seconds = Number(duration);
+    if (!Number.isFinite(seconds) || seconds <= 0) return;
+    let remaining = Math.ceil(seconds);
+    dailyLimitInterval = window.setInterval(function() {
+        remaining -= 1;
+        if (remaining > 0) return;
+        window.clearInterval(dailyLimitInterval);
+        dailyLimitInterval = null;
+        otpDailyLimitReached = false;
+        loginButton.disabled = cooldownInterval !== null;
+        if (cooldownInterval === null) setLinkDisabled(resendLink, false);
+        if (resetCooldownInterval === null) setLinkDisabled(resendResetLink, false);
+    }, 1000);
+}
 
 function setMessage(text, isError) {
     message.style.display = text ? "block" : "none";
@@ -90,7 +142,13 @@ function clearCooldowns() {
 function setMode(mode) {
     authMode = mode;
     resetVerified = false;
+    otpDailyLimitReached = false;
+    loginButton.disabled = false;
+    setLinkDisabled(resendLink, false);
+    setLinkDisabled(resendResetLink, false);
     clearCooldowns();
+    if (dailyLimitInterval) window.clearInterval(dailyLimitInterval);
+    dailyLimitInterval = null;
     loginForm.style.display = "flex";
     otpSection.style.display = "none";
     resetSection.style.display = "none";
@@ -168,24 +226,19 @@ async function postJson(url, data) {
     return { ok: response.ok, status: response.status, result: result };
 }
 
-function cooldownSecondsFrom(messageText) {
-    const match = String(messageText || "").match(/wait\s+(\d+)\s+seconds/i);
-    return match ? Math.max(1, Number(match[1])) : 60;
-}
-
 function startCooldown(link, countdown, duration, intervalName) {
     const interval = intervalName === "reset" ? resetCooldownInterval : cooldownInterval;
     if (interval) window.clearInterval(interval);
     let seconds = duration;
-    link.setAttribute("aria-disabled", "true");
-    link.classList.add("is-disabled");
+    if (intervalName === "otp") loginButton.disabled = true;
+    setLinkDisabled(link, true);
     countdown.textContent = "Resend available in " + seconds + "s";
     const timer = window.setInterval(function() {
         seconds -= 1;
         if (seconds <= 0) {
             window.clearInterval(timer);
-            link.removeAttribute("aria-disabled");
-            link.classList.remove("is-disabled");
+            if (!otpDailyLimitReached) setLinkDisabled(link, false);
+            if (intervalName === "otp" && !otpDailyLimitReached) loginButton.disabled = false;
             countdown.textContent = "";
             if (intervalName === "reset") resetCooldownInterval = null;
             else cooldownInterval = null;
@@ -197,7 +250,7 @@ function startCooldown(link, countdown, duration, intervalName) {
     else cooldownInterval = timer;
 }
 
-function showOtpStep(mode, data, messageText) {
+function showOtpStep(mode, data, messageText, response) {
     pendingOtpMode = mode;
     pendingOtpData = data;
     loginForm.style.display = "none";
@@ -206,7 +259,8 @@ function showOtpStep(mode, data, messageText) {
     authToggleWrap.style.display = "none";
     authModeLinks.style.display = "none";
     otpSentMessage.className = "message success";
-    otpSentMessage.textContent = messageText;
+    otpDailyLimitReached = applyDailyLimit(response);
+    otpSentMessage.textContent = otpMessageWithAttempts(messageText, response);
     otpInput.value = "";
     startCooldown(resendLink, document.getElementById("resendCountdown"), 60, "otp");
     otpInput.focus();
@@ -249,44 +303,57 @@ async function submitStudentLogin() {
     window.location.href = "/dashboard.html";
 }
 
-async function requestOtp(mode, data) {
+async function requestOtp(mode, data, isResend) {
     const endpoint = mode === "register" ? "/api/auth/register/send-otp" : "/api/auth/send-otp";
+    if (isResend) setLinkDisabled(resendLink, true);
     const response = await postJson(endpoint, data);
     if (!response.ok) {
-        const errorMessage = response.result.message || "Could not send the OTP.";
+        const errorMessage = response.result.message || "OTP could not be sent. Please try again after some time.";
+        const dailyLimit = applyDailyLimit(response.result);
+        const displayMessage = otpMessageWithAttempts(errorMessage, response.result);
         if (otpSection.style.display === "block") {
             otpSentMessage.className = "message error";
-            otpSentMessage.textContent = errorMessage;
+            otpSentMessage.textContent = displayMessage;
         } else {
-            setMessage(errorMessage, true);
+            setMessage(displayMessage, true);
         }
-        if (response.status === 429) {
+        if (response.status === 429 && !dailyLimit && response.result.retryAfterSeconds > 0
+                && !errorMessage.includes("already being processed")) {
             startCooldown(resendLink, document.getElementById("resendCountdown"),
-                cooldownSecondsFrom(response.result.message), "otp");
+                response.result.retryAfterSeconds, "otp");
+        } else if (isResend && !dailyLimit) {
+            setLinkDisabled(resendLink, false);
         }
         return false;
     }
-    showOtpStep(mode, data, response.result.message || "OTP sent. Check your email.");
+    showOtpStep(mode, data, response.result.message || "OTP sent. Check your email.", response.result);
     return true;
 }
 
 async function sendForgotOtp(email, isResend) {
+    if (isResend) setLinkDisabled(resendResetLink, true);
     const response = await postJson("/api/auth/forgot-password/send-otp", { email: email });
     if (!response.ok) {
-        const message = response.result.message || "Could not send the OTP.";
+        const message = response.result.message || "OTP could not be sent. Please try again after some time.";
+        const dailyLimit = applyDailyLimit(response.result);
+        const displayMessage = otpMessageWithAttempts(message, response.result);
         if (isResend) {
             const target = document.getElementById("resetCountdown");
-            if (response.status === 429) {
-                startCooldown(resendResetLink, target, cooldownSecondsFrom(message), "reset");
+            if (response.status === 429 && !dailyLimit && response.result.retryAfterSeconds > 0
+                    && !message.includes("already being processed")) {
+                startCooldown(resendResetLink, target, response.result.retryAfterSeconds, "reset");
+            } else if (!dailyLimit) {
+                setLinkDisabled(resendResetLink, false);
             }
-            document.getElementById("resetSentMessage").textContent = message;
+            document.getElementById("resetSentMessage").textContent = displayMessage;
             document.getElementById("resetSentMessage").className = "message error";
         } else {
-            setMessage(message, true);
+            setMessage(displayMessage, true);
         }
         return false;
     }
 
+    otpDailyLimitReached = applyDailyLimit(response.result);
     if (isResend) {
         resetVerified = false;
         showResetPasswordFields(false);
@@ -295,7 +362,7 @@ async function sendForgotOtp(email, isResend) {
         confirmNewPassword.value = "";
         resetButton.textContent = "VERIFY OTP";
         const sentBox = document.getElementById("resetSentMessage");
-        sentBox.textContent = response.result.message;
+        sentBox.textContent = otpMessageWithAttempts(response.result.message, response.result);
         sentBox.className = "message success";
         startCooldown(resendResetLink, document.getElementById("resetCountdown"), 60, "reset");
     } else {
@@ -310,7 +377,7 @@ async function sendForgotOtp(email, isResend) {
         authToggleWrap.style.display = "none";
         authModeLinks.style.display = "none";
         const sentBox = document.getElementById("resetSentMessage");
-        sentBox.textContent = response.result.message;
+        sentBox.textContent = otpMessageWithAttempts(response.result.message, response.result);
         sentBox.className = "message success";
         startCooldown(resendResetLink, document.getElementById("resetCountdown"), 60, "reset");
         resetOtp.focus();
@@ -346,7 +413,7 @@ async function submitAuthForm() {
     } catch (error) {
         setMessage(error.message || "Something went wrong. Please try again.", true);
     } finally {
-        loginButton.disabled = false;
+        loginButton.disabled = otpDailyLimitReached || cooldownInterval !== null;
         loginButton.textContent = originalText;
     }
 }
@@ -463,7 +530,7 @@ resendLink.addEventListener("click", function(event) {
     event.preventDefault();
     if (resendLink.getAttribute("aria-disabled") === "true" || !pendingOtpData) return;
     otpInput.value = "";
-    requestOtp(pendingOtpMode, pendingOtpData);
+    requestOtp(pendingOtpMode, pendingOtpData, true);
 });
 
 resendResetLink.addEventListener("click", function(event) {

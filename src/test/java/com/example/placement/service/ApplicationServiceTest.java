@@ -1,45 +1,44 @@
 package com.example.placement.service;
 
-import com.example.placement.dto.ApplicationDetail;
-import com.example.placement.dto.RoundDetail;
-import com.example.placement.entity.Application;
-import com.example.placement.entity.ApplicationRound;
-import com.example.placement.entity.PlacementRound;
-import com.example.placement.entity.Placement;
-import com.example.placement.entity.RoundStatus;
-import com.example.placement.entity.UsersEntries;
-import com.example.placement.repository.ApplicationRepository;
-import com.example.placement.repository.PlacementRepository;
-import com.example.placement.repository.UsersRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InOrder;
-import org.springframework.data.mongodb.core.FindAndModifyOptions;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.data.mongodb.core.query.Query;
-import org.springframework.web.server.ResponseStatusException;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import org.mockito.InOrder;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.springframework.data.mongodb.core.FindAndModifyOptions;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.web.server.ResponseStatusException;
+
+import com.example.placement.dto.ApplicationDetail;
+import com.example.placement.dto.RoundDetail;
+import com.example.placement.entity.Application;
+import com.example.placement.entity.ApplicationRound;
+import com.example.placement.entity.Placement;
+import com.example.placement.entity.PlacementRound;
+import com.example.placement.entity.RoundStatus;
+import com.example.placement.entity.UsersEntries;
+import com.example.placement.repository.ApplicationRepository;
+import com.example.placement.repository.PlacementRepository;
+import com.example.placement.repository.UsersRepository;
 
 class ApplicationServiceTest {
 
@@ -111,6 +110,7 @@ class ApplicationServiceTest {
         Placement placement = new Placement();
         placement.setId("placement1");
         placement.setCompany("ABC Technologies");
+        placement.setJobRole("Full Stack Developer");
         List<PlacementRound> rounds = new ArrayList<>();
         String[] names = {"Online Assessment", "Technical Interview", "HR Interview", "Managerial Interview"};
         for (int i = 0; i < numbers.length; i++) {
@@ -755,6 +755,15 @@ class ApplicationServiceTest {
         assertEquals(false, applicationService.isEligible(job, student));
     }
 
+        @Test
+        void multipleEligibleBatchRangesDoNotIncludeTheGapBetweenRanges() {
+                Placement job = job("2022-2024, 2026-2028", null, null, null, null);
+
+                assertTrue(applicationService.isEligible(job, student("2023", null, null, null, null)));
+                assertTrue(applicationService.isEligible(job, student("2027", null, null, null, null)));
+                assertEquals(false, applicationService.isEligible(job, student("2025", null, null, null, null)));
+        }
+
     @Test
     void ineligibleWhenSingleFieldBelowCutoff() {
         Placement job = job("2021-2025", 60.0, 65.0, 70.0, 7.5);
@@ -783,5 +792,161 @@ class ApplicationServiceTest {
     void ineligibleWhenNullJobOrNullStudent() {
         assertTrue(applicationService.isEligible(null, student("2021-2025", null, null, null, null)) == false);
         assertTrue(applicationService.isEligible(job(null, null, null, null, null), null) == false);
+    }
+
+    @Test
+    void studentDashboardStatsMapPersistedStatusesAndQualifiedRounds() {
+        Application underReview = application(1, "IN_PROGRESS", List.of(round(1, RoundStatus.PENDING)));
+        Application shortlisted = application(2, "IN_PROGRESS", List.of(
+                round(1, RoundStatus.QUALIFIED), round(2, RoundStatus.PENDING)));
+        Application legacyShortlisted = application(1, "Shortlisted", List.of());
+        Application selected = application(2, "SELECTED", List.of());
+        Application rejected = application(1, "REJECTED", List.of());
+        when(applicationRepository.findByStudentId("student1"))
+                .thenReturn(List.of(underReview, shortlisted, legacyShortlisted, selected, rejected));
+
+        Map<String, Long> stats = applicationService.studentStats("student1");
+
+        assertEquals(5L, stats.get("total"));
+        assertEquals(1L, stats.get("underReview"));
+        assertEquals(2L, stats.get("shortlisted"));
+        assertEquals(1L, stats.get("selected"));
+        assertEquals(1L, stats.get("rejected"));
+    }
+
+        @Test
+        void studentDashboardStatsReturnZeroCountsWhenThereAreNoApplications() {
+                when(applicationRepository.findByStudentId("student1")).thenReturn(List.of());
+
+                Map<String, Long> stats = applicationService.studentStats("student1");
+
+                assertEquals(0L, stats.get("total"));
+                assertEquals(0L, stats.get("underReview"));
+                assertEquals(0L, stats.get("shortlisted"));
+                assertEquals(0L, stats.get("selected"));
+                assertEquals(0L, stats.get("rejected"));
+        }
+
+    @Test
+    void recentApplicationsAreNewestFirstEvenWhenThereAreFewerThanFive() {
+        LocalDateTime now = LocalDateTime.now();
+        Application oldest = application(1, "IN_PROGRESS", List.of());
+        oldest.setId("oldest");
+        oldest.setApplicationDate(now.minusDays(3));
+        Application newest = application(1, "IN_PROGRESS", List.of());
+        newest.setId("newest");
+        newest.setApplicationDate(now);
+        Application middle = application(1, "IN_PROGRESS", List.of());
+        middle.setId("middle");
+        middle.setApplicationDate(now.minusDays(1));
+        when(applicationRepository.findByStudentId("student1"))
+                .thenReturn(List.of(oldest, newest, middle));
+        stubFindAllByIds(1, 2);
+
+        List<ApplicationDetail> recent = applicationService.getRecentStudentApplications("student1", 5);
+
+        assertEquals(List.of("newest", "middle", "oldest"), recent.stream()
+                .map(ApplicationDetail::getApplicationId).toList());
+    }
+
+    @Test
+    void applyStoresSelectedCourseAndRoleSeparately() {
+        when(applicationRepository.findByStudentIdAndPlacementId("student1", "placement1"))
+                .thenReturn(Optional.empty());
+        ArgumentCaptor<Application> captor = ArgumentCaptor.forClass(Application.class);
+
+        String result = applicationService.apply("student1", "placement1", "https://x/resume.pdf",
+                "B.Tech", "Gen AI");
+
+        assertEquals("applied", result);
+        verify(applicationRepository).save(captor.capture());
+        assertEquals("B.Tech", captor.getValue().getSelectedCourse());
+        assertEquals("Gen AI", captor.getValue().getSelectedRole());
+    }
+
+    @Test
+    void applyRejectsDuplicateBeforeSavingRole() {
+        when(applicationRepository.findByStudentIdAndPlacementId("student1", "placement1"))
+                .thenReturn(Optional.of(application(null, "Applied", new ArrayList<>())));
+
+        assertEquals("already",
+                applicationService.apply("student1", "placement1", "https://x/resume.pdf", "B.Tech", "Gen AI"));
+        verify(applicationRepository, never()).save(any());
+    }
+
+    @Test
+    void detailKeepsConfiguredRoleListSeparateFromStudentSelectedRole() {
+        Application application = application(null, "Applied", new ArrayList<>());
+        application.setSelectedCourse("B.Tech");
+        application.setSelectedRole("Gen AI");
+        when(applicationRepository.findAll()).thenReturn(List.of(application));
+        stubFindAllByIds(1, 2);
+
+        ApplicationDetail detail = applicationService.getAllApplications().get(0);
+
+        assertEquals("Gen AI", detail.getSelectedRole());
+        assertEquals("Gen AI", detail.getEffectiveRole());
+        assertEquals("Full Stack Developer", detail.getRole());
+        assertEquals("B.Tech", detail.getSelectedCourse());
+    }
+
+    @Test
+    void effectiveRoleFallsBackForLegacyApplications() {
+        Application legacy = application(null, "Applied", new ArrayList<>());
+        when(applicationRepository.findAll()).thenReturn(List.of(legacy));
+        stubFindAllByIds(1, 2);
+
+        ApplicationDetail detail = applicationService.getAllApplications().get(0);
+
+        assertNull(detail.getSelectedRole());
+        assertEquals("Full Stack Developer", detail.getEffectiveRole());
+    }
+
+    @Test
+    void exportFiltersMatchTheOnScreenTableFilters() {
+        ApplicationDetail northwind = detail("app1", "Northwind", "CSE", "2022-2026", "2026-08-20", 2,
+                "Gen AI, Backend Developer");
+        ApplicationDetail acme = detail("app2", "Acme Corp", "ECE", "2021-2025", "2026-01-10", 1,
+                "Frontend Developer");
+        List<ApplicationDetail> all = List.of(northwind, acme);
+
+        assertEquals(List.of(northwind), applicationService.filterDetails(all, null, null, null,
+                "Northwind", null, null, null, null));
+        assertEquals(List.of(northwind), applicationService.filterDetails(all, null, null, null,
+                null, "2022-2026", null, null, null));
+        assertEquals(List.of(acme), applicationService.filterDetails(all, null, null, null,
+                null, null, "ECE", null, null));
+        assertEquals(List.of(acme), applicationService.filterDetails(all, null, null, null,
+                null, null, null, java.time.LocalDate.of(2026, 1, 1), java.time.LocalDate.of(2026, 6, 30)));
+        assertEquals(List.of(northwind), applicationService.filterDetails(all, "gen ai", null, null,
+                null, null, null, null, null));
+        assertEquals(all, applicationService.filterDetails(all, null, null, null,
+                null, null, null, null, null));
+    }
+
+    @Test
+    void batchFilterMatchesRanges() {
+        ApplicationDetail ranged = detail("app1", "Northwind", "CSE", "2024-2027", "2026-08-20", 1, "Gen AI");
+        List<ApplicationDetail> all = List.of(ranged);
+
+        assertEquals(all, applicationService.filterDetails(all, null, null, null,
+                null, "2022-2025", null, null, null));
+        assertEquals(List.of(), applicationService.filterDetails(all, null, null, null,
+                null, "2028-2030", null, null, null));
+    }
+
+    private ApplicationDetail detail(String id, String company, String branch, String batch,
+                                     String appliedOn, int currentRound, String role) {
+        ApplicationDetail detail = new ApplicationDetail();
+        detail.setApplicationId(id);
+        detail.setCompany(company);
+        detail.setBranch(branch);
+        detail.setBatch(batch);
+        detail.setCurrentRound(currentRound);
+        detail.setStatus("IN_PROGRESS");
+        detail.setRole(role);
+        detail.setSelectedRole(role.contains(",") ? role.split(",")[0].trim() : role);
+        detail.setApplicationDate(LocalDateTime.parse(appliedOn + "T09:00:00"));
+        return detail;
     }
 }

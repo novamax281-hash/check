@@ -18,10 +18,6 @@ let allJobs = [];
 let appliedJobIds = [];
 let pendingApplication = null;
 
-function roleOf(job) {
-    return (job.jobRole && String(job.jobRole).trim()) ? String(job.jobRole).trim() : job.jobType;
-}
-
 function parseDeadline(value) {
     if (!value) return null;
     var s = String(value).trim();
@@ -119,7 +115,8 @@ function fillFilters() {
     branchFilter.innerHTML = '<option value="">All branches</option>' +
         options(allJobs.map(j => j.branch));
     companyFilter.innerHTML = '<option value="">All companies</option>' + options(allJobs.map(j => j.company));
-    roleFilter.innerHTML = '<option value="">All roles</option>' + options(allJobs.map(j => roleOf(j)));
+    roleFilter.innerHTML = '<option value="">All roles</option>' +
+        options(allJobs.reduce(function(acc, j) { return acc.concat(splitList(j.jobRole || j.jobType)); }, []));
     skillFilter.innerHTML = '<option value="">All skills</option>' + options(allJobs.map(j => j.skills));
     eligibilityFilter.innerHTML = '<option value="">All eligibility</option>' + options(allJobs.map(j => j.eligibility));
     locationFilter.innerHTML = '<option value="">All locations</option>' + options(allJobs.map(j => j.location));
@@ -155,12 +152,13 @@ function render() {
     const toMs = dateToFilter.value ? new Date(dateToFilter.value + "T23:59:59").getTime() : null;
 
     const filtered = allJobs.filter(function(job) {
-        const text = (job.company + " " + roleOf(job)).toLowerCase();
+        const roles = splitList(job.jobRole || job.jobType);
+        const text = (job.company + " " + roles.join(" ")).toLowerCase();
         const matchesSearch = !search || text.includes(search);
         const matchesBatch = !batch || window.UI.batchMatches(job.batch, batch);
         const matchesBranch = !branch || job.branch === branch;
         const matchesCompany = !company || job.company === company;
-        const matchesRole = !role || roleOf(job) === role;
+        const matchesRole = !role || roles.indexOf(role) !== -1;
         const matchesSkill = !skill || (job.skills && job.skills.includes(skill));
         const matchesEligibility = !eligibility || (job.eligibility && job.eligibility.includes(eligibility));
         const matchesLocation = !location || job.location === location;
@@ -197,15 +195,16 @@ function render() {
         const criteria = critParts.map(function(criterion) {
             return '<span class="placement-criteria-chip">' + esc(criterion) + "</span>";
         }).join("");
-        const courses = String(job.courses || "").split(",").map(function(course) {
-            return course.trim();
-        }).filter(Boolean);
+        const courses = splitList(job.courses);
         const courseList = courses.length
-            ? '<p><strong>Courses:</strong> ' + courses.map(esc).join(", ") + "</p>" : "";
+            ? '<p><strong>Eligible courses:</strong> ' + courses.map(esc).join(", ") + "</p>" : "";
+        const roles = splitList(job.jobRole || job.jobType);
+        const roleList = roles.length
+            ? '<p><strong>Job roles:</strong> ' + roles.map(esc).join(", ") + "</p>" : "";
         return `
             <div class="placement-card">
                 <h3>${esc(job.company || "Company")}</h3>
-                <div class="role">${esc(roleOf(job) || "Role")}</div>
+                <div class="role">${esc(roles.length === 1 ? roles[0] : "Multiple roles available")}</div>
                 <div class="meta">
                     <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg> ${esc(salary)}</span>
                     <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6.1 7-11a7 7 0 1 0-14 0c0 4.9 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/></svg> ${esc(job.location || "N/A")}</span>
@@ -216,6 +215,7 @@ function render() {
                 <p><strong>Eligibility:</strong> ${esc(job.eligibility || "N/A")}</p>
                 ${criteria ? '<section class="placement-criteria" aria-label="Minimum academic criteria"><span class="placement-criteria-label">Minimum academic criteria</span><div class="placement-criteria-list">' + criteria + "</div></section>" : ""}
                 <p><strong>Skills:</strong> ${esc(job.skills || "N/A")}</p>
+                ${roleList}
                 ${courseList}
                 ${desc ? '<p class="desc">' + esc(desc) + "</p>" : ""}
                 ${descLong ? '<button type="button" class="desc-toggle">View more</button>' : ""}
@@ -288,15 +288,27 @@ function applyToJob(jobId, button) {
     document.getElementById("resumeUrlInput").value = "";
     const courseGroup = document.getElementById("courseSelectionGroup");
     const courseInput = document.getElementById("selectedCourseInput");
-    const courses = String(job.courses || "").split(",").map(function(course) {
-        return course.trim();
-    }).filter(Boolean);
+    const courses = splitList(job.courses);
     courseGroup.hidden = courses.length === 0;
     courseInput.required = courses.length > 0;
     courseInput.innerHTML = '<option value="">Select a course</option>' + courses.map(function(course) {
         return '<option value="' + UI.escapeHtml(course) + '">' + UI.escapeHtml(course) + "</option>";
     }).join("");
+    const roleGroup = document.getElementById("roleSelectionGroup");
+    const roleInput = document.getElementById("selectedRoleInput");
+    const roles = splitList(job.jobRole || job.jobType);
+    roleGroup.hidden = roles.length === 0;
+    roleInput.required = roles.length > 0;
+    roleInput.innerHTML = '<option value="">Select a job role</option>' + roles.map(function(role) {
+        return '<option value="' + UI.escapeHtml(role) + '">' + UI.escapeHtml(role) + "</option>";
+    }).join("");
     UI.openModal(document.getElementById("resumeModal"));
+}
+
+function splitList(value) {
+    return String(value || "").split(",").map(function(entry) {
+        return entry.trim();
+    }).filter(Boolean);
 }
 
 async function submitApplication() {
@@ -318,7 +330,8 @@ async function submitApplication() {
             body: JSON.stringify({
                 jobId: jobId,
                 resumeUrl: resumeInput.value.trim(),
-                selectedCourse: document.getElementById("selectedCourseInput").value
+                selectedCourse: document.getElementById("selectedCourseInput").value,
+                selectedRole: document.getElementById("selectedRoleInput").value
             })
         });
         if (UI.redirectIfUnauthorized(response)) return;

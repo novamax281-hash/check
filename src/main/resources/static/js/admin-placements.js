@@ -25,8 +25,7 @@ const fields = {
     mode: document.getElementById("fMode"),
     likelyDateOfJoining: document.getElementById("fDoj"),
     salaryLpa: document.getElementById("fSalaryLpa"),
-    batchFrom: document.getElementById("fBatchFrom"),
-    batchTo: document.getElementById("fBatchTo"),
+    batchRangesList: document.getElementById("batchRangesList"),
     branch: document.getElementById("fBranch"),
     minTenth: document.getElementById("fMinTenth"),
     minTwelfth: document.getElementById("fMinTwelfth"),
@@ -36,6 +35,7 @@ const fields = {
 
 const roundsEditor = document.getElementById("roundsEditor");
 const addRoundBtn = document.getElementById("addRoundBtn");
+const addBatchRangeBtn = document.getElementById("addBatchRangeBtn");
 
 const roundsModal = document.getElementById("roundsModal");
 const roundsJobInfo = document.getElementById("roundsJobInfo");
@@ -124,6 +124,62 @@ function toDateInputValue(value) {
     return match[1] + "-" + match[2].padStart(2, "0") + "-" + match[3].padStart(2, "0");
 }
 
+function addBatchRangeRow(range) {
+    const row = document.createElement("div");
+    row.className = "batch-range-row";
+    row.style.cssText = "display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:center;margin-bottom:8px;";
+
+    const fromYear = document.createElement("input");
+    fromYear.type = "number";
+    fromYear.min = "1000";
+    fromYear.max = "9999";
+    fromYear.step = "1";
+    fromYear.className = "batch-from-year";
+    fromYear.placeholder = "From Year";
+    fromYear.setAttribute("aria-label", "Eligible batch from year");
+    fromYear.value = range ? range.from : "";
+
+    const toYear = document.createElement("input");
+    toYear.type = "number";
+    toYear.min = "1000";
+    toYear.max = "9999";
+    toYear.step = "1";
+    toYear.className = "batch-to-year";
+    toYear.placeholder = "To Year";
+    toYear.setAttribute("aria-label", "Eligible batch to year");
+    toYear.value = range ? range.to : "";
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.className = "btn btn-small btn-secondary batch-range-remove";
+    removeButton.title = "Remove batch range";
+    removeButton.setAttribute("aria-label", "Remove batch range");
+    removeButton.textContent = "×";
+    row.append(fromYear, toYear, removeButton);
+    fields.batchRangesList.appendChild(row);
+}
+
+function setBatchRanges(value) {
+    fields.batchRangesList.innerHTML = "";
+    const ranges = String(value || "").split(",").map(function(token) {
+        const years = token.match(/\d{4}/g) || [];
+        if (!years.length) return null;
+        return { from: years[0], to: years.length > 1 ? years[1] : years[0] };
+    }).filter(Boolean);
+    (ranges.length ? ranges : [null]).forEach(addBatchRangeRow);
+}
+
+function collectBatchRanges() {
+    return Array.from(fields.batchRangesList.querySelectorAll(".batch-range-row")).map(function(row) {
+        return {
+            from: row.querySelector(".batch-from-year").value.trim(),
+            to: row.querySelector(".batch-to-year").value.trim()
+        };
+    }).filter(function(range) {
+        return range.from || range.to;
+    });
+}
+
 function openModal(job) {
     editingId = job ? job.id : null;
     currentModalJobId = job ? job.id : null;
@@ -144,9 +200,7 @@ function openModal(job) {
     fields.mode.value = job ? job.mode || "" : "";
     fields.likelyDateOfJoining.value = toDateInputValue(job ? job.likelyDateOfJoining : "");
     fields.salaryLpa.value = job ? (job.salaryLpa != null ? job.salaryLpa : "") : "";
-    const years = job && job.batch ? String(job.batch).match(/\d{4}/g) || [] : [];
-    fields.batchFrom.value = years.length ? years[0] : "";
-    fields.batchTo.value = years.length > 1 ? years[years.length - 1] : years.length ? years[0] : "";
+    setBatchRanges(job ? job.batch : "");
     fields.branch.value = job ? job.branch || "" : "";
     fields.minTenth.value = job && job.minTenth != null ? job.minTenth : "";
     fields.minTwelfth.value = job && job.minTwelfth != null ? job.minTwelfth : "";
@@ -247,8 +301,9 @@ function collectJob() {
         mode: fields.mode.value.trim(),
         likelyDateOfJoining: fields.likelyDateOfJoining.value.trim(),
         salaryLpa: fields.salaryLpa.value.trim(),
-        batch: fields.batchFrom.value.trim() && fields.batchTo.value.trim()
-            ? fields.batchFrom.value.trim() + "-" + fields.batchTo.value.trim() : "",
+        batch: collectBatchRanges().map(function(range) {
+            return range.from + "-" + range.to;
+        }).join(", "),
         courses: fields.courses.value.split(",").map(function(course) {
             return course.trim();
         }).filter(Boolean).join(", "),
@@ -334,16 +389,15 @@ async function saveJob() {
         window.UI.showToast("Company name is required.", "warning");
         return;
     }
-    const batchFrom = fields.batchFrom.value.trim();
-    const batchTo = fields.batchTo.value.trim();
-    if ((batchFrom && !/^\d{4}$/.test(batchFrom)) || (batchTo && !/^\d{4}$/.test(batchTo))
-            || (batchFrom && !batchTo) || (!batchFrom && batchTo)) {
-        window.UI.showToast("Enter both eligible batch years in YYYY format.", "warning");
-        return;
-    }
-    if (batchFrom && Number(batchFrom) > Number(batchTo)) {
-        window.UI.showToast("From Year cannot be greater than To Year.", "warning");
-        return;
+    for (const range of collectBatchRanges()) {
+        if (!/^\d{4}$/.test(range.from) || !/^\d{4}$/.test(range.to)) {
+            window.UI.showToast("Enter both eligible batch years in YYYY format.", "warning");
+            return;
+        }
+        if (Number(range.from) > Number(range.to)) {
+            window.UI.showToast("From Year cannot be greater than To Year.", "warning");
+            return;
+        }
     }
     const rounds = collectRounds();
     const seen = new Set();
@@ -408,6 +462,17 @@ addJobBtn.addEventListener("click", function() {
 
 addRoundBtn.addEventListener("click", function() {
     addRoundRow(null);
+});
+
+addBatchRangeBtn.addEventListener("click", function() {
+    addBatchRangeRow(null);
+});
+
+fields.batchRangesList.addEventListener("click", function(event) {
+    const removeButton = event.target.closest(".batch-range-remove");
+    if (!removeButton) return;
+    removeButton.closest(".batch-range-row").remove();
+    if (!fields.batchRangesList.querySelector(".batch-range-row")) addBatchRangeRow(null);
 });
 
 roundsEditor.addEventListener("click", function(event) {

@@ -104,8 +104,21 @@ public class UserController {
             selectedCourse = configuredCourses.stream()
                 .filter(course -> course.equalsIgnoreCase(requestedCourse)).findFirst().orElse(null);
         }
+        String selectedRole = body.get("selectedRole");
+        List<String> configuredRoles = job.getJobRole() == null ? List.of()
+                : java.util.Arrays.stream(job.getJobRole().split(","))
+                        .map(String::trim).filter(role -> !role.isEmpty()).toList();
+        String requestedRole = selectedRole == null ? "" : selectedRole.trim();
+        if (!configuredRoles.isEmpty() && (requestedRole.isEmpty() || configuredRoles.stream()
+            .noneMatch(role -> role.equalsIgnoreCase(requestedRole)))) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Select a job role configured for this placement"));
+        }
+        if (!requestedRole.isEmpty() && !configuredRoles.isEmpty()) {
+            selectedRole = configuredRoles.stream()
+                .filter(role -> role.equalsIgnoreCase(requestedRole)).findFirst().orElse(null);
+        }
         try {
-            String result = applicationService.apply(user.getId(), jobId, resumeUrl.trim(), selectedCourse);
+            String result = applicationService.apply(user.getId(), jobId, resumeUrl.trim(), selectedCourse, selectedRole);
             if ("already".equals(result)) {
                 return ResponseEntity.badRequest().body(Map.of("message", "You have already applied for this placement"));
             }

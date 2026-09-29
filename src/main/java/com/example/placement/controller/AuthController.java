@@ -1,28 +1,17 @@
 package com.example.placement.controller;
 
-import com.example.placement.dto.LoginRequest;
-import com.example.placement.dto.LoginResponse;
-import com.example.placement.dto.OtpVerifyRequest;
-import com.example.placement.dto.RegisterRequest;
-import com.example.placement.dto.EmailRequest;
-import com.example.placement.dto.PasswordResetRequest;
-import com.example.placement.dto.StudentLoginRequest;
-import com.example.placement.entity.UsersEntries;
-import com.example.placement.repository.UsersRepository;
-import com.example.placement.service.AuthenticationService;
-import com.example.placement.service.OtpService;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -32,10 +21,20 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.Map;
-import java.util.List;
-import java.util.concurrent.RejectedExecutionException;
-import java.util.stream.Collectors;
+import com.example.placement.dto.EmailRequest;
+import com.example.placement.dto.LoginRequest;
+import com.example.placement.dto.LoginResponse;
+import com.example.placement.dto.OtpVerifyRequest;
+import com.example.placement.dto.PasswordResetRequest;
+import com.example.placement.dto.RegisterRequest;
+import com.example.placement.dto.StudentLoginRequest;
+import com.example.placement.entity.UsersEntries;
+import com.example.placement.repository.UsersRepository;
+import com.example.placement.service.AuthenticationService;
+import com.example.placement.service.OtpService;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -82,30 +81,8 @@ public class AuthController {
                         .body(new LoginResponse("No email address registered for this account. Contact your placement coordinator.", ""));
             }
 
-            if (!otpService.canResend(loginRequest.getEnrollmentno())) {
-                long wait = otpService.resendWaitSeconds(loginRequest.getEnrollmentno());
-                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                        .body(new LoginResponse("Please wait " + wait + " seconds before requesting another OTP.", ""));
-            }
-
-            if (otpService.isRateLimited(clientIp(request))) {
-                return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                        .body(new LoginResponse("Too many OTP requests right now. Please try again later.", ""));
-            }
-
-            String otp = otpService.generateOtp();
-            otpService.storeOtp(loginRequest.getEnrollmentno(), otp);
-
-            try {
-                otpService.sendOtp(loginRequest.getEnrollmentno(), email, otp);
-            } catch (RejectedExecutionException rejected) {
-                if (!otpService.sendOtpSync(loginRequest.getEnrollmentno(), email, otp)) {
-                    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                            .body(new LoginResponse("Could not send the OTP email right now. Please try again.", ""));
-                }
-            }
-
-            return ResponseEntity.ok(new LoginResponse("OTP sent to your registered email", "", true, maskEmail(email)));
+            OtpService.OtpRequestResult result = otpService.requestOtp(loginRequest.getEnrollmentno(), email);
+            return otpResponse(result, "OTP sent to your registered email", email);
         } catch (RuntimeException exception) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new LoginResponse("Invalid enrollment number or mobile number", ""));
@@ -172,30 +149,9 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(new LoginResponse("This email address is already registered. Sign in instead.", ""));
         }
-        if (otpService.isRateLimited(clientIp(request))) {
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                    .body(new LoginResponse("Too many OTP requests right now. Please try again later.", ""));
-        }
         String key = registerOtpKey(email);
-        if (!otpService.canResend(key)) {
-            long wait = otpService.resendWaitSeconds(key);
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                    .body(new LoginResponse("Please wait " + wait + " seconds before requesting another OTP.", ""));
-        }
-
-        String otp = otpService.generateOtp();
-        otpService.storeOtp(key, otp);
-
-        try {
-            otpService.sendOtp(key, email, otp);
-        } catch (RejectedExecutionException rejected) {
-            if (!otpService.sendOtpSync(key, email, otp)) {
-                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                        .body(new LoginResponse("Could not send the OTP email right now. Please try again.", ""));
-            }
-        }
-
-        return ResponseEntity.ok(new LoginResponse("OTP sent to your college email", "", true, maskEmail(email)));
+        OtpService.OtpRequestResult result = otpService.requestOtp(key, email);
+        return otpResponse(result, "OTP sent to your college email", email);
     }
 
     @PostMapping("/register/verify")
@@ -239,34 +195,14 @@ public class AuthController {
                                                                HttpServletRequest request) {
         String email = emailRequest.getEmail().trim().toLowerCase();
         String key = passwordResetKey(email);
-        if (otpService.isRateLimited(clientIp(request))) {
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                    .body(new LoginResponse("Too many OTP requests right now. Please try again later.", ""));
-        }
-
         UsersEntries user = usersRepository.findByEmailIgnoreCase(email);
         if (!authenticationService.isStudent(user)) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                     .body(new LoginResponse("No student account is registered with that email address.", ""));
         }
 
-        if (!otpService.canResend(key)) {
-            long wait = otpService.resendWaitSeconds(key);
-            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                    .body(new LoginResponse(
-                            "A code was already sent. Please wait " + wait + " seconds before requesting another.",
-                            "", true, maskEmail(email)));
-        }
-
-        String otp = otpService.generateOtp();
-        otpService.storeOtp(key, otp);
-        if (!otpService.sendOtpSync(key, email, otp)) {
-            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
-                    .body(new LoginResponse(
-                            "Could not send the OTP email right now. Please try again in a few minutes.", ""));
-        }
-        return ResponseEntity.ok(new LoginResponse(
-                "Password reset code sent to " + maskEmail(email), "", true, maskEmail(email)));
+        OtpService.OtpRequestResult result = otpService.requestOtp(key, email);
+        return otpResponse(result, "Password reset code sent to " + maskEmail(email), email);
     }
 
     @PostMapping("/forgot-password/reset")
@@ -302,6 +238,44 @@ public class AuthController {
                     .body(new LoginResponse("Invalid or expired OTP", ""));
         }
         return ResponseEntity.ok(new LoginResponse("Code verified. Create your new password.", "STUDENT"));
+    }
+
+    private ResponseEntity<LoginResponse> otpResponse(OtpService.OtpRequestResult result,
+                                                       String successMessage, String email) {
+        HttpStatus status;
+        String message;
+        boolean otpRequired = false;
+        switch (result.status()) {
+            case SENT -> {
+                status = HttpStatus.OK;
+                message = successMessage;
+                otpRequired = true;
+            }
+            case COOLDOWN -> {
+                status = HttpStatus.TOO_MANY_REQUESTS;
+                message = "Please wait " + result.retryAfterSeconds()
+                        + " seconds before requesting another OTP.";
+            }
+            case DAILY_LIMIT -> {
+                status = HttpStatus.TOO_MANY_REQUESTS;
+                message = "Daily OTP limit reached. Please try again tomorrow.";
+            }
+            case IN_PROGRESS -> {
+                status = HttpStatus.TOO_MANY_REQUESTS;
+                message = "An OTP request is already being processed. Please wait.";
+            }
+            case TEMPORARY_FAILURE -> {
+                status = HttpStatus.SERVICE_UNAVAILABLE;
+                message = "OTP could not be sent. Please try again after some time.";
+            }
+            default -> throw new IllegalStateException("Unhandled OTP request status");
+        }
+
+        LoginResponse response = new LoginResponse(message, "", otpRequired,
+                email == null ? null : maskEmail(email));
+        response.setOtpAttemptsRemaining(result.attemptsRemaining());
+        response.setRetryAfterSeconds(result.retryAfterSeconds());
+        return ResponseEntity.status(status).body(response);
     }
 
     private void establishSession(Authentication authentication, HttpServletRequest request) {
@@ -342,13 +316,6 @@ public class AuthController {
         return local.substring(0, 2) + "***" + domain;
     }
 
-    private String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
-        return request.getRemoteAddr();
-    }
 
     private boolean isMissing(String value) {
         return value == null || value.trim().isEmpty();

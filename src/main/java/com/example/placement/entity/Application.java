@@ -44,6 +44,8 @@ public class Application {
 
     private String selectedCourse;
 
+    private String selectedRole;
+
     private String adminRemark;
 
     private List<ApplicationRound> rounds = new ArrayList<>();

@@ -26,6 +26,8 @@ public class ApplicationDetail {
 
     private String selectedCourse;
 
+    private String selectedRole;
+
     private String studentBatch;
 
     private String studentStatus;
@@ -107,4 +109,18 @@ public class ApplicationDetail {
     private String resumeUrl;
 
     private String adminRemark;
+
+    /**
+     * Role the student actually applied for. Falls back to the placement's configured role
+     * list for legacy applications stored before a selected role was captured.
+     */
+    public String getEffectiveRole() {
+        if (selectedRole != null && !selectedRole.isBlank()) {
+            return selectedRole;
+        }
+        if (role != null && !role.isBlank()) {
+            return role;
+        }
+        return jobType;
+    }
 }

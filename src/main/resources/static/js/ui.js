@@ -284,6 +284,16 @@
         return Number.isNaN(time) ? null : time;
     }
 
+    function batchRanges(value) {
+        return String(value || "").split(",").map(function (token) {
+            var match = token.trim().match(/^(\d{4})(?:\s*-\s*(\d{4}))?$/);
+            if (!match) return null;
+            var start = Number(match[1]);
+            var end = match[2] ? Number(match[2]) : start;
+            return start <= end ? [start, end] : [end, start];
+        }).filter(Boolean);
+    }
+
     function batchYears(value) {
         var numbers = String(value || "").match(/\d{4}/g);
         if (!numbers) return null;
@@ -296,12 +306,14 @@
         var a = String(appBatch).trim();
         var s = String(selected).trim();
         if (a === s) return true;
-        var selectedYear = Number((s.match(/\d{4}/) || [])[0]);
-        var rangeA = batchYears(a);
-        if (selectedYear && rangeA && selectedYear >= rangeA[0] && selectedYear <= rangeA[1]) return true;
-        var rangeS = batchYears(s);
-        if (rangeA && rangeS) {
-            return rangeA[0] <= rangeS[1] && rangeS[0] <= rangeA[1];
+        var rangesA = batchRanges(a);
+        var rangesS = batchRanges(s);
+        if (rangesA.length && rangesS.length) {
+            return rangesA.some(function (rangeA) {
+                return rangesS.some(function (rangeS) {
+                    return rangeA[0] <= rangeS[1] && rangeS[0] <= rangeA[1];
+                });
+            });
         }
         return a.includes(s) || s.includes(a);
     }

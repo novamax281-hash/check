@@ -7,11 +7,13 @@ import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -41,6 +43,7 @@ import com.example.placement.entity.UsersEntries;
 import com.example.placement.repository.PlacementRepository;
 import com.example.placement.repository.UsersRepository;
 import com.example.placement.service.ApplicationService;
+import com.example.placement.service.BatchRanges;
 import com.example.placement.service.CloudinaryService;
 import com.example.placement.service.CsvExportService;
 
@@ -114,32 +117,38 @@ public class AdminController {
 
     private void mergeJob(Placement existing, Placement incoming) {
         validateJob(incoming);
-        copyIfPresent(incoming.getCompany(), existing::setCompany);
-        copyIfPresent(incoming.getJobRole(), existing::setJobRole);
-        copyIfPresent(incoming.getJobType(), existing::setJobType);
-        copyIfPresent(incoming.getStipend(), existing::setStipend);
-        copyIfPresent(incoming.getProgramFee(), existing::setProgramFee);
-        copyIfPresent(incoming.getDuration(), existing::setDuration);
-        copyIfPresent(incoming.getSkills(), existing::setSkills);
-        copyIfPresent(incoming.getEligibility(), existing::setEligibility);
-        copyIfPresent(incoming.getApplicationDeadline(), existing::setApplicationDeadline);
-        copyIfPresent(incoming.getApplicationLink(), existing::setApplicationLink);
-        copyIfPresent(incoming.getJobDescription(), existing::setJobDescription);
-        copyIfPresent(incoming.getLocation(), existing::setLocation);
-        copyIfPresent(incoming.getOpenings(), existing::setOpenings);
+        // Fields owned by the placement form: clearing them must persist.
+        copyFromForm(incoming.getCompany(), existing::setCompany);
+        copyFromForm(incoming.getJobRole(), existing::setJobRole);
+        copyFromForm(incoming.getJobType(), existing::setJobType);
+        copyFromForm(incoming.getLocation(), existing::setLocation);
+        copyFromForm(incoming.getEligibility(), existing::setEligibility);
+        copyFromForm(incoming.getSkills(), existing::setSkills);
+        copyFromForm(incoming.getApplicationDeadline(), existing::setApplicationDeadline);
+        copyFromForm(incoming.getOpenings(), existing::setOpenings);
+        copyFromForm(incoming.getJobDescription(), existing::setJobDescription);
+        copyFromForm(incoming.getWebsite(), existing::setWebsite);
+        copyFromForm(incoming.getDriveType(), existing::setDriveType);
+        copyFromForm(incoming.getMode(), existing::setMode);
+        copyFromForm(incoming.getLikelyDateOfJoining(), existing::setLikelyDateOfJoining);
+        copyFromForm(incoming.getSalaryLpa(), existing::setSalaryLpa);
+        copyFromForm(incoming.getBranch(), existing::setBranch);
         if (incoming.getBatch() != null) {
             existing.setBatch(incoming.getBatch().trim());
         }
         if (incoming.getCourses() != null) {
             existing.setCourses(incoming.getCourses().trim());
         }
-        copyIfPresent(incoming.getBranch(), existing::setBranch);
+        if (incoming.getStatus() != null && !isBlank(incoming.getStatus())) {
+            existing.setStatus(incoming.getStatus());
+        }
+        // Fields not present on the placement form must survive an update untouched.
+        copyIfPresent(incoming.getStipend(), existing::setStipend);
+        copyIfPresent(incoming.getProgramFee(), existing::setProgramFee);
+        copyIfPresent(incoming.getDuration(), existing::setDuration);
+        copyIfPresent(incoming.getApplicationLink(), existing::setApplicationLink);
         copyIfPresent(incoming.getApplication_date(), existing::setApplication_date);
-        copyIfPresent(incoming.getWebsite(), existing::setWebsite);
-        copyIfPresent(incoming.getDriveType(), existing::setDriveType);
-        copyIfPresent(incoming.getMode(), existing::setMode);
         copyIfPresent(incoming.getCtc(), existing::setCtc);
-        copyIfPresent(incoming.getSalaryLpa(), existing::setSalaryLpa);
         if (incoming.getMinTenth() != null) {
             existing.setMinTenth(incoming.getMinTenth());
         }
@@ -152,10 +161,6 @@ public class AdminController {
         if (incoming.getMinCgpa() != null) {
             existing.setMinCgpa(incoming.getMinCgpa());
         }
-        copyIfPresent(incoming.getLikelyDateOfJoining(), existing::setLikelyDateOfJoining);
-        if (incoming.getStatus() != null && !isBlank(incoming.getStatus())) {
-            existing.setStatus(incoming.getStatus());
-        }
         if (incoming.getRounds() != null && !incoming.getRounds().isEmpty()) {
             existing.setRounds(incoming.getRounds());
         }
@@ -165,6 +170,17 @@ public class AdminController {
         if (incoming != null && !incoming.isBlank() && !"None".equalsIgnoreCase(incoming.trim())) {
             setter.accept(incoming.trim());
         }
+    }
+
+    /**
+     * Overwrites a field the placement form owns, including when the admin clears it, so that
+     * emptying a field actually removes the stored value instead of silently keeping the old one.
+     */
+    private void copyFromForm(String incoming, java.util.function.Consumer<String> setter) {
+        if (incoming == null || "None".equalsIgnoreCase(incoming.trim())) {
+            return;
+        }
+        setter.accept(incoming.trim());
     }
 
     @DeleteMapping("/jobs/{id}")
@@ -185,12 +201,11 @@ public class AdminController {
             job.setRounds(new ArrayList<>());
         }
         if (job.getBatch() != null && !job.getBatch().isBlank()) {
-            String[] years = job.getBatch().trim().split("-", -1);
-            if (years.length != 2 || !years[0].matches("\\d{4}") || !years[1].matches("\\d{4}")
-                    || Integer.parseInt(years[0]) > Integer.parseInt(years[1])) {
+            if (!BatchRanges.isValidSpec(job.getBatch())) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Eligible batch must have a valid From Year and To Year");
+                        "Each eligible batch must be a valid From Year and To Year, for example 2022-2026");
             }
+            job.setBatch(BatchRanges.normalize(job.getBatch()));
         }
     }
 
@@ -455,44 +470,45 @@ public class AdminController {
         return applicationService.adminStats();
     }
 
+    @GetMapping("/applications/export-fields")
+    public Map<String, Object> applicationExportFields() {
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("defaults", CsvExportService.APPLICATION_DEFAULT_COLUMNS);
+        response.put("optional", CsvExportService.APPLICATION_OPTIONAL_COLUMNS);
+        response.put("groups", CsvExportService.APPLICATION_FIELD_GROUPS);
+        return response;
+    }
+
     @GetMapping("/applications/export")
     public void exportApplications(@RequestParam(required = false) String jobId,
                                    @RequestParam(required = false) String status,
                                    @RequestParam(required = false) Integer round,
                                    @RequestParam(required = false) String search,
+                                   @RequestParam(required = false) String company,
+                                   @RequestParam(required = false) String batch,
+                                   @RequestParam(required = false) String branch,
+                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                                   LocalDate from,
+                                   @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+                                   LocalDate to,
+                                   @RequestParam(required = false) String fields,
                                    HttpServletResponse response) throws IOException {
-        List<ApplicationDetail> rows = applicationService.getAllApplications().stream()
-                .filter(application -> jobId == null || jobId.isBlank()
-                        || jobId.equals(application.getPlacementId()))
-                .filter(application -> status == null || status.isBlank()
-                        || status.equalsIgnoreCase(application.getStatus()))
-                .filter(application -> round == null
-                        || round.equals(application.getCurrentRound()))
-                .filter(application -> matchesSearch(application, search))
+        List<ApplicationDetail> rows = applicationService.filterDetails(
+                        applicationService.getAllApplications(), search, status, jobId, company, batch, branch, from, to)
+                .stream()
+                .filter(application -> round == null || round.equals(application.getCurrentRound()))
                 .toList();
 
-        csvDownload(response, "applications", writer -> csvExportService.writeApplications(writer, rows));
+        List<String> columns = CsvExportService.resolveApplicationColumns(
+                fields == null || fields.isBlank() ? null : Arrays.asList(fields.split(",")));
+
+        csvDownload(response, "applications", writer -> csvExportService.writeApplications(writer, rows, columns));
     }
 
     @GetMapping("/placements/export")
     public void exportPlacements(HttpServletResponse response) throws IOException {
         List<Placement> rows = placementRepository.findAll();
         csvDownload(response, "placements", writer -> csvExportService.writePlacements(writer, rows));
-    }
-
-    private boolean matchesSearch(ApplicationDetail application, String search) {
-        if (search == null || search.isBlank()) {
-            return true;
-        }
-        String needle = search.toLowerCase();
-        String[] fields = {application.getStudentName(), application.getStudentEmail(),
-                application.getEnrollmentno(), application.getCompany(), application.getRole()};
-        for (String field : fields) {
-            if (field != null && field.toLowerCase().contains(needle)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private void csvDownload(HttpServletResponse response, String entityName,

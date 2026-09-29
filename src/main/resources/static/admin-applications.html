@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Applications | LLOYD Career</title>
-    <link rel="stylesheet" href="css/portal.css?v=15">
+    <link rel="stylesheet" href="css/portal.css?v=16">
     <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
 </head>
 <body data-role="admin" data-active="applications" data-title="Applications">
@@ -30,6 +30,7 @@
                 <button type="button" class="btn btn-secondary" id="selectQualifiedBtn">Select All Qualified</button>
                 <button type="button" class="btn btn-secondary" id="appBulkBtn">Bulk Actions</button>
                 <button type="button" class="btn btn-secondary" id="exportBtn" title="Download filtered list as CSV">Export CSV</button>
+                <button type="button" class="btn btn-secondary" id="customizeExportBtn" title="Choose which columns to include">Customize Export</button>
                 <button type="button" class="btn btn-secondary" id="appAdvancedToggleBtn">Rounds &amp; Students &blackdown;</button>
             </div>
 
@@ -130,8 +131,9 @@
                     <th>Student</th>
                     <th>Email</th>
                     <th>Company</th>
-                    <th>Role</th>
-                    <th>Selected Course</th>
+                    <th>Job Roles</th>
+                    <th>Applied Role</th>
+                    <th>Course</th>
                     <th>Batch &middot; Branch</th>
                     <th>Applied</th>
                     <th>Round</th>
@@ -263,8 +265,8 @@
     </div>
 </div>
 
-<script src="js/ui.js?v=8"></script>
-<script src="js/admin-applications.js?v=7"></script>
+<script src="js/ui.js?v=9"></script>
+<script src="js/admin-applications.js?v=8"></script>
 <script>
     (function () {
         "use strict";
@@ -351,5 +353,28 @@
         refreshFilterBadge();
     })();
 </script>
+
+<div class="modal" id="exportModal" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2 id="exportModalTitle">Customize Export</h2>
+        </div>
+        <p style="color:var(--text-muted);">Choose the columns to include. The export always respects the filters currently applied to the table.</p>
+        <div class="toolbar" style="margin: 14px 0;">
+            <button type="button" class="btn btn-small btn-secondary" id="exportSelectAllBtn">Select all</button>
+            <button type="button" class="btn btn-small btn-secondary" id="exportClearAllBtn">Clear all</button>
+            <button type="button" class="btn btn-small btn-secondary" id="exportResetBtn">Reset default</button>
+            <span class="badge" id="exportCountBadge">0 selected</span>
+        </div>
+        <div id="exportFieldsContainer" style="max-height: 46vh; overflow-y: auto; border:1px solid var(--border); border-radius:10px; padding:14px;">
+            <p style="color:var(--text-muted);">Loading available fields...</p>
+        </div>
+        <p class="field-hint" id="exportStatusHint" style="margin-top:10px;"></p>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="cancelExportBtn">Cancel</button>
+            <button type="button" class="btn" id="confirmExportBtn">Export CSV</button>
+        </div>
+    </div>
+</div>
 </body>
 </html>

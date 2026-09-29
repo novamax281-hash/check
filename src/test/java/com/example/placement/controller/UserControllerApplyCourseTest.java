@@ -24,6 +24,8 @@ import com.example.placement.service.ApplicationService;
 
 class UserControllerApplyCourseTest {
 
+    private static final String RESUME = "https://example.com/resume.pdf";
+
     private UsersRepository usersRepository;
     private ApplicationService applicationService;
     private PlacementRepository placementRepository;
@@ -51,6 +53,7 @@ class UserControllerApplyCourseTest {
         job.setId("job-1");
         job.setStatus("Open");
         job.setCourses("Full Stack, Data Science, Java");
+        job.setJobRole("Backend Developer, Gen AI");
         when(placementRepository.findById("job-1")).thenReturn(Optional.of(job));
         when(applicationService.isEligible(job, student)).thenReturn(true);
     }
@@ -59,25 +62,93 @@ class UserControllerApplyCourseTest {
     void apply_rejectsCourseNotConfiguredForPlacement() {
         var response = controller.apply(authentication, Map.of(
                 "jobId", "job-1",
-                "resumeUrl", "https://example.com/resume.pdf",
-                "selectedCourse", "Python"));
+                "resumeUrl", RESUME,
+                "selectedCourse", "Python",
+                "selectedRole", "Gen AI"));
 
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        verify(applicationService, never()).apply(any(), any(), any(), any());
+        verify(applicationService, never()).apply(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void apply_rejectsRoleNotConfiguredForPlacement() {
+        var response = controller.apply(authentication, Map.of(
+                "jobId", "job-1",
+                "resumeUrl", RESUME,
+                "selectedCourse", "Java",
+                "selectedRole", "Marketing"));
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verify(applicationService, never()).apply(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void apply_requiresRoleWhenPlacementConfiguresRoles() {
+        var response = controller.apply(authentication, Map.of(
+                "jobId", "job-1",
+                "resumeUrl", RESUME,
+                "selectedCourse", "Java"));
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verify(applicationService, never()).apply(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void apply_requiresCourseWhenPlacementConfiguresCourses() {
+        var response = controller.apply(authentication, Map.of(
+                "jobId", "job-1",
+                "resumeUrl", RESUME,
+                "selectedRole", "Gen AI"));
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        verify(applicationService, never()).apply(any(), any(), any(), any(), any());
     }
 
     @Test
     void applySavesCanonicalConfiguredCourse() {
-        when(applicationService.apply("student-1", "job-1", "https://example.com/resume.pdf", "Java"))
+        when(applicationService.apply("student-1", "job-1", RESUME, "Java", "Gen AI"))
                 .thenReturn("applied");
 
         var response = controller.apply(authentication, Map.of(
                 "jobId", "job-1",
-                "resumeUrl", "https://example.com/resume.pdf",
-                "selectedCourse", "java"));
+                "resumeUrl", RESUME,
+                "selectedCourse", "java",
+                "selectedRole", "gen ai"));
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(applicationService).apply(eq("student-1"), eq("job-1"),
-                eq("https://example.com/resume.pdf"), eq("Java"));
+                eq(RESUME), eq("Java"), eq("Gen AI"));
+    }
+
+    @Test
+    void applyStoresRoleAndCourseIndependently() {
+        when(applicationService.apply("student-1", "job-1", RESUME, "Data Science", "Backend Developer"))
+                .thenReturn("applied");
+
+        var response = controller.apply(authentication, Map.of(
+                "jobId", "job-1",
+                "resumeUrl", RESUME,
+                "selectedCourse", "Data Science",
+                "selectedRole", "Backend Developer"));
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(applicationService).apply(eq("student-1"), eq("job-1"),
+                eq(RESUME), eq("Data Science"), eq("Backend Developer"));
+    }
+
+    @Test
+    void applySkipsRoleValidationWhenPlacementHasNoConfiguredRoles() {
+        job.setJobRole(null);
+        when(applicationService.apply("student-1", "job-1", RESUME, "Java", null))
+                .thenReturn("applied");
+
+        var response = controller.apply(authentication, Map.of(
+                "jobId", "job-1",
+                "resumeUrl", RESUME,
+                "selectedCourse", "Java"));
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        verify(applicationService).apply(eq("student-1"), eq("job-1"),
+                eq(RESUME), eq("Java"), eq((String) null));
     }
 }

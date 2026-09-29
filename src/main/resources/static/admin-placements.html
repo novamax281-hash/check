@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Placements | LLOYD Career</title>
-    <link rel="stylesheet" href="css/portal.css?v=15">
+    <link rel="stylesheet" href="css/portal.css?v=16">
     <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
 </head>
 <body data-role="admin" data-active="placements" data-title="Manage Placements">
@@ -73,16 +73,19 @@
                 <input type="text" id="fCompany" required>
             </div>
             <div class="form-group">
-                <label for="fJobRole">Job Role</label>
+                <label for="fJobRole">Job Roles</label>
                 <input type="text" id="fJobRole" placeholder="Full Stack, Gen AI and etc">
+                <p class="field-hint">Comma-separated. The student picks one of these when applying.</p>
             </div>
             <div class="form-group">
-                <label for="fCourses">Course</label>
+                <label for="fCourses">Eligible Courses</label>
                 <input type="text" id="fCourses" placeholder="B.Tech, MCA, BCA, M.Tech">
+                <p class="field-hint">Comma-separated academic programs eligible for this placement.</p>
             </div>
             <div class="form-group">
-                <label>Job Type</label>
-                <input type="text" id="fRole" required>
+                <label for="fRole">Job Category</label>
+                <input type="text" id="fRole" required placeholder="Full Time, Internship">
+                <p class="field-hint">Broad category used for grouping, e.g. Full Time or Internship.</p>
             </div>
             <div class="form-group">
                 <label>Location</label>
@@ -142,13 +145,11 @@
                 <label>Salary (LPA)</label>
                 <input type="text" id="fSalaryLpa" inputmode="decimal" placeholder="e.g. 5.7 or 4.1 - 7.8">
             </div>
-            <div class="form-group">
-                <label for="fBatchFrom">Eligible Batch: From Year</label>
-                <input type="text" id="fBatchFrom" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="YYYY">
-            </div>
-            <div class="form-group">
-                <label for="fBatchTo">Eligible Batch: To Year</label>
-                <input type="text" id="fBatchTo" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="YYYY">
+            <div class="form-group" style="grid-column: 1 / -1;">
+                <label>Eligible Batch (From Year - To Year)</label>
+                <div id="batchRangesList" class="batch-range-list"></div>
+                <button type="button" class="btn btn-small btn-secondary" id="addBatchRangeBtn" style="margin-top:8px;">+ Add another batch range</button>
+                <p class="field-hint">Add a range for each eligible batch, for example 2022-2024 and 2026-2028. Leave all rows empty to allow every batch.</p>
             </div>
             <div class="form-group">
                 <label>Branches Allowed</label>
@@ -228,7 +229,7 @@
     </div>
 </div>
 
-<script src="js/ui.js?v=8"></script>
-<script src="js/admin-placements.js?v=8"></script>
+<script src="js/ui.js?v=9"></script>
+<script src="js/admin-placements.js?v=9"></script>
 </body>
 </html>
