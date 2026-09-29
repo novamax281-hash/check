@@ -42,6 +42,8 @@ public class Application {
 
     private String resumeUrl;
 
+    private String selectedCourse;
+
     private String adminRemark;
 
     private List<ApplicationRound> rounds = new ArrayList<>();

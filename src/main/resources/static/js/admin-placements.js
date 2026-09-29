@@ -11,6 +11,7 @@ const cancelJobBtn = document.getElementById("cancelJobBtn");
 const fields = {
     company: document.getElementById("fCompany"),
     jobRole: document.getElementById("fJobRole"),
+    courses: document.getElementById("fCourses"),
     jobType: document.getElementById("fRole"),
     location: document.getElementById("fLocation"),
     eligibility: document.getElementById("fEligibility"),
@@ -24,7 +25,8 @@ const fields = {
     mode: document.getElementById("fMode"),
     likelyDateOfJoining: document.getElementById("fDoj"),
     salaryLpa: document.getElementById("fSalaryLpa"),
-    batch: document.getElementById("fBatch"),
+    batchFrom: document.getElementById("fBatchFrom"),
+    batchTo: document.getElementById("fBatchTo"),
     branch: document.getElementById("fBranch"),
     minTenth: document.getElementById("fMinTenth"),
     minTwelfth: document.getElementById("fMinTwelfth"),
@@ -98,6 +100,7 @@ function render() {
             <tr>
                 <td>${esc(job.company || "-")}</td>
                 <td>${esc(job.jobRole || job.jobType || "-")}</td>
+                <td>${esc(job.salaryLpa || job.stipend || "-")}</td>
                 <td>${esc(job.location || "-")}</td>
                 <td>${esc(job.eligibility || "-")}</td>
                 <td>${esc(window.UI.fmtDate(job.applicationDeadline))}</td>
@@ -127,6 +130,7 @@ function openModal(job) {
     modalTitle.textContent = job ? "Edit Placement" : "Add Placement";
     fields.company.value = job ? job.company || "" : "";
     fields.jobRole.value = job ? job.jobRole || "" : "";
+    fields.courses.value = job ? job.courses || "" : "";
     fields.jobType.value = job ? job.jobType || "" : "";
     fields.location.value = job ? job.location || "" : "";
     fields.eligibility.value = job ? job.eligibility || "" : "";
@@ -140,8 +144,9 @@ function openModal(job) {
     fields.mode.value = job ? job.mode || "" : "";
     fields.likelyDateOfJoining.value = toDateInputValue(job ? job.likelyDateOfJoining : "");
     fields.salaryLpa.value = job ? (job.salaryLpa != null ? job.salaryLpa : "") : "";
-    fields.batch.innerHTML = '<option value="">All batches</option>' + (window.UI.batchOptions(job ? job.batch : ""));
-    fields.batch.value = job ? job.batch || "" : "";
+    const years = job && job.batch ? String(job.batch).match(/\d{4}/g) || [] : [];
+    fields.batchFrom.value = years.length ? years[0] : "";
+    fields.batchTo.value = years.length > 1 ? years[years.length - 1] : years.length ? years[0] : "";
     fields.branch.value = job ? job.branch || "" : "";
     fields.minTenth.value = job && job.minTenth != null ? job.minTenth : "";
     fields.minTwelfth.value = job && job.minTwelfth != null ? job.minTwelfth : "";
@@ -242,7 +247,11 @@ function collectJob() {
         mode: fields.mode.value.trim(),
         likelyDateOfJoining: fields.likelyDateOfJoining.value.trim(),
         salaryLpa: fields.salaryLpa.value.trim(),
-        batch: fields.batch.value.trim(),
+        batch: fields.batchFrom.value.trim() && fields.batchTo.value.trim()
+            ? fields.batchFrom.value.trim() + "-" + fields.batchTo.value.trim() : "",
+        courses: fields.courses.value.split(",").map(function(course) {
+            return course.trim();
+        }).filter(Boolean).join(", "),
         branch: fields.branch.value.trim(),
         minTenth: num(fields.minTenth),
         minTwelfth: num(fields.minTwelfth),
@@ -323,6 +332,17 @@ async function syncJobRounds(jobId, desired) {
 async function saveJob() {
     if (!fields.company.value.trim()) {
         window.UI.showToast("Company name is required.", "warning");
+        return;
+    }
+    const batchFrom = fields.batchFrom.value.trim();
+    const batchTo = fields.batchTo.value.trim();
+    if ((batchFrom && !/^\d{4}$/.test(batchFrom)) || (batchTo && !/^\d{4}$/.test(batchTo))
+            || (batchFrom && !batchTo) || (!batchFrom && batchTo)) {
+        window.UI.showToast("Enter both eligible batch years in YYYY format.", "warning");
+        return;
+    }
+    if (batchFrom && Number(batchFrom) > Number(batchTo)) {
+        window.UI.showToast("From Year cannot be greater than To Year.", "warning");
         return;
     }
     const rounds = collectRounds();

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notices | LLOYD Career</title>
+    <link rel="stylesheet" href="css/portal.css?v=15">
+    <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
+</head>
+<body data-role="admin" data-active="notices" data-title="Notices">
+
+<aside class="sidebar" id="sidebar"></aside>
+
+<div class="app-main">
+    <header class="app-header" id="appHeader"></header>
+
+    <main class="page-content">
+        <div class="page-heading">
+            <h1>Notices</h1>
+            <p>Publish announcements to every student dashboard. Disabled and expired notices stop appearing immediately.</p>
+        </div>
+
+        <div class="step-card" style="padding: 20px;">
+            <div class="toolbar">
+                <input type="search" id="searchBox" class="search" placeholder="Search notices...">
+                <button class="btn" id="addNoticeBtn">+ Add Notice</button>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table>
+                <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Category</th>
+                    <th>Status</th>
+                    <th>Expires</th>
+                    <th>Created</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+                </thead>
+                <tbody id="noticesBody"></tbody>
+            </table>
+        </div>
+
+        <div class="empty" id="emptyMsg" style="display:none;">
+            <div class="empty-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+                    <path d="M13.7 21a2 2 0 0 1-3.4 0"/>
+                </svg>
+            </div>
+            <div class="empty-title">No notices yet</div>
+            <p>Add a notice to publish an announcement on the student dashboard.</p>
+        </div>
+    </main>
+</div>
+
+<div class="modal" id="noticeModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2 id="modalTitle">Add Notice</h2>
+            <button class="modal-close" id="closeNoticeBtn" aria-label="Close">&times;</button>
+        </div>
+
+        <div class="form-group">
+            <label for="fTitle">Title</label>
+            <input type="text" id="fTitle" maxlength="120" placeholder="Placement Drive 2026">
+        </div>
+
+        <div class="form-group">
+            <label for="fMessage">Message</label>
+            <textarea id="fMessage" rows="4" maxlength="2000" placeholder="Registration for the XYZ placement drive closes on Friday."></textarea>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+            <div class="form-group">
+                <label for="fCategory">Category (optional)</label>
+                <input type="text" id="fCategory" maxlength="40" placeholder="Placement, Exam, Event">
+            </div>
+            <div class="form-group">
+                <label for="fExpiresAt">Expires at (optional)</label>
+                <input type="datetime-local" id="fExpiresAt">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="fLink">Link (optional)</label>
+            <input type="url" id="fLink" placeholder="https://example.com/registration">
+        </div>
+
+        <div class="form-group">
+            <label for="fActive">Visibility</label>
+            <select id="fActive">
+                <option value="true">Active &mdash; show on student dashboards</option>
+                <option value="false">Off &mdash; hidden from students</option>
+            </select>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn btn-secondary" id="cancelNoticeBtn" type="button">Cancel</button>
+            <button class="btn" id="saveNoticeBtn" type="button">Save Notice</button>
+        </div>
+    </div>
+</div>
+
+<script src="js/ui.js?v=8"></script>
+<script src="js/admin-notices.js?v=1"></script>
+</body>
+</html>

@@ -3,6 +3,9 @@ package com.example.placement.service;
 import com.example.placement.dto.CsvImportResult;
 import com.example.placement.dto.CsvValidationResult;
 import com.example.placement.entity.Application;
+import com.example.placement.entity.ApplicationRound;
+import com.example.placement.entity.ApplicationStatus;
+import com.example.placement.entity.RoundStatus;
 import com.example.placement.entity.UsersEntries;
 import com.example.placement.repository.ApplicationRepository;
 import com.example.placement.repository.UsersRepository;
@@ -11,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -312,7 +316,16 @@ public class CsvImportService {
                             continue;
                         }
                         int targetRound = Integer.parseInt(row.get("round").trim());
+                        String terminal = terminalBlock(application);
+                        if (terminal != null) {
+                            skipped++;
+                            result.getErrors().add(new CsvImportResult.CsvError(rowNumber, identifier,
+                                    "TERMINAL", terminal));
+                            continue;
+                        }
+                        syncRoundEntry(application, targetRound);
                         application.setCurrentRound(targetRound);
+                        application.setStatus(ApplicationStatus.IN_PROGRESS.name());
                         application.setLastUpdated(java.time.LocalDateTime.now());
                         applicationRepository.save(application);
                         updated++;
@@ -336,6 +349,45 @@ public class CsvImportService {
         result.setSkippedRows(skipped + validation.getErrorRows());
         result.setSuccessfulRows(created + updated);
         return result;
+    }
+
+    private String terminalBlock(Application application) {
+        String status = application.getStatus();
+        if (status == null) {
+            return null;
+        }
+        String trimmed = status.trim();
+        if (trimmed.equalsIgnoreCase("SELECTED")) {
+            return "Application is already selected";
+        }
+        if (trimmed.equalsIgnoreCase("REJECTED")) {
+            return "Application is already rejected";
+        }
+        if (trimmed.equalsIgnoreCase("WITHDRAWN")) {
+            return "Application was withdrawn";
+        }
+        return null;
+    }
+
+    private void syncRoundEntry(Application application, int targetRound) {
+        List<ApplicationRound> rounds = application.getRounds() == null
+                ? new ArrayList<>()
+                : new ArrayList<>(application.getRounds());
+        rounds.removeIf(round -> round == null || round.getRound() == null || round.getRound() > targetRound);
+        for (ApplicationRound round : rounds) {
+            round.setStatus(RoundStatus.PENDING);
+            if (round.getRound() == targetRound) {
+                round.setScore(null);
+                round.setEvaluatedAt(null);
+                round.setAdminRemark(null);
+            }
+        }
+        boolean present = rounds.stream().anyMatch(round -> round.getRound() == targetRound);
+        if (!present) {
+            rounds.add(new ApplicationRound(targetRound));
+        }
+        rounds.sort(Comparator.comparing(ApplicationRound::getRound));
+        application.setRounds(rounds);
     }
 
     private UsersEntries findStudent(Map<String, String> row) {

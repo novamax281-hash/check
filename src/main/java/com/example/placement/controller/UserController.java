@@ -91,8 +91,21 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("message", "You do not meet this placement's eligibility criteria"));
         }
+        String selectedCourse = body.get("selectedCourse");
+        List<String> configuredCourses = job.getCourses() == null ? List.of()
+                : java.util.Arrays.stream(job.getCourses().split(","))
+                        .map(String::trim).filter(course -> !course.isEmpty()).toList();
+        String requestedCourse = selectedCourse == null ? "" : selectedCourse.trim();
+        if (!configuredCourses.isEmpty() && (requestedCourse.isEmpty() || configuredCourses.stream()
+            .noneMatch(course -> course.equalsIgnoreCase(requestedCourse)))) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Select a course configured for this placement"));
+        }
+        if (!requestedCourse.isEmpty() && !configuredCourses.isEmpty()) {
+            selectedCourse = configuredCourses.stream()
+                .filter(course -> course.equalsIgnoreCase(requestedCourse)).findFirst().orElse(null);
+        }
         try {
-            String result = applicationService.apply(user.getId(), jobId, resumeUrl.trim());
+            String result = applicationService.apply(user.getId(), jobId, resumeUrl.trim(), selectedCourse);
             if ("already".equals(result)) {
                 return ResponseEntity.badRequest().body(Map.of("message", "You have already applied for this placement"));
             }
@@ -121,10 +134,15 @@ public class UserController {
     }
 
     @GetMapping("/applications")
-    public ResponseEntity<List<ApplicationDetail>> myApplications(Authentication authentication) {
+    public ResponseEntity<List<ApplicationDetail>> myApplications(
+            Authentication authentication,
+            @RequestParam(required = false) Integer limit) {
         String userId = currentUserId(authentication);
         if (userId == null) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(null);
+        }
+        if (limit != null && limit > 0) {
+            return ResponseEntity.ok(applicationService.getRecentStudentApplications(userId, limit));
         }
         return ResponseEntity.ok(applicationService.getStudentApplications(userId));
     }

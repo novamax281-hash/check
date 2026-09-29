@@ -7,6 +7,8 @@ import java.io.Writer;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
@@ -22,9 +24,9 @@ public class CsvExportService {
 
     public static final List<String> STUDENT_COLUMNS = List.of(
             "Name", "Email", "Phone", "Enrollment", "Branch", "Section", "Batch", "CGPA",
-            "Student Status", "Applications", "Application Status", "Current Round",
-            "Address", "DOB", "Course", "College", "10th %", "12th %", "Graduation %",
-            "City", "State");
+            "Course", "10th %", "12th %", "Graduation %", "Student Status", "Applications",
+            "Applied Companies", "Applied Roles", "Selected Courses", "Application Status", "Current Round",
+            "College");
 
     public String studentsCsv(List<StudentDetail> students, List<String> columns) throws IOException {
         StringWriter buffer = new StringWriter();
@@ -60,6 +62,10 @@ public class CsvExportService {
             case "CGPA": return student.getCgpa() == null ? "" : String.valueOf(student.getCgpa());
             case "Student Status": return text(student.getStudentStatus());
             case "Applications": return String.valueOf(student.getApplicationCount());
+                case "Applied Companies": return applicationValues(student, ApplicationDetail::getCompany);
+                case "Applied Roles": return applicationValues(student, application -> firstNonBlank(
+                    application.getRole(), application.getJobType()));
+                case "Selected Courses": return applicationValues(student, ApplicationDetail::getSelectedCourse);
             case "Application Status": return text(student.getApplicationStatus());
             case "Current Round": return currentRound(student);
             case "Address": return text(student.getAddress());
@@ -88,25 +94,71 @@ public class CsvExportService {
         return value.toString();
     }
 
+    private String applicationValues(StudentDetail student, Function<ApplicationDetail, String> field) {
+        if (student.getApplications() == null || student.getApplications().isEmpty()) {
+            return "";
+        }
+        return student.getApplications().stream()
+                .map(field)
+                .filter(value -> value != null && !value.isBlank())
+                .collect(Collectors.joining("; "));
+    }
+
+    private String firstNonBlank(String first, String second) {
+        return first == null || first.isBlank() ? text(second) : first;
+    }
+
     public void writeApplications(Writer destination, List<ApplicationDetail> applications) throws IOException {
         BufferedWriter out = new BufferedWriter(destination);
-        writeRow(out, "Application ID", "Enrollment No", "Student Name", "Email", "Phone",
-                "Company", "Role", "Salary", "Skills", "Eligibility", "Location",
-                "Status", "Current Round", "Total Rounds", "Round History",
+        writeRow(out, "Application ID", "Student ID", "Enrollment No", "Student Name", "Email", "Phone",
+            "Student Course", "Selected Course", "Student Batch", "Branch", "Section", "Department",
+            "College", "CGPA", "10th %", "12th %", "Graduation %", "DOB", "Gender", "Address", "City", "State",
+                "Student Status", "Account Role", "Job ID", "Company", "Role", "Salary", "Skills", "Eligibility", "Location",
+                "Program Fee", "Duration", "Job Batch", "Eligible Branch", "Openings",
+                "Application Deadline", "Application Link", "Job Description",
+            "Status", "Current Round", "Total Rounds", "Round History",
             "Current Round Score", "Admin Remark", "Applied On", "Last Updated", "Resume URL");
         for (ApplicationDetail application : applications) {
             writeRow(out,
                     text(application.getApplicationId()),
+                    text(application.getStudentId()),
                     text(application.getEnrollmentno()),
                     text(application.getStudentName()),
                     text(application.getStudentEmail()),
                     text(application.getPhoneNo()),
+                    text(application.getStudentCourse()),
+                    text(application.getSelectedCourse()),
+                    text(application.getStudentBatch()),
+                    text(application.getBranch()),
+                    text(application.getSection()),
+                    text(application.getDepartment()),
+                    text(application.getCollege()),
+                    decimal(application.getCgpa()),
+                    decimal(application.getTenthPercentage()),
+                    decimal(application.getTwelfthPercentage()),
+                    decimal(application.getGraduationPercentage()),
+                    text(application.getDob()),
+                    text(application.getGender()),
+                    text(application.getAddress()),
+                    text(application.getCity()),
+                    text(application.getState()),
+                    text(application.getStudentStatus()),
+                    text(application.getStudentRole()),
+                    text(application.getJobId()),
                     text(application.getCompany()),
                     text(application.getRole()),
                     text(application.getSalary()),
                     text(application.getSkills()),
                     text(application.getEligibility()),
                     text(application.getLocation()),
+                    text(application.getProgramFee()),
+                    text(application.getDuration()),
+                    text(application.getEligibleBatch()),
+                    text(application.getEligibleBranch()),
+                    text(application.getOpenings()),
+                    text(application.getApplicationDeadline()),
+                    text(application.getApplicationLink()),
+                    text(application.getJobDescription()),
                     text(application.getStatus()),
                     number(application.getCurrentRound()),
                     number(application.getTotalRounds()),
@@ -235,6 +287,10 @@ public class CsvExportService {
     }
 
     private String number(Integer value) {
+        return value == null ? "" : String.valueOf(value);
+    }
+
+    private String decimal(Double value) {
         return value == null ? "" : String.valueOf(value);
     }
 

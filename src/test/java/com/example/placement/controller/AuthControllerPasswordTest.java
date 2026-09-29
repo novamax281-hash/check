@@ -1,0 +1,289 @@
+package com.example.placement.controller;
+
+import com.example.placement.dto.EmailRequest;
+import com.example.placement.dto.LoginRequest;
+import com.example.placement.dto.OtpVerifyRequest;
+import com.example.placement.dto.PasswordResetRequest;
+import com.example.placement.dto.RegisterRequest;
+import com.example.placement.dto.StudentLoginRequest;
+import com.example.placement.entity.UsersEntries;
+import com.example.placement.repository.UsersRepository;
+import com.example.placement.service.AuthenticationService;
+import com.example.placement.service.OtpService;
+import jakarta.servlet.http.HttpSession;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+class AuthControllerPasswordTest {
+
+    private final AuthenticationManager authenticationManager = mock(AuthenticationManager.class);
+    private final UsersRepository usersRepository = mock(UsersRepository.class);
+    private final OtpService otpService = mock(OtpService.class);
+    private final AuthenticationService authenticationService = mock(AuthenticationService.class);
+    private final AuthController controller = new AuthController(
+            authenticationManager, usersRepository, otpService, authenticationService);
+
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void studentPasswordLoginCreatesStudentSession() {
+        UsersEntries student = student();
+        StudentLoginRequest login = new StudentLoginRequest();
+        login.setEmail("STUDENT@LIET.IN");
+        login.setPassword("StudentPass123");
+        when(authenticationService.authenticateStudent("student@liet.in", "StudentPass123"))
+                .thenReturn(student);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+
+        var response = controller.studentLogin(login, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().getRole()).isEqualTo("STUDENT");
+        HttpSession session = request.getSession(false);
+        var context = (org.springframework.security.core.context.SecurityContext) session.getAttribute(
+            HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
+        assertThat(context.getAuthentication().getName()).isEqualTo("2024CS01");
+    }
+
+    @Test
+    void legacyOtpLoginRejectsStudentAccounts() {
+        LoginRequest login = new LoginRequest();
+        login.setEnrollmentno("2024CS01");
+        login.setMobile("9000000000");
+        when(authenticationManager.authenticate(any())).thenReturn(mock(Authentication.class));
+        when(usersRepository.findByEnrollmentno("2024CS01")).thenReturn(student());
+
+        var response = controller.sendOtp(login, new MockHttpServletRequest());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        verify(otpService, never()).sendOtp(any(), any(), any());
+    }
+
+    @Test
+    void staffCanStillRequestLegacyOtp() {
+        LoginRequest login = new LoginRequest();
+        login.setEnrollmentno("STAFF1");
+        login.setMobile("9000000001");
+        UsersEntries staff = new UsersEntries("STAFF1", "9000000001");
+        staff.setRole("Admin");
+        staff.setEmail("staff@liet.in");
+        when(authenticationManager.authenticate(any())).thenReturn(mock(Authentication.class));
+        when(usersRepository.findByEnrollmentno("STAFF1")).thenReturn(staff);
+        when(otpService.canResend("STAFF1")).thenReturn(true);
+        when(otpService.isRateLimited("127.0.0.1")).thenReturn(false);
+        when(otpService.generateOtp()).thenReturn("123456");
+
+        var response = controller.sendOtp(login, new MockHttpServletRequest());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().isOtpRequired()).isTrue();
+        verify(otpService).sendOtp("STAFF1", "staff@liet.in", "123456");
+    }
+
+    @Test
+    void registrationPersistsPasswordThroughHashingService() {
+        RegisterRequest registration = new RegisterRequest();
+        registration.setName("Test Student");
+        registration.setEnrollmentno("2024CS02");
+        registration.setEmail("student@liet.in");
+        registration.setMobile("9000000000");
+        registration.setBatch("2024-2028");
+        registration.setTenthPercentage(80.0);
+        registration.setTwelfthPercentage(82.0);
+        registration.setPassword("StudentPass123");
+        registration.setOtp("123456");
+        when(otpService.validateOtp("reg:student@liet.in", "123456")).thenReturn(true);
+        when(authenticationService.saveStudentPassword(any(UsersEntries.class), eq("StudentPass123")))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        var response = controller.verifyRegisterOtp(registration);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        verify(authenticationService).saveStudentPassword(
+                org.mockito.ArgumentMatchers.argThat(user -> user.getEmail().equals("student@liet.in")
+                        && user.getEnrollmentno().equals("2024CS02")), eq("StudentPass123"));
+    }
+
+    @Test
+    void resetRequiresValidOtpBeforeSavingPassword() {
+        PasswordResetRequest reset = new PasswordResetRequest();
+        reset.setEmail("student@liet.in");
+        reset.setOtp("123456");
+        reset.setNewPassword("NewStudentPass123");
+        when(otpService.validateOtp("password-reset:student@liet.in", "123456")).thenReturn(false);
+
+        var response = controller.resetPassword(reset);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        verify(authenticationService, never()).saveStudentPassword(any(), any());
+    }
+
+    @Test
+    void verifiesResetOtpBeforeAllowingPasswordEntry() {
+        OtpVerifyRequest verifyRequest = new OtpVerifyRequest();
+        verifyRequest.setEmail("student@liet.in");
+        verifyRequest.setOtp("123456");
+        UsersEntries student = student();
+        when(usersRepository.findByEmailIgnoreCase("student@liet.in")).thenReturn(student);
+        when(authenticationService.isStudent(student)).thenReturn(true);
+        when(otpService.matchesOtp("password-reset:student@liet.in", "123456")).thenReturn(true);
+
+        var response = controller.verifyPasswordResetOtp(verifyRequest);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().getMessage()).contains("Code verified");
+        verify(authenticationService, never()).saveStudentPassword(any(), any());
+    }
+
+    @Test
+    void resetOtpVerificationRequiresStudentAndMatchingCode() {
+        OtpVerifyRequest verifyRequest = new OtpVerifyRequest();
+        verifyRequest.setEmail("student@liet.in");
+        verifyRequest.setOtp("123456");
+        UsersEntries student = student();
+        when(usersRepository.findByEmailIgnoreCase("student@liet.in")).thenReturn(student);
+        when(authenticationService.isStudent(student)).thenReturn(true);
+        when(otpService.matchesOtp("password-reset:student@liet.in", "123456")).thenReturn(true);
+
+        var response = controller.verifyPasswordResetOtp(verifyRequest);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().getMessage()).contains("Code verified");
+        verify(otpService).matchesOtp("password-reset:student@liet.in", "123456");
+        verify(authenticationService, never()).saveStudentPassword(any(), any());
+    }
+
+    @Test
+    void resetSavesNewPasswordOnlyAfterOtpVerification() {
+        PasswordResetRequest reset = new PasswordResetRequest();
+        reset.setEmail("student@liet.in");
+        reset.setOtp("123456");
+        reset.setNewPassword("NewStudentPass123");
+        UsersEntries student = student();
+        when(otpService.validateOtp("password-reset:student@liet.in", "123456")).thenReturn(true);
+        when(usersRepository.findByEmailIgnoreCase("student@liet.in")).thenReturn(student);
+        when(authenticationService.isStudent(student)).thenReturn(true);
+        when(authenticationService.saveStudentPassword(student, "NewStudentPass123")).thenReturn(student);
+
+        var response = controller.resetPassword(reset);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        verify(authenticationService).saveStudentPassword(student, "NewStudentPass123");
+    }
+
+    @Test
+    void unknownEmailIsReportedInsteadOfPretendingToSend() {
+        EmailRequest request = new EmailRequest();
+        request.setEmail("unknown@liet.in");
+        when(otpService.isRateLimited("127.0.0.1")).thenReturn(false);
+        when(usersRepository.findByEmailIgnoreCase("unknown@liet.in")).thenReturn(null);
+        when(authenticationService.isStudent(null)).thenReturn(false);
+
+        var response = controller.sendPasswordResetOtp(request, new MockHttpServletRequest());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody().getMessage())
+                .isEqualTo("No student account is registered with that email address.");
+        verify(otpService, never()).storeOtp(any(), any());
+        verify(otpService, never()).sendOtpSync(any(), any(), any());
+    }
+
+    @Test
+    void staffEmailCannotBeUsedForStudentPasswordReset() {
+        EmailRequest request = new EmailRequest();
+        request.setEmail("staff@liet.in");
+        UsersEntries staff = new UsersEntries("STAFF1", "9000000001");
+        staff.setRole("Admin");
+        staff.setEmail("staff@liet.in");
+        when(otpService.isRateLimited("127.0.0.1")).thenReturn(false);
+        when(usersRepository.findByEmailIgnoreCase("staff@liet.in")).thenReturn(staff);
+        when(authenticationService.isStudent(staff)).thenReturn(false);
+
+        var response = controller.sendPasswordResetOtp(request, new MockHttpServletRequest());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        verify(otpService, never()).storeOtp(any(), any());
+    }
+
+    @Test
+    void mailDeliveryFailureIsSurfacedAndClearsTheStoredOtp() {
+        EmailRequest request = new EmailRequest();
+        request.setEmail("student@liet.in");
+        when(otpService.isRateLimited("127.0.0.1")).thenReturn(false);
+        when(usersRepository.findByEmailIgnoreCase("student@liet.in")).thenReturn(student());
+        when(authenticationService.isStudent(any(UsersEntries.class))).thenReturn(true);
+        when(otpService.canResend("password-reset:student@liet.in")).thenReturn(true);
+        when(otpService.generateOtp()).thenReturn("123456");
+        when(otpService.sendOtpSync("password-reset:student@liet.in", "student@liet.in", "123456"))
+                .thenReturn(false);
+
+        var response = controller.sendPasswordResetOtp(request, new MockHttpServletRequest());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(response.getBody().getMessage()).contains("Could not send the OTP email");
+        verify(otpService, never()).sendOtp(any(), any(), any());
+    }
+
+    @Test
+    void knownStudentGetsResetCodeDeliveredSynchronously() {
+        EmailRequest request = new EmailRequest();
+        request.setEmail("STUDENT@LIET.IN");
+        when(otpService.isRateLimited("127.0.0.1")).thenReturn(false);
+        when(usersRepository.findByEmailIgnoreCase("student@liet.in")).thenReturn(student());
+        when(authenticationService.isStudent(any(UsersEntries.class))).thenReturn(true);
+        when(otpService.canResend("password-reset:student@liet.in")).thenReturn(true);
+        when(otpService.generateOtp()).thenReturn("123456");
+        when(otpService.sendOtpSync("password-reset:student@liet.in", "student@liet.in", "123456"))
+                .thenReturn(true);
+
+        var response = controller.sendPasswordResetOtp(request, new MockHttpServletRequest());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().isOtpRequired()).isTrue();
+        assertThat(response.getBody().getMessage()).contains("st***@liet.in");
+        verify(otpService).storeOtp("password-reset:student@liet.in", "123456");
+        verify(otpService).sendOtpSync("password-reset:student@liet.in", "student@liet.in", "123456");
+    }
+
+    @Test
+    void cooldownReturnsRetryAfterInsteadOfResending() {
+        EmailRequest request = new EmailRequest();
+        request.setEmail("student@liet.in");
+        when(otpService.isRateLimited("127.0.0.1")).thenReturn(false);
+        when(usersRepository.findByEmailIgnoreCase("student@liet.in")).thenReturn(student());
+        when(authenticationService.isStudent(any(UsersEntries.class))).thenReturn(true);
+        when(otpService.canResend("password-reset:student@liet.in")).thenReturn(false);
+        when(otpService.resendWaitSeconds("password-reset:student@liet.in")).thenReturn(42L);
+
+        var response = controller.sendPasswordResetOtp(request, new MockHttpServletRequest());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+        assertThat(response.getBody().getMessage()).contains("42");
+        verify(otpService, never()).storeOtp(any(), any());
+    }
+
+    private UsersEntries student() {
+        UsersEntries student = new UsersEntries("2024CS01", "9000000000");
+        student.setName("Test Student");
+        student.setEmail("student@liet.in");
+        student.setRole("Student");
+        return student;
+    }
+}

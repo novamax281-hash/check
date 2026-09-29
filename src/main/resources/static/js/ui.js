@@ -460,7 +460,8 @@
         close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>',
         moon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
         sun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>',
-        chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>'
+        chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>',
+        bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>'
     };
 
     var NAV = {
@@ -475,6 +476,7 @@
             { href: "/admin-students.html", id: "students", label: "Students", icon: "users" },
             { href: "/admin-applications.html", id: "applications", label: "View Applications", icon: "list" },
             { href: "/admin-placements.html", id: "placements", label: "Manage Placements", icon: "briefcase" },
+            { href: "/admin-notices.html", id: "notices", label: "Notices", icon: "bell" },
             { href: "/profile.html", id: "profile", label: "My Profile", icon: "users" }
         ]
     };
@@ -486,6 +488,7 @@
         "student.profile": "My Profile",
         "admin.dashboard": "Admin Dashboard",
         "admin.placements": "Manage Placements",
+        "admin.notices": "Notices",
         "admin.applications": "View Applications",
         "admin.students": "Students",
         "admin.profile": "My Profile"
@@ -516,7 +519,7 @@
                 '<span class="item-text">' + item.label + "</span></a>";
         }).join("");
 
-        var brandText = config.role === "admin" ? "LLOYD Carrer Admin" : "LLOYD Carrer";
+        var brandText = config.role === "admin" ? "LLOYD Career Admin" : "LLOYD Career";
 
         return "" +
             '<div class="sidebar-brand">' +

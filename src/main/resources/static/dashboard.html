@@ -4,8 +4,8 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Dashboard | LLOYD Carrer</title>
-    <link rel="stylesheet" href="css/portal.css?v=9">
+    <title>Student Dashboard | LLOYD Career</title>
+    <link rel="stylesheet" href="css/portal.css?v=15">
     <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
 </head>
 <body data-role="student" data-active="dashboard" data-title="Dashboard">
@@ -21,6 +21,9 @@
             <p id="welcome">Welcome back to your placement portal.</p>
         </div>
 
+        <div class="dashboard-columns">
+
+        <div class="dashboard-main">
         <div class="stat-grid">
             <div class="stat-card">
                 <strong id="statTotal">0</strong>
@@ -44,7 +47,6 @@
             </div>
         </div>
 
-      
         <div class="photo-section" style="border-radius: var(--radius-md); overflow: hidden; min-height: 280px; margin: 8px 0;">
             <div class="photo-section-content">
                 <h2 style="font-size: 26px;">BUILD YOUR CAREER</h2>
@@ -84,10 +86,63 @@
             <p>You haven't applied to any placements yet. Browse opportunities to get started.</p>
             <a href="placement-apply.html" class="btn btn-secondary" style="margin-top:12px;">Browse Placements</a>
         </div>
+        </div>
+
+        <aside class="dashboard-aside">
+            <section class="notice-panel" id="noticePanel" aria-labelledby="noticeHeading">
+                <div class="notice-panel-head">
+                    <div class="notice-panel-title" id="noticeHeading">
+                        <span class="item-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+                        </span>
+                        Notices
+                    </div>
+                    <span class="notice-count hidden" id="noticeCount">0</span>
+                </div>
+
+                <div class="notice-skeleton" id="noticeSkeleton" aria-hidden="true">
+                    <span></span><span></span><span></span><span></span>
+                </div>
+
+                <div class="notice-empty hidden" id="noticeEmpty">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+                        <path d="M13.7 21a2 2 0 0 1-3.4 0"/>
+                    </svg>
+                    <div class="notice-empty-title">No new notices</div>
+                    <p>You're all caught up. New announcements will appear here.</p>
+                </div>
+
+                <div class="notice-error hidden" id="noticeError" role="alert">
+                    <span>Could not load notices.</span>
+                    <button class="notice-retry" id="noticeRetry" type="button">Retry</button>
+                </div>
+
+                <div class="hidden" id="noticeCarousel">
+                    <div class="notice-viewport" id="noticeViewport" tabindex="0" role="group" aria-roledescription="carousel" aria-label="Notices">
+                        <div class="notice-track" id="noticeTrack"></div>
+                    </div>
+                    <div class="notice-controls hidden" id="noticeControls">
+                        <div class="notice-dots" id="noticeDots"></div>
+                        <div class="notice-nav">
+                            <button class="notice-arrow" id="noticePrev" type="button" aria-label="Previous notice">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                            </button>
+                            <button class="notice-arrow" id="noticeNext" type="button" aria-label="Next notice">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </aside>
+
+        </div>
     </main>
 </div>
 
-<script src="js/ui.js?v=6"></script>
-<script src="js/dashboard.js?v=4"></script>
+<script src="js/ui.js?v=8"></script>
+<script src="js/notices.js?v=1"></script>
+<script src="js/dashboard.js?v=5"></script>
 </body>
 </html>

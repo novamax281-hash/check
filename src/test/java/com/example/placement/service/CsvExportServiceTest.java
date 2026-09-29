@@ -12,12 +12,38 @@ import org.junit.jupiter.api.Test;
 
 import com.example.placement.dto.ApplicationDetail;
 import com.example.placement.dto.RoundDetail;
+import com.example.placement.dto.StudentDetail;
 import com.example.placement.entity.Placement;
 import com.example.placement.entity.PlacementRound;
 
 class CsvExportServiceTest {
 
     private final CsvExportService csvExportService = new CsvExportService();
+
+    @Test
+    void studentCsvIncludesUsefulStudentAndApplicationDetails() throws IOException {
+        ApplicationDetail application = new ApplicationDetail();
+        application.setCompany("Northwind");
+        application.setRole("Software Engineer");
+        application.setSelectedCourse("B.Tech");
+
+        StudentDetail student = new StudentDetail();
+        student.setName("Asha Rao");
+        student.setCourse("Computer Science");
+        student.setApplications(List.of(application));
+
+        String csv = csvExportService.studentsCsv(List.of(student), null);
+        String[] lines = csv.split("\\R");
+
+        assertTrue(lines[0].contains("Course"));
+        assertTrue(lines[0].contains("Applied Companies"));
+        assertTrue(lines[0].contains("Applied Roles"));
+        assertTrue(lines[0].contains("Selected Courses"));
+        assertTrue(lines[1].contains("Asha Rao"));
+        assertTrue(lines[1].contains("Northwind"));
+        assertTrue(lines[1].contains("Software Engineer"));
+        assertTrue(lines[1].contains("B.Tech"));
+    }
 
     @Test
     void applicationsCsvContainsHeaderAndFields() throws IOException {
@@ -27,6 +53,10 @@ class CsvExportServiceTest {
         application.setStudentName("Rahul Sharma");
         application.setStudentEmail("rahul@example.com");
         application.setPhoneNo("9999999999");
+        application.setStudentCourse("Computer Science");
+        application.setSelectedCourse("Data Science");
+        application.setStudentBatch("2022-2026");
+        application.setStudentId("student1");
         application.setCompany("ABC, Technologies");
         application.setRole("Intern");
         application.setStatus("IN_PROGRESS");
@@ -46,10 +76,14 @@ class CsvExportServiceTest {
         String csv = out.toString();
         String[] lines = csv.split("\n", -1);
 
-        assertTrue(lines[0].startsWith("Application ID,Enrollment No,Student Name"));
-        assertTrue(lines[0].endsWith("Resume URL"));
+        assertTrue(lines[0].startsWith("Application ID,Student ID,Enrollment No,Student Name"));
+        assertTrue(lines[0].trim().endsWith("Resume URL"));
+        assertTrue(lines[0].contains("Selected Course"));
+        assertTrue(lines[0].contains("Student Course"));
         assertTrue(csv.contains("ENR001"));
         assertTrue(csv.contains("https://files.example.com/resumes/rahul.pdf"));
+        assertTrue(csv.contains("Data Science"));
+        assertTrue(csv.contains("Computer Science"));
         assertTrue(csv.contains("\"ABC, Technologies\""));
         assertTrue(csv.contains("Round 1: QUALIFIED (85.0)"));
         assertEquals("", lines[lines.length - 1]);
@@ -74,7 +108,7 @@ class CsvExportServiceTest {
         String[] lines = out.toString().split("\n");
 
         long emptyTrailers = lines[1].chars().filter(ch -> ch == ',').count();
-        assertEquals(19, emptyTrailers);
+        assertEquals(47, emptyTrailers);
         assertTrue(lines[1].startsWith("app2,,,,,,,"));
     }
 

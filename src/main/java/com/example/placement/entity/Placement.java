@@ -55,6 +55,8 @@ public class Placement {
 
     private String batch;
 
+    private String courses;
+
     private String branch;
 
     private String application_date;

@@ -188,13 +188,20 @@ function render() {
         const desc = (job.jobDescription || "").trim();
         const descLong = desc.length > 160;
         const salary = (job.salaryLpa != null && String(job.salaryLpa).trim() !== "")
-        ? String(job.salaryLpa) + " LPA" : (job.stipend || "N/A");
+        ? String(job.salaryLpa) : (job.stipend || "N/A");
         const critParts = [];
         if (job.minCgpa != null) critParts.push("CGPA >= " + job.minCgpa);
         if (job.minTenth != null) critParts.push("10th >= " + job.minTenth + "%");
         if (job.minTwelfth != null) critParts.push("12th >= " + job.minTwelfth + "%");
         if (job.minGraduation != null) critParts.push("Graduation >= " + job.minGraduation + "%");
-        const criteria = critParts.length ? critParts.join(" · ") : "";
+        const criteria = critParts.map(function(criterion) {
+            return '<span class="placement-criteria-chip">' + esc(criterion) + "</span>";
+        }).join("");
+        const courses = String(job.courses || "").split(",").map(function(course) {
+            return course.trim();
+        }).filter(Boolean);
+        const courseList = courses.length
+            ? '<p><strong>Courses:</strong> ' + courses.map(esc).join(", ") + "</p>" : "";
         return `
             <div class="placement-card">
                 <h3>${esc(job.company || "Company")}</h3>
@@ -207,8 +214,9 @@ function render() {
                     <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> Openings: ${esc(job.openings || "N/A")}</span>
                 </div>
                 <p><strong>Eligibility:</strong> ${esc(job.eligibility || "N/A")}</p>
-                ${criteria ? '<p><strong>Criteria:</strong> ' + esc(criteria) + "</p>" : ""}
+                ${criteria ? '<section class="placement-criteria" aria-label="Minimum academic criteria"><span class="placement-criteria-label">Minimum academic criteria</span><div class="placement-criteria-list">' + criteria + "</div></section>" : ""}
                 <p><strong>Skills:</strong> ${esc(job.skills || "N/A")}</p>
+                ${courseList}
                 ${desc ? '<p class="desc">' + esc(desc) + "</p>" : ""}
                 ${descLong ? '<button type="button" class="desc-toggle">View more</button>' : ""}
                 <div class="card-actions">
@@ -274,9 +282,20 @@ function openDocModal(documents, company) {
 
 function applyToJob(jobId, button) {
     pendingApplication = { jobId: jobId, button: button };
+    const job = allJobs.find(function(entry) { return entry.id === jobId; }) || {};
     document.getElementById("resumeModalTitle").textContent = "Add your resume for " +
-        ((allJobs.find(function(job) { return job.id === jobId; }) || {}).company || "this company");
+        (job.company || "this company");
     document.getElementById("resumeUrlInput").value = "";
+    const courseGroup = document.getElementById("courseSelectionGroup");
+    const courseInput = document.getElementById("selectedCourseInput");
+    const courses = String(job.courses || "").split(",").map(function(course) {
+        return course.trim();
+    }).filter(Boolean);
+    courseGroup.hidden = courses.length === 0;
+    courseInput.required = courses.length > 0;
+    courseInput.innerHTML = '<option value="">Select a course</option>' + courses.map(function(course) {
+        return '<option value="' + UI.escapeHtml(course) + '">' + UI.escapeHtml(course) + "</option>";
+    }).join("");
     UI.openModal(document.getElementById("resumeModal"));
 }
 
@@ -296,7 +315,11 @@ async function submitApplication() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify({ jobId: jobId, resumeUrl: resumeInput.value.trim() })
+            body: JSON.stringify({
+                jobId: jobId,
+                resumeUrl: resumeInput.value.trim(),
+                selectedCourse: document.getElementById("selectedCourseInput").value
+            })
         });
         if (UI.redirectIfUnauthorized(response)) return;
         const raw = await response.text();

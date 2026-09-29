@@ -4,8 +4,8 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Placements | LLOYD Carrer</title>
-    <link rel="stylesheet" href="css/portal.css?v=9">
+    <title>Manage Placements | LLOYD Career</title>
+    <link rel="stylesheet" href="css/portal.css?v=15">
     <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
 </head>
 <body data-role="admin" data-active="placements" data-title="Manage Placements">
@@ -36,6 +36,7 @@
                 <tr>
                     <th>Company</th>
                     <th>Role</th>
+                    <th>Salary</th>
                     <th>Location</th>
                     <th>Eligibility</th>
                     <th>Deadline</th>
@@ -72,8 +73,12 @@
                 <input type="text" id="fCompany" required>
             </div>
             <div class="form-group">
-                <label>Job Role</label>
-                <input type="text" id="fJobRole">
+                <label for="fJobRole">Job Role</label>
+                <input type="text" id="fJobRole" placeholder="Full Stack, Gen AI and etc">
+            </div>
+            <div class="form-group">
+                <label for="fCourses">Course</label>
+                <input type="text" id="fCourses" placeholder="B.Tech, MCA, BCA, M.Tech">
             </div>
             <div class="form-group">
                 <label>Job Type</label>
@@ -135,11 +140,15 @@
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 12px;">
             <div class="form-group">
                 <label>Salary (LPA)</label>
-                <input type="number" id="fSalaryLpa" min="0" step="0.01" placeholder="e.g. 12">
+                <input type="text" id="fSalaryLpa" inputmode="decimal" placeholder="e.g. 5.7 or 4.1 - 7.8">
             </div>
             <div class="form-group">
-                <label>Eligible Batch</label>
-                <select id="fBatch"><option value="">All batches</option></select>
+                <label for="fBatchFrom">Eligible Batch: From Year</label>
+                <input type="text" id="fBatchFrom" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="YYYY">
+            </div>
+            <div class="form-group">
+                <label for="fBatchTo">Eligible Batch: To Year</label>
+                <input type="text" id="fBatchTo" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="YYYY">
             </div>
             <div class="form-group">
                 <label>Branches Allowed</label>
@@ -219,7 +228,7 @@
     </div>
 </div>
 
-<script src="js/ui.js?v=6"></script>
-<script src="js/admin-placements.js?v=6"></script>
+<script src="js/ui.js?v=8"></script>
+<script src="js/admin-placements.js?v=8"></script>
 </body>
 </html>

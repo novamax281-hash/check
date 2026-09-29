@@ -127,7 +127,12 @@ public class AdminController {
         copyIfPresent(incoming.getJobDescription(), existing::setJobDescription);
         copyIfPresent(incoming.getLocation(), existing::setLocation);
         copyIfPresent(incoming.getOpenings(), existing::setOpenings);
-        copyIfPresent(incoming.getBatch(), existing::setBatch);
+        if (incoming.getBatch() != null) {
+            existing.setBatch(incoming.getBatch().trim());
+        }
+        if (incoming.getCourses() != null) {
+            existing.setCourses(incoming.getCourses().trim());
+        }
         copyIfPresent(incoming.getBranch(), existing::setBranch);
         copyIfPresent(incoming.getApplication_date(), existing::setApplication_date);
         copyIfPresent(incoming.getWebsite(), existing::setWebsite);
@@ -178,6 +183,14 @@ public class AdminController {
         }
         if (job.getRounds() == null) {
             job.setRounds(new ArrayList<>());
+        }
+        if (job.getBatch() != null && !job.getBatch().isBlank()) {
+            String[] years = job.getBatch().trim().split("-", -1);
+            if (years.length != 2 || !years[0].matches("\\d{4}") || !years[1].matches("\\d{4}")
+                    || Integer.parseInt(years[0]) > Integer.parseInt(years[1])) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Eligible batch must have a valid From Year and To Year");
+            }
         }
     }
 

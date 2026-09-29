@@ -3,6 +3,7 @@ package com.example.placement.service;
 import com.example.placement.dto.CsvImportResult;
 import com.example.placement.dto.CsvValidationResult;
 import com.example.placement.entity.Application;
+import com.example.placement.entity.RoundStatus;
 import com.example.placement.entity.UsersEntries;
 import com.example.placement.repository.ApplicationRepository;
 import com.example.placement.repository.UsersRepository;
@@ -177,6 +178,30 @@ class CsvImportServiceTest {
         CsvImportResult result = csvImportService.commit("APPLICATION_ROUND", rows);
         assertThat(result.getUpdatedRows()).isEqualTo(1);
         assertThat(app.getCurrentRound()).isEqualTo(3);
+        assertThat(app.getStatus()).isEqualTo("IN_PROGRESS");
+        assertThat(app.getRounds()).extracting(r -> r.getRound()).containsExactly(1, 3);
+        assertThat(app.getRounds()).allMatch(r -> r.getStatus() == RoundStatus.PENDING);
+    }
+
+    @Test
+    void commitApplicationRoundSkipsTerminalApplications() {
+        UsersEntries student = new UsersEntries("2023CS101", "9000000000");
+        student.setId("u1");
+        when(usersRepository.findByEnrollmentno("2023CS101")).thenReturn(student);
+        Application app = new Application("u1", "j1");
+        app.setId("a1");
+        app.setStatus("SELECTED");
+        when(applicationRepository.findByStudentIdAndPlacementId("u1", "j1"))
+                .thenReturn(java.util.Optional.of(app));
+        when(applicationRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        List<Map<String, String>> rows = List.of(
+                row("enrollmentno", "2023CS101", "email", "vikram@gmail.com", "jobId", "j1", "round", "3"));
+
+        CsvImportResult result = csvImportService.commit("APPLICATION_ROUND", rows);
+        assertThat(result.getUpdatedRows()).isEqualTo(0);
+        assertThat(app.getCurrentRound()).isEqualTo(1);
+        assertThat(result.getErrors()).anyMatch(e -> "TERMINAL".equals(e.getError()));
     }
 
     @Test

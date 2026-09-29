@@ -239,13 +239,36 @@
     }
 
     function exportStudent() {
-        var url = "/admin/students/export";
-        api(url, {
+        fetch("/admin/students/export", {
             method: "POST",
+            credentials: "include",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ scope: "selected", studentIds: [studentId] })
+        }).then(function (res) {
+            if (UI.redirectIfUnauthorized(res)) throw new Error("Unauthorized");
+            if (!res.ok) {
+                return res.text().then(function (text) {
+                    var message = "Request failed (" + res.status + ")";
+                    try {
+                        var data = JSON.parse(text);
+                        if (data && data.message) message = data.message;
+                    } catch (e) {}
+                    throw new Error(message);
+                });
+            }
+            var disposition = res.headers.get("Content-Disposition") || "";
+            var match = disposition.match(/filename="?([^";]+)"?/);
+            return res.blob().then(function (blob) {
+                var link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = match ? match[1] : "student_export.csv";
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                setTimeout(function () { URL.revokeObjectURL(link.href); }, 1000);
+            });
         }).then(function () {
-            UI.showToast("Student CSV generated. If it did not download, check your browser.", "success");
+            UI.showToast("Student CSV downloaded.", "success");
         }).catch(function (err) {
             UI.showToast(err.message || "Could not export student", "error");
         });

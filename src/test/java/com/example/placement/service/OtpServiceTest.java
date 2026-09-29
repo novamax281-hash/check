@@ -22,9 +22,52 @@ class OtpServiceTest {
     }
 
     @Test
+    void sendOtpSyncReportsSuccessWhenMailIsAccepted() {
+        JavaMailSender sender = mock(JavaMailSender.class);
+        OtpService service = new OtpService(sender);
+        service.storeOtp("reset:user@liet.in", "123456");
+
+        assertThat(service.sendOtpSync("reset:user@liet.in", "user@liet.in", "123456")).isTrue();
+        assertThat(service.validateOtp("reset:user@liet.in", "123456")).isTrue();
+    }
+
+    @Test
+    void sendOtpSyncReportsFailureAndClearsTheStoredOtp() {
+        JavaMailSender sender = mock(JavaMailSender.class);
+        org.mockito.Mockito.doThrow(new org.springframework.mail.MailSendException("smtp down"))
+                .when(sender).send(org.mockito.ArgumentMatchers.any(
+                        org.springframework.mail.SimpleMailMessage.class));
+        OtpService service = new OtpService(sender);
+        service.storeOtp("reset:user@liet.in", "123456");
+
+        assertThat(service.sendOtpSync("reset:user@liet.in", "user@liet.in", "123456")).isFalse();
+        assertThat(service.validateOtp("reset:user@liet.in", "123456")).isFalse();
+    }
+
+    @Test
+    void failedSyncSendAllowsAnImmediateRetry() {
+        JavaMailSender sender = mock(JavaMailSender.class);
+        org.mockito.Mockito.doThrow(new org.springframework.mail.MailSendException("quota exceeded"))
+                .when(sender).send(org.mockito.ArgumentMatchers.any(
+                        org.springframework.mail.SimpleMailMessage.class));
+        OtpService service = new OtpService(sender);
+        service.storeOtp("reset:user@liet.in", "123456");
+
+        assertThat(service.sendOtpSync("reset:user@liet.in", "user@liet.in", "123456")).isFalse();
+        assertThat(service.canResend("reset:user@liet.in")).isTrue();
+    }
+
+    @Test
     void validateOtpAcceptsStoredOtp() {
         otpService.storeOtp("enr1", "123456");
         assertThat(otpService.validateOtp("enr1", "123456")).isTrue();
+    }
+
+    @Test
+    void matchesOtpDoesNotConsumeItBeforePasswordReset() {
+        otpService.storeOtp("reset:user@liet.in", "123456");
+        assertThat(otpService.matchesOtp("reset:user@liet.in", "123456")).isTrue();
+        assertThat(otpService.validateOtp("reset:user@liet.in", "123456")).isTrue();
     }
 
     @Test

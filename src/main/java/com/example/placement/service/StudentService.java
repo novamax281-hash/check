@@ -34,6 +34,9 @@ import com.example.placement.repository.UsersRepository;
 @Service
 public class StudentService {
 
+    static final int MAX_PAGE_SIZE = 100;
+    static final int MAX_REPORT_PAGE_SIZE = 100_000;
+
     private final UsersRepository usersRepository;
     private final ApplicationRepository applicationRepository;
     private final PlacementRepository placementRepository;
@@ -120,7 +123,8 @@ public class StudentService {
                                               Integer round, String appliedFrom, String appliedTo,
                                               int page, int pageSize, boolean includeApplications) {
         int safePage = Math.max(1, page);
-        int safeSize = Math.min(100, Math.max(1, pageSize));
+        int maxSize = includeApplications ? MAX_REPORT_PAGE_SIZE : MAX_PAGE_SIZE;
+        int safeSize = Math.min(maxSize, Math.max(1, pageSize));
 
         List<UsersEntries> allStudents = usersRepository.findAll().stream()
                 .filter(this::isStudentRole)
@@ -343,20 +347,31 @@ public class StudentService {
         int updated = 0;
         int failed = 0;
         List<Map<String, Object>> failures = new ArrayList<>();
-        for (String id : studentIds) {
+        if (status == null || status.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "New status is required");
+        }
+        String normalized = status.trim();
+        boolean allowed = knownStatuses().stream().anyMatch(s -> s.equalsIgnoreCase(normalized));
+        if (!allowed) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Status must be one of: " + String.join(", ", knownStatuses()));
+        }
+        List<String> targets = studentIds == null ? List.of() : studentIds;
+        for (String id : targets) {
             try {
                 UsersEntries student = requireStudent(id);
-                student.setStudentStatus(status.trim());
+                student.setStudentStatus(normalized);
                 usersRepository.save(student);
                 updated++;
             } catch (ResponseStatusException e) {
                 failed++;
-                failures.add(Map.of("id", id, "message", e.getReason()));
+                failures.add(Map.of("id", id, "message",
+                        e.getReason() != null ? e.getReason() : "Could not be processed"));
             }
         }
         result.put("updated", updated);
         result.put("failed", failed);
-        result.put("total", studentIds.size());
+        result.put("total", targets.size());
         result.put("failures", failures);
         result.put("message", updated + " student" + (updated == 1 ? "" : "s") + " updated");
         return result;
@@ -364,6 +379,22 @@ public class StudentService {
 
     public Map<String, Object> bulkMoveRound(List<String> applicationIds, Integer targetRound, String adminRemark) {
         return applicationService.bulkSetRound(applicationIds, targetRound, adminRemark);
+    }
+
+    public Map<String, Object> bulkMoveRound(List<String> applicationIds, List<String> studentIds,
+                                             Integer targetRound, String adminRemark) {
+        List<String> resolved = new ArrayList<>(applicationIds == null ? List.of() : applicationIds);
+        for (String studentId : studentIds == null ? List.<String>of() : studentIds) {
+            if (studentId == null || studentId.isBlank()) {
+                continue;
+            }
+            applicationRepository.findByStudentId(studentId).stream()
+                    .map(Application::getId)
+                    .filter(java.util.Objects::nonNull)
+                    .forEach(resolved::add);
+        }
+        return applicationService.bulkSetRound(resolved.stream().distinct().collect(Collectors.toList()),
+                targetRound, adminRemark);
     }
 
     public StudentDetail toDetail(UsersEntries student, List<Application> applications,

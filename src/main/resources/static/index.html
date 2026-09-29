@@ -4,11 +4,11 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LLOYD Carrer | Training &amp; Placement Cell</title>
-    <link rel="stylesheet" href="css/portal.css?v=9">
+    <title>LLOYD Career | Training &amp; Placement Cell</title>
+    <link rel="stylesheet" href="css/portal.css?v=15">
     <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
 </head>
-<body>
+<body class="landing-page">
 
 <nav class="lp-nav">
     <a href="index.html" class="lp-brand">
@@ -23,7 +23,7 @@
 <!--            <a href="#recruiters" class="lp-nav-link">Recruiters</a>-->
         </div>
         <button class="theme-toggle" data-theme-toggle aria-label="Toggle theme"></button>
-        <a href="#Recruiters" class="lp-signin">Recruiters</a>
+        <a href="#recruiters-thought-title" class="lp-signin">Recruiters</a>
     </div>
 </nav>
 
@@ -35,10 +35,26 @@
 
     <div class="lp-hero-content">
         <div class="auth-hero-card" id="login">
-            <h2 id="authHeading">Login Here</h2>
-            <p class="auth-subtitle" id="authSubtitle">Use your enrollment number and mobile number registered with the placement cell.</p>
+            <h2 id="authHeading">Student Sign In</h2>
+            <p class="auth-subtitle" id="authSubtitle">Sign in with your registered email and password.</p>
 
             <form id="loginForm" class="auth-form">
+                <div class="input-group" id="studentEmailGroup">
+                    <label for="studentEmail">Email ID</label>
+                    <input type="email" id="studentEmail" placeholder="you@liet.in" autocomplete="username" required>
+                </div>
+                <div class="input-group" id="studentPasswordGroup">
+                    <label for="studentPassword">Password</label>
+                    <input type="password" id="studentPassword" placeholder="Enter your password" autocomplete="current-password" minlength="8" maxlength="72" required>
+                </div>
+                <div class="input-group" id="staffEnrollmentGroup" style="display:none;">
+                    <label for="enrollmentno">Staff Enrollment Number</label>
+                    <input type="text" id="enrollmentno" placeholder="Your enrollment number" autocomplete="username" maxlength="50">
+                </div>
+                <div class="input-group" id="staffMobileGroup" style="display:none;">
+                    <label for="mobile">Registered Mobile Number</label>
+                    <input type="tel" id="mobile" placeholder="10-digit number" maxlength="10" pattern="[0-9]{10}" autocomplete="tel">
+                </div>
                 <div class="input-group" id="regNameGroup" style="display:none;">
                     <label for="regName">Full Name</label>
                     <input type="text" id="regName" placeholder="Your full name" maxlength="80">
@@ -63,16 +79,24 @@
                     <label for="regTwelfth">12th Percentage</label>
                     <input type="number" id="regTwelfth" min="0" max="100" step="0.01" placeholder="e.g. 72">
                 </div>
-                <div class="input-group">
-                    <label for="enrollmentno">Enrollment Number</label>
-                    <input type="text" id="enrollmentno" placeholder="e.g. 2021XXXXXX" autocomplete="username" required>
+                <div class="input-group" id="regEnrollmentGroup" style="display:none;">
+                    <label for="regEnrollment">Enrollment Number</label>
+                    <input type="text" id="regEnrollment" placeholder="e.g. 2021XXXXXX" maxlength="50">
                 </div>
-                <div class="input-group">
-                    <label for="mobile">Mobile Number</label>
-                    <input type="tel" id="mobile" placeholder="10-digit registered number" autocomplete="username" maxlength="10" pattern="[0-9]{10}" required>
+                <div class="input-group" id="regMobileGroup" style="display:none;">
+                    <label for="regMobile">Mobile Number</label>
+                    <input type="tel" id="regMobile" placeholder="10-digit registered number" autocomplete="tel" maxlength="10" pattern="[0-9]{10}">
+                </div>
+                <div class="input-group" id="regPasswordGroup" style="display:none;">
+                    <label for="regPassword">Create Password</label>
+                    <input type="password" id="regPassword" placeholder="At least 8 characters" autocomplete="new-password" minlength="8" maxlength="72">
+                </div>
+                <div class="input-group" id="regPasswordConfirmGroup" style="display:none;">
+                    <label for="regPasswordConfirm">Confirm Password</label>
+                    <input type="password" id="regPasswordConfirm" placeholder="Re-enter your password" autocomplete="new-password" minlength="8" maxlength="72">
                 </div>
                 <p id="message" style="display:none; margin-top: 4px; font-size: 13px;"></p>
-                <button type="submit" id="loginButton" class="btn auth-submit">SEND OTP</button>
+                <button type="submit" id="loginButton" class="btn auth-submit">SIGN IN</button>
             </form>
 
             <div id="otpSection" style="display:none;">
@@ -85,14 +109,46 @@
                     <button type="submit" id="otpButton" class="btn auth-submit">VERIFY OTP</button>
                 </form>
                 <div class="auth-links">
-                    <a href="#" id="backToLogin">&larr; Use different details</a>
-                    <a href="#" id="resendOtp">Resend OTP</a>
+                    <a href="#" id="backToLogin">&larr; Back</a>
+                    <span><a href="#" id="resendOtp">Resend OTP</a> <span id="resendCountdown" aria-live="polite"></span></span>
                 </div>
             </div>
 
-            <p class="auth-toggle" style="margin-top: 14px; text-align: center; font-size: 13px;">
+            <div id="resetSection" style="display:none;">
+                <p class="message success" id="resetSentMessage"></p>
+                <form id="resetForm" class="auth-form">
+                    <div class="input-group">
+                        <label for="resetEmail">Email ID</label>
+                        <input type="email" id="resetEmail" autocomplete="email" readonly required>
+                    </div>
+                    <div class="input-group" id="resetOtpGroup">
+                        <label for="resetOtp">Six-digit OTP</label>
+                        <input type="text" id="resetOtp" inputmode="numeric" maxlength="6" pattern="[0-9]{6}" placeholder="Enter email code" autocomplete="one-time-code" required>
+                    </div>
+                    <div class="input-group" id="newPasswordGroup" style="display:none;">
+                        <label for="newPassword">New Password</label>
+                        <input type="password" id="newPassword" autocomplete="new-password" minlength="8" maxlength="72">
+                    </div>
+                    <div class="input-group" id="confirmNewPasswordGroup" style="display:none;">
+                        <label for="confirmNewPassword">Confirm New Password</label>
+                        <input type="password" id="confirmNewPassword" autocomplete="new-password" minlength="8" maxlength="72">
+                    </div>
+                    <p id="resetMessage" style="display:none; margin-top:4px; font-size:13px;"></p>
+                    <button type="submit" id="resetButton" class="btn auth-submit">VERIFY OTP</button>
+                </form>
+                <div class="auth-links">
+                    <a href="#" id="backToLoginFromReset">&larr; Back to sign in</a>
+                    <span><a href="#" id="resendResetOtp">Resend OTP</a> <span id="resetCountdown" aria-live="polite"></span></span>
+                </div>
+            </div>
+
+            <p class="auth-toggle" id="authToggleWrap" style="margin-top: 14px; text-align: center; font-size: 13px;">
                 <a href="#" id="toggleAuthMode">New student? Register here</a>
             </p>
+            <div class="auth-links" id="authModeLinks">
+                <a href="#" id="forgotPasswordLink">Forgot password?</a>
+                <a href="#" id="staffLoginLink">Staff sign in</a>
+            </div>
 
             <div class="auth-footer">Need assistance? Contact the placement cell at <a href="mailto:registrar@lloydcollege.in">registrar@lloydcollege.in</a></div>
         </div>
@@ -244,19 +300,19 @@
 <footer class="lp-footer">
     <div class="inner">
         <div>
-            <h3 style="color:#FFFFFF; font-size:18px; margin-bottom:4px;">LLOYD Carrer</h3>
+            <h3 style="color:#FFFFFF; font-size:18px; margin-bottom:4px;">LLOYD Career</h3>
             <p>Training &amp; Placement Cell &bull; Institutional Placement Management System</p>
         </div>
         <p>Reach out to <a href="mailto:Lloydedu@liet.in">registrar@lloydcollege.in</a></p>
-        <p>&copy; <span id="year"></span> LLOYD Carrer </p>
+        <p>&copy; <span id="year"></span> LLOYD Career </p>
     </div>
 </footer>
 
 <script>
     document.getElementById("year").textContent = new Date().getFullYear();
 </script>
-<script src="js/ui.js?v=6"></script>
-<script src="js/login.js?v=6"></script>
+<script src="js/ui.js?v=8"></script>
+<script src="js/login-auth.js?v=2"></script>
 <script src="js/college-gallery.js?v=1"></script>
 <script src="js/campus-gate.js?v=1"></script>
 </body>

@@ -2,6 +2,8 @@ const welcome = document.getElementById("welcome");
 const recentBody = document.getElementById("recentBody");
 const recentEmpty = document.getElementById("recentEmpty");
 
+const RECENT_LIMIT = 5;
+
 const statFields = [
     ["statTotal", "total"],
     ["statUnderReview", "underReview"],
@@ -12,6 +14,8 @@ const statFields = [
 
 async function loadProfile() {
     try {
+        // UI.getProfile memoises its promise, so this shares one /user/profile
+        // request with the sidebar header instead of issuing a second one.
         const user = await UI.getProfile();
         if (user) {
             welcome.textContent = "Welcome, " + (user.name || user.enrollmentno) + "!";
@@ -35,7 +39,8 @@ async function loadStats() {
 
 async function loadRecent() {
     try {
-        const response = await fetch("/user/applications", { credentials: "include" });
+        // Only the rows that are actually rendered are requested and mapped.
+        const response = await fetch("/user/applications?limit=" + RECENT_LIMIT, { credentials: "include" });
         if (UI.redirectIfUnauthorized(response)) return;
         if (!response.ok) return;
         const applications = await response.json();
@@ -43,7 +48,7 @@ async function loadRecent() {
             recentEmpty.classList.remove("hidden");
             return;
         }
-        recentBody.innerHTML = applications.slice(0, 5).map(function(app) {
+        recentBody.innerHTML = applications.slice(0, RECENT_LIMIT).map(function(app) {
             const esc = window.UI.escapeHtml;
             return `
                 <tr>
@@ -59,8 +64,32 @@ async function loadRecent() {
     }
 }
 
+async function loadNotices() {
+    if (!window.Notices) return;
+    Notices.showLoading();
+    try {
+        const response = await fetch("/api/notices", { credentials: "include" });
+        if (UI.redirectIfUnauthorized(response)) return;
+        if (!response.ok) {
+            Notices.showError();
+            return;
+        }
+        const notices = await response.json();
+        // Rendered once; the carousel then runs entirely on the client.
+        Notices.set(Array.isArray(notices) ? notices : []);
+    } catch (e) {
+        Notices.showError();
+    }
+}
+
 document.addEventListener("DOMContentLoaded", function() {
     loadProfile();
     loadStats();
     loadRecent();
+    loadNotices();
+
+    const retry = document.getElementById("noticeRetry");
+    if (retry) {
+        retry.addEventListener("click", function() { loadNotices(); });
+    }
 });

@@ -4,8 +4,8 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Applications | LLOYD Carrer</title>
-    <link rel="stylesheet" href="css/portal.css?v=9">
+    <title>Applications | LLOYD Career</title>
+    <link rel="stylesheet" href="css/portal.css?v=15">
     <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
 </head>
 <body data-role="admin" data-active="applications" data-title="Applications">
@@ -131,6 +131,7 @@
                     <th>Email</th>
                     <th>Company</th>
                     <th>Role</th>
+                    <th>Selected Course</th>
                     <th>Batch &middot; Branch</th>
                     <th>Applied</th>
                     <th>Round</th>
@@ -192,13 +193,14 @@
         <div class="form-group">
             <label>Status</label>
             <select id="statusSelect">
-                <option>Applied</option>
-                <option>Under Review</option>
-                <option>Shortlisted</option>
-                <option>Interview Scheduled</option>
-                <option>Selected</option>
-                <option>Rejected</option>
-                <option>Withdrawn</option>
+                <option value="IN_PROGRESS">In Progress</option>
+                <option value="Applied">Applied</option>
+                <option value="Under Review">Under Review</option>
+                <option value="Shortlisted">Shortlisted</option>
+                <option value="Interview Scheduled">Interview Scheduled</option>
+                <option value="SELECTED">Selected</option>
+                <option value="REJECTED">Rejected</option>
+                <option value="WITHDRAWN">Withdrawn</option>
             </select>
         </div>
         <div class="form-group">
@@ -261,7 +263,7 @@
     </div>
 </div>
 
-<script src="js/ui.js?v=6"></script>
+<script src="js/ui.js?v=8"></script>
 <script src="js/admin-applications.js?v=7"></script>
 <script>
     (function () {

@@ -2,9 +2,14 @@ package com.example.placement.controller;
 
 import com.example.placement.dto.LoginRequest;
 import com.example.placement.dto.LoginResponse;
+import com.example.placement.dto.OtpVerifyRequest;
 import com.example.placement.dto.RegisterRequest;
+import com.example.placement.dto.EmailRequest;
+import com.example.placement.dto.PasswordResetRequest;
+import com.example.placement.dto.StudentLoginRequest;
 import com.example.placement.entity.UsersEntries;
 import com.example.placement.repository.UsersRepository;
+import com.example.placement.service.AuthenticationService;
 import com.example.placement.service.OtpService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -13,6 +18,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
@@ -25,6 +33,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
+import java.util.List;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.stream.Collectors;
 
@@ -35,13 +44,16 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final UsersRepository usersRepository;
     private final OtpService otpService;
+    private final AuthenticationService authenticationService;
 
     public AuthController(AuthenticationManager authenticationManager,
                           UsersRepository usersRepository,
-                          OtpService otpService) {
+                          OtpService otpService,
+                          AuthenticationService authenticationService) {
         this.authenticationManager = authenticationManager;
         this.usersRepository = usersRepository;
         this.otpService = otpService;
+        this.authenticationService = authenticationService;
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -60,6 +72,10 @@ public class AuthController {
                     loginRequest.getEnrollmentno(), loginRequest.getMobile()));
 
             UsersEntries user = usersRepository.findByEnrollmentno(loginRequest.getEnrollmentno());
+                if (!isStaff(user)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new LoginResponse("Use your student email and password to sign in.", ""));
+                }
             String email = user != null ? user.getEmail() : null;
             if (isMissing(email)) {
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -83,9 +99,8 @@ public class AuthController {
             try {
                 otpService.sendOtp(loginRequest.getEnrollmentno(), email, otp);
             } catch (RejectedExecutionException rejected) {
-                if (!otpService.sendOtpSync(email, otp)) {
-                    otpService.removeOtp(loginRequest.getEnrollmentno(), otp);
-                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                if (!otpService.sendOtpSync(loginRequest.getEnrollmentno(), email, otp)) {
+                    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                             .body(new LoginResponse("Could not send the OTP email right now. Please try again.", ""));
                 }
             }
@@ -107,26 +122,39 @@ public class AuthController {
         try {
             Authentication authentication = authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
                     loginRequest.getEnrollmentno(), loginRequest.getMobile()));
+                UsersEntries user = usersRepository.findByEnrollmentno(loginRequest.getEnrollmentno());
+                if (!isStaff(user)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new LoginResponse("Invalid or expired OTP", ""));
+                }
 
-            SecurityContext context = SecurityContextHolder.createEmptyContext();
-            context.setAuthentication(authentication);
-            SecurityContextHolder.setContext(context);
-            request.getSession(true).setAttribute(
-                    HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
-
-            UsersEntries user = usersRepository.findByEnrollmentno(loginRequest.getEnrollmentno());
-            String role = "STUDENT";
-            if (user != null && user.getRole() != null
-                    && (user.getRole().equalsIgnoreCase("admin")
-                    || user.getRole().equalsIgnoreCase("coordinator"))) {
-                role = "ADMIN";
-            }
+                establishSession(authentication, request);
+                String role = "ADMIN";
             return ResponseEntity.ok(new LoginResponse("Login Successful", role));
         } catch (RuntimeException exception) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new LoginResponse("Login failed, please try again", ""));
         }
     }
+
+        @PostMapping("/student/login")
+        public ResponseEntity<LoginResponse> studentLogin(@Valid @RequestBody StudentLoginRequest loginRequest,
+                                   HttpServletRequest request) {
+        UsersEntries user = authenticationService.authenticateStudent(
+            loginRequest.getEmail().trim().toLowerCase(), loginRequest.getPassword());
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new LoginResponse("Invalid email or password", ""));
+        }
+        UserDetails principal = User.withUsername(user.getEnrollmentno())
+            .password("")
+            .authorities("ROLE_STUDENT")
+            .build();
+        Authentication authentication = UsernamePasswordAuthenticationToken.authenticated(
+            principal, null, principal.getAuthorities());
+        establishSession(authentication, request);
+        return ResponseEntity.ok(new LoginResponse("Login successful", "STUDENT"));
+        }
 
     @PostMapping("/register/send-otp")
     public ResponseEntity<LoginResponse> sendRegisterOtp(@Valid @RequestBody RegisterRequest registerRequest,
@@ -140,7 +168,7 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(new LoginResponse("This enrollment number is already registered. Sign in instead.", ""));
         }
-        if (usersRepository.findByEmail(email) != null) {
+        if (usersRepository.findByEmailIgnoreCase(email) != null) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(new LoginResponse("This email address is already registered. Sign in instead.", ""));
         }
@@ -161,9 +189,8 @@ public class AuthController {
         try {
             otpService.sendOtp(key, email, otp);
         } catch (RejectedExecutionException rejected) {
-            if (!otpService.sendOtpSync(email, otp)) {
-                otpService.removeOtp(key, otp);
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+            if (!otpService.sendOtpSync(key, email, otp)) {
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                         .body(new LoginResponse("Could not send the OTP email right now. Please try again.", ""));
             }
         }
@@ -183,7 +210,7 @@ public class AuthController {
                     .body(new LoginResponse("Invalid or expired OTP", ""));
         }
         if (usersRepository.findByEnrollmentno(registerRequest.getEnrollmentno().trim()) != null
-                || usersRepository.findByEmail(email) != null) {
+                || usersRepository.findByEmailIgnoreCase(email) != null) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(new LoginResponse("Looks like this student is already registered. Sign in instead.", ""));
         }
@@ -196,10 +223,98 @@ public class AuthController {
         student.setTenthPercentage(registerRequest.getTenthPercentage());
         student.setTwelfthPercentage(registerRequest.getTwelfthPercentage());
         student.setRole("Student");
-        usersRepository.save(student);
+        try {
+            authenticationService.saveStudentPassword(student, registerRequest.getPassword());
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest()
+                    .body(new LoginResponse("Password must be at most 72 UTF-8 bytes", ""));
+        }
 
         return ResponseEntity.ok(new LoginResponse(
-                "Registration successful. Sign in with your enrollment number and mobile.", "STUDENT"));
+                "Registration successful. Sign in with your email and password.", "STUDENT"));
+    }
+
+    @PostMapping("/forgot-password/send-otp")
+    public ResponseEntity<LoginResponse> sendPasswordResetOtp(@Valid @RequestBody EmailRequest emailRequest,
+                                                               HttpServletRequest request) {
+        String email = emailRequest.getEmail().trim().toLowerCase();
+        String key = passwordResetKey(email);
+        if (otpService.isRateLimited(clientIp(request))) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(new LoginResponse("Too many OTP requests right now. Please try again later.", ""));
+        }
+
+        UsersEntries user = usersRepository.findByEmailIgnoreCase(email);
+        if (!authenticationService.isStudent(user)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new LoginResponse("No student account is registered with that email address.", ""));
+        }
+
+        if (!otpService.canResend(key)) {
+            long wait = otpService.resendWaitSeconds(key);
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(new LoginResponse(
+                            "A code was already sent. Please wait " + wait + " seconds before requesting another.",
+                            "", true, maskEmail(email)));
+        }
+
+        String otp = otpService.generateOtp();
+        otpService.storeOtp(key, otp);
+        if (!otpService.sendOtpSync(key, email, otp)) {
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(new LoginResponse(
+                            "Could not send the OTP email right now. Please try again in a few minutes.", ""));
+        }
+        return ResponseEntity.ok(new LoginResponse(
+                "Password reset code sent to " + maskEmail(email), "", true, maskEmail(email)));
+    }
+
+    @PostMapping("/forgot-password/reset")
+    public ResponseEntity<LoginResponse> resetPassword(@Valid @RequestBody PasswordResetRequest resetRequest) {
+        String email = resetRequest.getEmail().trim().toLowerCase();
+        String key = passwordResetKey(email);
+        if (!otpService.validateOtp(key, resetRequest.getOtp())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new LoginResponse("Invalid or expired OTP", ""));
+        }
+        UsersEntries user = usersRepository.findByEmailIgnoreCase(email);
+        if (!authenticationService.isStudent(user)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new LoginResponse("Invalid or expired OTP", ""));
+        }
+        try {
+            authenticationService.saveStudentPassword(user, resetRequest.getNewPassword());
+        } catch (IllegalArgumentException exception) {
+            return ResponseEntity.badRequest()
+                    .body(new LoginResponse("Password must be at most 72 UTF-8 bytes", ""));
+        }
+        return ResponseEntity.ok(new LoginResponse(
+                "Password reset successfully. Sign in with your new password.", "STUDENT"));
+    }
+
+    @PostMapping("/forgot-password/verify-otp")
+    public ResponseEntity<LoginResponse> verifyPasswordResetOtp(@Valid @RequestBody OtpVerifyRequest verifyRequest) {
+        String email = verifyRequest.getEmail().trim().toLowerCase();
+        String key = passwordResetKey(email);
+        UsersEntries user = usersRepository.findByEmailIgnoreCase(email);
+        if (!authenticationService.isStudent(user) || !otpService.matchesOtp(key, verifyRequest.getOtp())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(new LoginResponse("Invalid or expired OTP", ""));
+        }
+        return ResponseEntity.ok(new LoginResponse("Code verified. Create your new password.", "STUDENT"));
+    }
+
+    private void establishSession(Authentication authentication, HttpServletRequest request) {
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        context.setAuthentication(authentication);
+        SecurityContextHolder.setContext(context);
+        request.getSession(true).setAttribute(
+                HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY, context);
+    }
+
+    private boolean isStaff(UsersEntries user) {
+        return user != null && user.getRole() != null
+                && (user.getRole().equalsIgnoreCase("admin") || user.getRole().equalsIgnoreCase("coordinator"));
     }
 
     static boolean isLietEmail(String email) {
@@ -208,6 +323,10 @@ public class AuthController {
 
     private String registerOtpKey(String email) {
         return "reg:" + email;
+    }
+
+    private String passwordResetKey(String email) {
+        return "password-reset:" + email;
     }
 
     private String maskEmail(String email) {

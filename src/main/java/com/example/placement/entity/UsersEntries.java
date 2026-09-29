@@ -2,6 +2,8 @@ package com.example.placement.entity;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.FieldType;
@@ -23,6 +25,10 @@ public class UsersEntries {
     private String name;
 
     private String email;
+
+    @JsonIgnore
+    @ToString.Exclude
+    private String passwordHash;
 
     private String role;
 

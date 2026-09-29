@@ -15,6 +15,7 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -333,6 +334,70 @@ class StudentServiceTest {
 
         var options = studentService.filterOptions();
         assertThat((List<String>) options.get("sections")).containsExactlyInAnyOrder("A", "B");
+    }
+
+    @Test
+    void listStudentsCapsPageSizeAtOneHundred() {
+        List<UsersEntries> many = new java.util.ArrayList<>();
+        for (int i = 0; i < 150; i++) {
+            many.add(student("u" + i, "E" + i, "S" + i, "s" + i + "@mail.com", "CSE", "2023-27", "Active"));
+        }
+        when(usersRepository.findAll()).thenReturn(many);
+        when(applicationRepository.findAll()).thenReturn(List.of());
+
+        StudentListResponse response = studentService.listStudents(null, null, null, null, null,
+                null, null, null, null, null, null, 1, Integer.MAX_VALUE);
+
+        assertThat(response.getPageSize()).isEqualTo(100);
+        assertThat(response.getStudents()).hasSize(100);
+        assertThat(response.getTotal()).isEqualTo(150);
+    }
+
+    @Test
+    void listStudentsForReportIsNotTruncated() {
+        List<UsersEntries> many = new java.util.ArrayList<>();
+        for (int i = 0; i < 150; i++) {
+            many.add(student("u" + i, "E" + i, "S" + i, "s" + i + "@mail.com", "CSE", "2023-27", "Active"));
+        }
+        when(usersRepository.findAll()).thenReturn(many);
+        when(applicationRepository.findAll()).thenReturn(List.of());
+        when(placementRepository.findAll()).thenReturn(List.of());
+
+        StudentListResponse response = studentService.listStudentsForReport(null, null, null, null, null,
+                null, null, null, null, null, null, 1, Integer.MAX_VALUE);
+
+        assertThat(response.getStudents()).hasSize(150);
+    }
+
+    @Test
+    void bulkUpdateStatusRejectsUnknownStatus() {
+        assertThatThrownBy(() -> studentService.bulkUpdateStatus(List.of("u1"), "Hacked"))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("Status must be one of");
+    }
+
+    @Test
+    void bulkUpdateStatusRejectsNullStatus() {
+        assertThatThrownBy(() -> studentService.bulkUpdateStatus(List.of("u1"), null))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("New status is required");
+    }
+
+    @Test
+    void bulkMoveRoundExpandsStudentIdsIntoApplicationIds() {
+        UsersEntries s1 = student("u1", "E1", "S1", "s1@mail.com", "CSE", "2023-27", "Active");
+        Application first = new Application("u1", "job1");
+        first.setId("app1");
+        Application second = new Application("u1", "job2");
+        second.setId("app2");
+        when(applicationRepository.findByStudentId("u1")).thenReturn(List.of(first, second));
+        Map<String, Object> summary = new java.util.HashMap<>();
+        when(applicationService.bulkSetRound(anyList(), any(), anyString()))
+                .thenAnswer(invocation -> summary);
+
+        studentService.bulkMoveRound(List.of(), List.of("u1"), 2, "moved");
+
+        verify(applicationService).bulkSetRound(argThat(ids -> ids.size() == 2), eq(2), eq("moved"));
     }
 
 }

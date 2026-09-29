@@ -79,12 +79,17 @@ public class ApplicationService {
     }
 
     public String apply(String studentId, String placementId, String resumeUrl) {
+        return apply(studentId, placementId, resumeUrl, null);
+    }
+
+    public String apply(String studentId, String placementId, String resumeUrl, String selectedCourse) {
         Optional<Application> existing = applicationRepository.findByStudentIdAndPlacementId(studentId, placementId);
         if (existing.isPresent()) {
             return "already";
         }
         Application application = new Application(studentId, placementId);
         application.setResumeUrl(resumeUrl);
+        application.setSelectedCourse(selectedCourse);
         applicationRepository.save(application);
         return "applied";
     }
@@ -145,6 +150,25 @@ public class ApplicationService {
     public List<ApplicationDetail> getStudentApplications(String studentId) {
         List<Application> applications = applicationRepository.findByStudentId(studentId);
         return buildDetails(applications);
+    }
+
+    /**
+     * Dashboard variant that caps the result before detail mapping, so the recent-apps
+     * table does not pay to build every application a student has ever submitted.
+     */
+    public List<ApplicationDetail> getRecentStudentApplications(String studentId, int limit) {
+        if (limit <= 0) {
+            return getStudentApplications(studentId);
+        }
+        List<Application> applications = applicationRepository.findByStudentId(studentId);
+        if (applications.size() <= limit) {
+            return buildDetails(applications);
+        }
+        List<Application> sorted = new ArrayList<>(applications);
+        sorted.sort(Comparator.comparing(
+                (Application application) -> application.getApplicationDate(),
+                Comparator.nullsLast(Comparator.reverseOrder())));
+        return buildDetails(sorted.subList(0, limit));
     }
 
     public List<ApplicationDetail> getAllApplications() {
@@ -706,6 +730,7 @@ public class ApplicationService {
         detail.setApplicationDate(application.getApplicationDate());
         detail.setLastUpdated(application.getLastUpdated());
         detail.setResumeUrl(application.getResumeUrl());
+        detail.setSelectedCourse(application.getSelectedCourse());
         detail.setAdminRemark(application.getAdminRemark());
 
         if (student != null) {
@@ -717,6 +742,24 @@ public class ApplicationService {
             detail.setStudentName(name != null && !name.isEmpty() ? name
                     : (enrollment != null && !enrollment.isEmpty() ? enrollment : ""));
             detail.setStudentEmail(email != null && !email.isEmpty() ? email : "");
+            detail.setStudentCourse(student.getCourse());
+            detail.setStudentBatch(student.getBatch());
+            detail.setStudentStatus(student.getStudentStatus());
+            detail.setStudentRole(student.getRole());
+            detail.setBranch(student.getBranch());
+            detail.setSection(student.getSection());
+            detail.setDepartment(student.getDepartment());
+            detail.setCollege(student.getCollege());
+            detail.setCgpa(student.getCgpa());
+            detail.setTenthPercentage(student.getTenthPercentage());
+            detail.setTwelfthPercentage(student.getTwelfthPercentage());
+            detail.setGraduationPercentage(student.getGraduationPercentage());
+            detail.setDob(student.getDob());
+            detail.setGender(student.getGender());
+            detail.setAddress(student.getAddress());
+            detail.setCity(student.getCity());
+            detail.setState(student.getState());
+            detail.setBatch(student.getBatch());
         }
 
         if (job != null) {
@@ -725,7 +768,8 @@ public class ApplicationService {
             detail.setRole(job.getJobRole() != null && !job.getJobRole().isBlank()
                     ? job.getJobRole() : job.getJobType());
             detail.setJobType(detail.getRole());
-            detail.setSalary(job.getStipend());
+                detail.setSalary(job.getSalaryLpa() != null && !job.getSalaryLpa().isBlank()
+                    ? job.getSalaryLpa() : job.getStipend());
             detail.setSkills(job.getSkills());
             detail.setEligibility(job.getEligibility());
             detail.setLocation(job.getLocation());
@@ -735,8 +779,8 @@ public class ApplicationService {
             detail.setApplicationLink(job.getApplicationLink());
             detail.setJobDescription(job.getJobDescription());
             detail.setOpenings(job.getOpenings());
-            detail.setBatch(job.getBatch());
-            detail.setBranch(job.getBranch());
+            detail.setEligibleBatch(job.getBatch());
+            detail.setEligibleBranch(job.getBranch());
         }
         return detail;
     }

@@ -140,11 +140,12 @@ class ApplicationServiceTest {
                 .thenReturn(Optional.empty());
 
         ArgumentCaptor<Application> captor = ArgumentCaptor.forClass(Application.class);
-        applicationService.apply("student1", "placement1", "https://example.com/resume.pdf");
+        applicationService.apply("student1", "placement1", "https://example.com/resume.pdf", "Data Science");
         verify(applicationRepository).save(captor.capture());
 
         Application saved = captor.getValue();
         assertEquals("https://example.com/resume.pdf", saved.getResumeUrl());
+        assertEquals("Data Science", saved.getSelectedCourse());
         assertEquals("IN_PROGRESS", saved.getStatus());
         assertEquals(1, saved.getCurrentRound());
         assertEquals(1, saved.getRounds().size());
@@ -152,6 +153,31 @@ class ApplicationServiceTest {
         assertEquals(RoundStatus.PENDING, saved.getRounds().get(0).getStatus());
         assertNotNull(saved.getApplicationDate());
         assertNotNull(saved.getLastUpdated());
+    }
+
+    @Test
+    void applicationDetailsKeepSelectedCourseStudentBatchAndExactJobSalary() {
+        Application application = application(1, "IN_PROGRESS", List.of());
+        application.setSelectedCourse("Data Science");
+        UsersEntries student = user();
+        student.setBatch("2022-2026");
+        student.setCourse("Computer Science");
+        student.setBranch("CSE");
+        Placement job = placement();
+        job.setBatch("2021-2027");
+        job.setBranch("All Engineering");
+        job.setSalaryLpa("4.1 - 7.8");
+
+        ApplicationDetail detail = ApplicationService.mapDetail(application, student, job, List.of());
+
+        assertEquals("Data Science", detail.getSelectedCourse());
+        assertEquals("Computer Science", detail.getStudentCourse());
+        assertEquals("2022-2026", detail.getBatch());
+        assertEquals("2022-2026", detail.getStudentBatch());
+        assertEquals("2021-2027", detail.getEligibleBatch());
+        assertEquals("4.1 - 7.8", detail.getSalary());
+        assertEquals("CSE", detail.getBranch());
+        assertEquals("All Engineering", detail.getEligibleBranch());
     }
 
     @Test

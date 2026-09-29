@@ -54,6 +54,38 @@
         });
     }
 
+    function downloadCsv(path, body, fallbackName) {
+        return fetch(path, {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+        }).then(function (res) {
+            if (UI.redirectIfUnauthorized(res)) throw new Error("Unauthorized");
+            if (!res.ok) {
+                return res.text().then(function (text) {
+                    var message = "Request failed (" + res.status + ")";
+                    try {
+                        var data = JSON.parse(text);
+                        if (data && data.message) message = data.message;
+                    } catch (e) {}
+                    throw new Error(message);
+                });
+            }
+            var disposition = res.headers.get("Content-Disposition") || "";
+            var match = disposition.match(/filename="?([^";]+)"?/);
+            return res.blob().then(function (blob) {
+                var link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = match ? match[1] : fallbackName;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                setTimeout(function () { URL.revokeObjectURL(link.href); }, 1000);
+            });
+        });
+    }
+
     function activeFilterCount() {
         var count = 0;
         var filters = state.filters;
@@ -302,7 +334,7 @@
         UI.openModal(el("bulkRoundModal"));
     }
 
-    function selectedApplicationIds() {
+    function selectedStudentIds() {
         return Array.from(state.selected);
     }
 
@@ -461,7 +493,7 @@
                     result.failedRows + " rows failed. Download the error report for details.</p>";
             }
             el("downloadErrorReportBtn").style.display = result.failedRows > 0 ? "" : "none";
-            showImportStep(6);
+            showImportStep(5);
             loadStudents();
             loadStats();
         }).catch(function (err) {
@@ -475,15 +507,12 @@
     function downloadErrorReport() {
         if (!state.importResult || state.importResult.failedRows === 0) return;
         var lines = state.csvContent.split(/\r?\n/);
-        api("/admin/students/import/error-report", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ operation: state.operation, rows: lines })
-        }).then(function () {
-            UI.showToast("Error report is being prepared", "info");
-        }).catch(function (err) {
-            UI.showToast(err.message || "Could not generate error report", "error");
-        });
+        downloadCsv("/admin/students/import/error-report",
+            { operation: state.operation, rows: lines }, "import_error_report.csv").then(function () {
+                UI.showToast("Error report downloaded.", "success");
+            }).catch(function (err) {
+                UI.showToast(err.message || "Could not generate error report", "error");
+            });
     }
 
     
@@ -500,6 +529,9 @@
             { key: "CGPA", label: "CGPA" },
             { key: "Student Status", label: "Student Status" },
             { key: "Applications", label: "Applications" },
+            { key: "Applied Companies", label: "Applied Companies" },
+            { key: "Applied Roles", label: "Applied Roles" },
+            { key: "Selected Courses", label: "Selected Courses" },
             { key: "Application Status", label: "Application Status" },
             { key: "Current Round", label: "Current Round" },
             { key: "Course", label: "Course" },
@@ -514,8 +546,9 @@
         ];
     }
 
-    var DEFAULT_COLUMNS = ["Name", "Email", "Phone", "Enrollment", "Branch", "Section", "Batch", "CGPA",
-        "Student Status", "Applications", "Application Status", "Current Round"];
+    var DEFAULT_COLUMNS = ["Name", "Email", "Phone", "Enrollment", "Course", "Branch", "Section", "Batch",
+        "CGPA", "10th %", "12th %", "Graduation %", "Student Status", "Applications", "Applied Companies",
+        "Applied Roles", "Selected Courses", "Application Status", "Current Round"];
 
     function renderColumns(containerId, selected) {
         var selectedSet = selected || DEFAULT_COLUMNS;
@@ -555,26 +588,22 @@
         var original = el("generateExportBtn").textContent;
         el("generateExportBtn").textContent = "Generating...";
 
-        api("/admin/students/export", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                scope: scopeData.scope, studentIds: scopeData.ids,
-                search: scopeData.filters.search || null,
-                batch: scopeData.filters.batch.length ? scopeData.filters.batch : null,
-                branch: scopeData.filters.branch.length ? scopeData.filters.branch : null,
-                section: scopeData.filters.section.length ? scopeData.filters.section : null,
-                studentStatus: scopeData.filters.studentStatus || null,
-                applicationStatus: scopeData.filters.applicationStatus || null,
-                company: scopeData.filters.company || null,
-                job: scopeData.filters.job || null,
-                round: scopeData.filters.round ? parseInt(scopeData.filters.round, 10) : null,
-                appliedFrom: scopeData.filters.appliedFrom || null,
-                appliedTo: scopeData.filters.appliedTo || null,
-                columns: selectedColumns("exportColumns")
-            })
-        }).then(function () {
-            UI.showToast("CSV generated. If it did not download, check your browser.", "success");
+        downloadCsv("/admin/students/export", {
+            scope: scopeData.scope, studentIds: scopeData.ids,
+            search: scopeData.filters.search || null,
+            batch: scopeData.filters.batch.length ? scopeData.filters.batch : null,
+            branch: scopeData.filters.branch.length ? scopeData.filters.branch : null,
+            section: scopeData.filters.section.length ? scopeData.filters.section : null,
+            studentStatus: scopeData.filters.studentStatus || null,
+            applicationStatus: scopeData.filters.applicationStatus || null,
+            company: scopeData.filters.company || null,
+            job: scopeData.filters.job || null,
+            round: scopeData.filters.round ? parseInt(scopeData.filters.round, 10) : null,
+            appliedFrom: scopeData.filters.appliedFrom || null,
+            appliedTo: scopeData.filters.appliedTo || null,
+            columns: selectedColumns("exportColumns")
+        }, "students_export.csv").then(function () {
+            UI.showToast("CSV downloaded.", "success");
         }).catch(function (err) {
             UI.showToast(err.message || "Could not generate CSV", "error");
         }).finally(function () {
@@ -697,7 +726,10 @@
         });
 
         el("filterToggleBtn").addEventListener("click", function () {
-            el("filterPanel").classList.toggle("open");
+            var panel = el("filterPanel");
+            var open = panel.style.display === "none";
+            panel.style.display = open ? "" : "none";
+            el("filterToggleBtn").setAttribute("aria-expanded", open ? "true" : "false");
         });
 
         el("applyFiltersBtn").addEventListener("click", function () {
@@ -753,7 +785,7 @@
         el("cancelBulkStatusBtn").addEventListener("click", function () { UI.closeModal(el("bulkStatusModal")); });
         el("applyBulkStatusBtn").addEventListener("click", function () {
             var status = el("bulkStatusSelect").value;
-            var ids = selectedApplicationIds();
+            var ids = selectedStudentIds();
             if (!ids.length) return;
             el("applyBulkStatusBtn").disabled = true;
             var original = el("applyBulkStatusBtn").textContent;
@@ -791,7 +823,7 @@
             api("/admin/students/bulk-round", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ applicationIds: selectedApplicationIds(), targetRound: targetRound, adminRemark: el("bulkRoundRemark").value.trim() })
+                body: JSON.stringify({ studentIds: selectedStudentIds(), targetRound: targetRound, adminRemark: el("bulkRoundRemark").value.trim() })
             }).then(function (result) {
                 UI.showToast(result.message || "Applications moved", "success");
                 UI.closeModal(el("bulkRoundModal"));

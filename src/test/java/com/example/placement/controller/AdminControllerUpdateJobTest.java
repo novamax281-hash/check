@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.any;
@@ -14,6 +15,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.example.placement.entity.Placement;
 import com.example.placement.entity.PlacementRound;
@@ -138,5 +140,15 @@ class AdminControllerUpdateJobTest {
         assertEquals("Final-year students and recent graduates", saved.getEligibility());
         assertEquals("1a04980596e185d6", saved.getGmail_message_id());
         assertEquals(1, saved.getRounds().size());
+    }
+
+    @Test
+    void addJob_rejectsEligibleBatchWhenFromYearExceedsToYear() {
+        Placement job = new Placement();
+        job.setCompany("TechNova");
+        job.setJobType("Developer");
+        job.setBatch("2026-2022");
+
+        assertThrows(ResponseStatusException.class, () -> controller.addJob(job));
     }
 }

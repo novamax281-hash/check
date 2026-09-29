@@ -28,6 +28,10 @@ public class RegisterRequest {
     @Pattern(regexp = "^[0-9]{10}$", message = "Enter a valid 10-digit mobile number")
     private String mobile;
 
+    @NotBlank(message = "Password is required")
+    @Size(min = 8, max = 72, message = "Password must be between 8 and 72 characters")
+    private String password;
+
     @NotBlank(message = "Batch selection is required")
     @Pattern(regexp = "^[0-9]{4}-[0-9]{4}$", message = "Select a valid batch")
     private String batch;

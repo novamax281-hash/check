@@ -127,6 +127,16 @@
         } else {
             payload.email = fields.email.value;
             payload.phoneno = fields.phone.value;
+            payload.cgpa = numeric(fields.cgpa);
+            payload.tenthPercentage = numeric(fields.tenth);
+            payload.twelfthPercentage = numeric(fields.twelfth);
+            payload.graduationPercentage = numeric(fields.grad);
+            payload.batch = fields.batch.value;
+            payload.branch = fields.branch.value;
+            payload.section = fields.section.value;
+            payload.department = fields.department.value;
+            payload.course = fields.course.value;
+            payload.college = fields.college.value;
         }
         Object.keys(payload).forEach(function (key) {
             if (payload[key] === undefined) {

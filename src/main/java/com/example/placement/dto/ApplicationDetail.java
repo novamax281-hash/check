@@ -22,6 +22,40 @@ public class ApplicationDetail {
 
     private String phoneNo;
 
+    private String studentCourse;
+
+    private String selectedCourse;
+
+    private String studentBatch;
+
+    private String studentStatus;
+
+    private String studentRole;
+
+    private String section;
+
+    private String department;
+
+    private String college;
+
+    private Double cgpa;
+
+    private Double tenthPercentage;
+
+    private Double twelfthPercentage;
+
+    private Double graduationPercentage;
+
+    private String dob;
+
+    private String gender;
+
+    private String address;
+
+    private String city;
+
+    private String state;
+
     private String jobId;
 
     private String company;
@@ -51,6 +85,10 @@ public class ApplicationDetail {
     private String openings;
 
     private String batch;
+
+    private String eligibleBatch;
+
+    private String eligibleBranch;
 
     private String branch;
 

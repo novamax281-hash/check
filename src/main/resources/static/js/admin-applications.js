@@ -467,6 +467,7 @@ function render() {
                 <td>${esc(app.studentEmail || "-")}</td>
                 <td>${esc(app.company || "-")}</td>
                 <td>${esc(app.role || "-")}</td>
+                <td>${esc(app.selectedCourse || "-")}</td>
                 <td><div class="meta-chips"><span class="meta-chip">${esc(app.batch || "—")}</span><span class="chip-sep">·</span><span class="meta-chip">${esc(app.branch || "—")}</span></div></td>
                 <td>${esc(formatDate(app.applicationDate))}</td>
                 <td>${window.UI.roundPills(app)}</td>
@@ -804,23 +805,6 @@ function renderUserPagination(total) {
     userPagination.innerHTML = '<span class="page-info">' + total + " user" + (total === 1 ? "" : "s")
         + " · Page " + userPage + " of " + userPageCount + "</span>"
         + '<span class="page-buttons">' + buttons + "</span>";
-}
-
-function ensureUsersLazy() {
-    if (usersLazyLoaded) return Promise.resolve();
-    if (usersLoadPromise) return usersLoadPromise;
-    usersLoadPromise = fetch("/admin/users", { credentials: "include" })
-        .then(function(response) {
-            if (UI.redirectIfUnauthorized(response)) return Promise.reject(new Error("unauthorized"));
-            if (!response.ok) return [];
-            return response.json();
-        })
-        .then(function(list) {
-            allUsers = list;
-            usersLazyLoaded = true;
-            buildUsersIndex();
-        });
-    return usersLoadPromise;
 }
 
 function renderUsers() {
@@ -1375,7 +1359,12 @@ function openLegacyModal(app) {
         <p><strong>Admin Remark</strong>${window.UI.escapeHtml(app.adminRemark || "-")}</p>
         <div style="grid-column: 1 / -1;">${window.UI.progressList(app)}</div>
     `;
-    statusSelect.value = app.status || "Applied";
+    const desired = app.status || "IN_PROGRESS";
+    if (Array.from(statusSelect.options).some(function(o) { return o.value === desired; })) {
+        statusSelect.value = desired;
+    } else {
+        statusSelect.value = "IN_PROGRESS";
+    }
     remarkInput.value = app.adminRemark || "";
     statusModal.classList.add("open");
 }

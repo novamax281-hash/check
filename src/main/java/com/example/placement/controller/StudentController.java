@@ -142,14 +142,17 @@ public class StudentController {
     @PostMapping("/bulk-round")
     public Map<String, Object> bulkRound(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
-        List<String> ids = (List<String>) body.getOrDefault("applicationIds", List.of());
+        List<String> applicationIds = (List<String>) body.getOrDefault("applicationIds", List.of());
+        @SuppressWarnings("unchecked")
+        List<String> studentIds = (List<String>) body.getOrDefault("studentIds", List.of());
         Integer targetRound = body.get("targetRound") == null ? null
                 : Integer.valueOf(String.valueOf(body.get("targetRound")));
         String remark = body.get("adminRemark") == null ? null : String.valueOf(body.get("adminRemark"));
-        if (ids.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "At least one application ID is required");
+        if (applicationIds.isEmpty() && studentIds.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "At least one application ID or student ID is required");
         }
-        return studentService.bulkMoveRound(ids, targetRound, remark);
+        return studentService.bulkMoveRound(applicationIds, studentIds, targetRound, remark);
     }
 
     @PostMapping("/import/validate")

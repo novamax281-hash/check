@@ -21,7 +21,7 @@ public class OtpService {
 
     static final int OTP_EXPIRY_SECONDS = 300;
     private static final int OTP_LENGTH = 6;
-    private static final int RESEND_COOLDOWN_SECONDS = 30;
+    static final int RESEND_COOLDOWN_SECONDS = 60;
     static final int MAX_VERIFY_ATTEMPTS = 5;
 
     static final int MAX_OTPS_PER_IP_PER_HOUR = 10;
@@ -57,12 +57,17 @@ public class OtpService {
         }
     }
 
-    public boolean sendOtpSync(String to, String otp) {
+    /**
+     * Delivers on the calling thread so the caller can react to a failure. Used where the
+     * response must not claim success when the SMTP server rejected the message.
+     */
+    public boolean sendOtpSync(String key, String to, String otp) {
         try {
             deliverMail(to, otp);
             return true;
         } catch (RuntimeException ex) {
-            log.warn("Could not deliver OTP email synchronously for {}: {}", maskEmail(to), ex.getMessage());
+            log.warn("Could not deliver OTP email for {}: {}", maskEmail(to), ex.getMessage());
+            removeOtp(key, otp);
             return false;
         }
     }
@@ -105,6 +110,14 @@ public class OtpService {
     }
 
     public boolean validateOtp(String key, String otp) {
+        return verifyOtp(key, otp, true);
+    }
+
+    public boolean matchesOtp(String key, String otp) {
+        return verifyOtp(key, otp, false);
+    }
+
+    private boolean verifyOtp(String key, String otp, boolean consumeOnSuccess) {
         if (otp == null || otp.isBlank()) {
             return false;
         }
@@ -125,7 +138,9 @@ public class OtpService {
             }
             return false;
         }
-        otpStore.remove(key);
+        if (consumeOnSuccess) {
+            otpStore.remove(key);
+        }
         return true;
     }
 
