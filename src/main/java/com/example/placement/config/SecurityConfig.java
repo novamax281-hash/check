@@ -43,7 +43,7 @@ public class SecurityConfig {
                                 .maxAgeInSeconds(31536000))
                 )
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/index.html", "/login.html", "/css/**", "/js/**",
+                        .requestMatchers("/", "/index.html", "/login.html", "/css/**", "/js/**", "/images/**",
                                 "/api/auth/send-otp", "/api/auth/verify-otp", "/api/auth/register/**",
                                 "/api/auth/student/login", "/api/auth/staff/login", "/api/auth/forgot-password/**",
                                 "/actuator/health", "/actuator/health/**",

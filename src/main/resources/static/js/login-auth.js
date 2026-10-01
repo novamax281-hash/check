@@ -190,7 +190,7 @@ function setMode(mode) {
             .forEach(function(id) { showGroup(id, true); });
         authHeading.textContent = "New Student Registration";
         authSubtitle.textContent = "Register with your @liet.in email and create a password.";
-        loginButton.textContent = "SEND OTP";
+        loginButton.textContent = "Not working contact to Admin";
         toggleAuthMode.textContent = "Already registered? Sign in";
         authModeLinks.style.display = "none";
     } else {
