@@ -1,5 +1,6 @@
 package com.example.placement.service;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -16,6 +17,7 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -42,17 +44,20 @@ public class StudentService {
     private final PlacementRepository placementRepository;
     private final ApplicationService applicationService;
     private final MongoTemplate mongoTemplate;
+    private final PasswordEncoder passwordEncoder;
 
     public StudentService(UsersRepository usersRepository,
                           ApplicationRepository applicationRepository,
                           PlacementRepository placementRepository,
                           ApplicationService applicationService,
-                          MongoTemplate mongoTemplate) {
+                          MongoTemplate mongoTemplate,
+                          PasswordEncoder passwordEncoder) {
         this.usersRepository = usersRepository;
         this.applicationRepository = applicationRepository;
         this.placementRepository = placementRepository;
         this.applicationService = applicationService;
         this.mongoTemplate = mongoTemplate;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public List<String> knownStatuses() {
@@ -340,22 +345,52 @@ public class StudentService {
     }
 
     public UsersEntries addStudent(UsersEntries student) {
+        validateNewStudent(student);
+        String password = student.getPassword();
+        student.setRole("Student");
+        if (student.getStudentStatus() == null || student.getStudentStatus().isBlank()) {
+            student.setStudentStatus("Active");
+        } else {
+            student.setStudentStatus(student.getStudentStatus().trim());
+        }
+        if (password != null && !password.isBlank()) {
+            student.setPasswordHash(passwordEncoder.encode(password));
+        }
+        student.setPassword(null);
+        return usersRepository.save(student);
+    }
+
+    public void validateNewStudent(UsersEntries student) {
+        if (student == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Student data is required");
+        }
         if (student.getEnrollmentno() == null || student.getEnrollmentno().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Enrollment number is required");
         }
         if (student.getEmail() == null || student.getEmail().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is required");
         }
-        UsersEntries existing = usersRepository.findByEnrollmentno(student.getEnrollmentno().trim());
+        student.setEnrollmentno(student.getEnrollmentno().trim());
+        student.setEmail(student.getEmail().trim());
+        if (!student.getEmail().matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid email format");
+        }
+        String password = student.getPassword();
+        if (password != null && password.getBytes(StandardCharsets.UTF_8).length > 72) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Password must be at most 72 UTF-8 bytes");
+        }
+        if (student.getStudentStatus() != null && !student.getStudentStatus().isBlank()
+                && knownStatuses().stream().noneMatch(status -> status.equalsIgnoreCase(student.getStudentStatus().trim()))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid student status");
+        }
+        UsersEntries existing = usersRepository.findByEnrollmentno(student.getEnrollmentno());
         if (existing != null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A student with this enrollment number already exists");
         }
-        student.setEnrollmentno(student.getEnrollmentno().trim());
-        student.setRole("Student");
-        if (student.getStudentStatus() == null || student.getStudentStatus().isBlank()) {
-            student.setStudentStatus("Active");
+        if (usersRepository.findByEmailIgnoreCase(student.getEmail()) != null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "A student with this email already exists");
         }
-        return usersRepository.save(student);
     }
 
     public Map<String, Object> bulkUpdateStatus(List<String> studentIds, String status) {

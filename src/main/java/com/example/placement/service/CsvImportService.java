@@ -1,5 +1,25 @@
 package com.example.placement.service;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
+import org.springframework.dao.DataAccessException;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
 import com.example.placement.dto.CsvImportResult;
 import com.example.placement.dto.CsvValidationResult;
 import com.example.placement.entity.Application;
@@ -9,31 +29,22 @@ import com.example.placement.entity.RoundStatus;
 import com.example.placement.entity.UsersEntries;
 import com.example.placement.repository.ApplicationRepository;
 import com.example.placement.repository.UsersRepository;
-import org.springframework.http.HttpStatus;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
-
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 @Service
 public class CsvImportService {
 
+    private static final List<String> STUDENT_ADD_HEADERS = List.of("enrollmentno", "name", "email", "password",
+            "phone", "batch", "branch", "section", "studentstatus");
+
     private final UsersRepository usersRepository;
     private final ApplicationRepository applicationRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final StudentService studentService;
 
     public CsvImportService(UsersRepository usersRepository, ApplicationRepository applicationRepository,
-                            PasswordEncoder passwordEncoder) {
+                            StudentService studentService) {
         this.usersRepository = usersRepository;
         this.applicationRepository = applicationRepository;
-        this.passwordEncoder = passwordEncoder;
+        this.studentService = studentService;
     }
 
     public List<String> supportedOperations() {
@@ -51,8 +62,10 @@ public class CsvImportService {
             case "ACADEMIC":
                 return List.of("enrollmentno", "email", "batch", "branch", "section", "course", "cgpa",
                         "tenthPercentage", "twelfthPercentage", "graduationPercentage");
-            case "UPDATE":
             case "ADD":
+                return List.of("enrollmentNo", "name", "email", "password", "phone", "batch", "branch",
+                        "section", "studentStatus");
+            case "UPDATE":
             default:
                 return List.of("enrollmentno", "name", "email", "phoneno", "batch", "branch", "section",
                         "course", "college", "cgpa", "tenthPercentage", "twelfthPercentage",
@@ -61,52 +74,83 @@ public class CsvImportService {
     }
 
     public List<Map<String, String>> parseCsv(List<String> lines) {
+        return parseCsv(lines, null);
+    }
+
+    public List<Map<String, String>> parseCsv(List<String> lines, String operation) {
+        return parseCsvContent(lines == null ? "" : String.join("\n", lines), operation);
+    }
+
+    public List<Map<String, String>> parseCsvContent(String content, String operation) {
         List<Map<String, String>> rows = new ArrayList<>();
-        if (lines == null || lines.isEmpty()) {
-            return rows;
+        List<String> headers = new ArrayList<>();
+        if (content == null || content.isBlank()) {
+            throw new IllegalArgumentException("CSV file is empty");
         }
-        String header = lines.get(0);
-        List<String> headers = splitLine(header);
-        for (int i = 1; i < lines.size(); i++) {
-            String line = lines.get(i);
-            if (line == null || line.isBlank()) {
-                continue;
+        CSVFormat format = CSVFormat.RFC4180.builder().setIgnoreEmptyLines(false).setTrim(false).get();
+        try (CSVParser parser = CSVParser.parse(content, format)) {
+            Iterator<CSVRecord> records = parser.iterator();
+            if (!records.hasNext()) {
+                throw new IllegalArgumentException("CSV header row is missing");
             }
-            List<String> values = splitLine(line);
-            Map<String, String> row = new LinkedHashMap<>();
-            for (int c = 0; c < headers.size(); c++) {
-                String headerName = headers.get(c).trim().toLowerCase();
-                if (headerName.isEmpty()) continue;
-                String value = c < values.size() ? values.get(c) : "";
-                row.put(headerName, value.trim());
+            CSVRecord header = records.next();
+            for (int index = 0; index < header.size(); index++) {
+                String value = header.get(index).trim();
+                if (index == 0) value = value.replaceFirst("^\\uFEFF", "");
+                headers.add(value.toLowerCase(java.util.Locale.ROOT));
             }
-            rows.add(row);
+            while (records.hasNext()) {
+                CSVRecord record = records.next();
+                if (isEmptyRecord(record)) continue;
+                Map<String, String> row = new LinkedHashMap<>();
+                row.put("__rownumber", Long.toString(record.getRecordNumber()));
+                row.put("__columncount", Integer.toString(record.size()));
+                for (int column = 0; column < headers.size(); column++) {
+                    String headerName = headers.get(column);
+                    if (!headerName.isEmpty()) {
+                        row.put(headerName, column < record.size() ? record.get(column).trim() : "");
+                    }
+                }
+                rows.add(row);
+            }
+        } catch (IllegalArgumentException exception) {
+            if ("CSV header row is missing".equals(exception.getMessage())) {
+                throw exception;
+            }
+            throw new IllegalArgumentException("Malformed CSV format");
+        } catch (IOException | RuntimeException exception) {
+            throw new IllegalArgumentException("Malformed CSV format");
+        }
+        if (headers.isEmpty()) {
+            throw new IllegalArgumentException("CSV header row is missing");
+        }
+        if ("ADD".equalsIgnoreCase(operation)) {
+            validateStudentHeaders(headers);
         }
         return rows;
     }
 
-    private List<String> splitLine(String line) {
-        List<String> values = new ArrayList<>();
-        boolean inQuotes = false;
-        StringBuilder current = new StringBuilder();
-        for (int i = 0; i < line.length(); i++) {
-            char ch = line.charAt(i);
-            if (ch == '"') {
-                if (inQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"') {
-                    current.append('"');
-                    i++;
-                } else {
-                    inQuotes = !inQuotes;
-                }
-            } else if (ch == ',' && !inQuotes) {
-                values.add(current.toString());
-                current.setLength(0);
-            } else {
-                current.append(ch);
-            }
+    private boolean isEmptyRecord(CSVRecord record) {
+        for (String value : record) {
+            if (!value.isBlank()) return false;
         }
-        values.add(current.toString());
-        return values;
+        return true;
+    }
+
+    private void validateStudentHeaders(List<String> headers) {
+        Set<String> actual = new HashSet<>(headers);
+        Set<String> expected = new HashSet<>(STUDENT_ADD_HEADERS);
+        List<String> missing = STUDENT_ADD_HEADERS.stream().filter(header -> !actual.contains(header)).toList();
+        List<String> unexpected = headers.stream().filter(header -> !expected.contains(header)).distinct().toList();
+        if (headers.size() != STUDENT_ADD_HEADERS.size() || actual.size() != headers.size()
+                || !missing.isEmpty() || !unexpected.isEmpty()) {
+            List<String> issues = new ArrayList<>();
+            if (!missing.isEmpty()) issues.add("missing: " + String.join(", ", missing));
+            if (!unexpected.isEmpty()) issues.add("unexpected: " + String.join(", ", unexpected));
+            if (actual.size() != headers.size()) issues.add("duplicate column names");
+            throw new IllegalArgumentException("CSV headers must contain exactly the student fields ("
+                    + String.join("; ", issues) + ")");
+        }
     }
 
     public CsvValidationResult validate(String operation, List<Map<String, String>> rows, boolean previewMode) {
@@ -118,11 +162,13 @@ public class CsvImportService {
         }
         result.setTotalRows(rows.size());
 
+        Map<String, Integer> seenEnrollments = new HashMap<>();
+        Map<String, Integer> seenEmails = new HashMap<>();
         Map<String, Integer> seenIdentifiers = new HashMap<>();
 
         for (int i = 0; i < rows.size(); i++) {
             Map<String, String> row = rows.get(i);
-            int rowNumber = i + 2;
+            int rowNumber = csvRowNumber(row, i);
             String enrollment = row.get("enrollmentno");
             String email = row.get("email");
             String name = row.get("name");
@@ -132,25 +178,24 @@ public class CsvImportService {
             List<String> errors = new ArrayList<>();
 
             if (op.equals("ADD")) {
-                if (isBlank(enrollment)) {
-                    errors.add("Enrollment number is required");
+                String columnCount = row.get("__columncount");
+                if (columnCount != null && Integer.parseInt(columnCount) != STUDENT_ADD_HEADERS.size()) {
+                    errors.add("Row has " + columnCount + " columns; expected " + STUDENT_ADD_HEADERS.size());
                 } else {
-                    if (usersRepository.findByEnrollmentno(enrollment) != null) {
-                        errors.add("Student with this enrollment already exists");
+                    UsersEntries student = studentFromAddRow(row);
+                    try {
+                        studentService.validateNewStudent(student);
+                    } catch (ResponseStatusException exception) {
+                        errors.add(exception.getReason() == null ? "Invalid student data" : exception.getReason());
+                    } catch (DataAccessException | com.mongodb.MongoException exception) {
+                        errors.add("Could not validate this student against the database");
+                    } catch (RuntimeException exception) {
+                        errors.add("Could not validate this student");
                     }
                 }
-                if (isBlank(email)) {
-                    errors.add("Email is required");
-                } else if (!email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
-                    errors.add("Invalid email format");
-                } else if (usersRepository.findByEmailIgnoreCase(email) != null) {
-                    errors.add("Student with this email already exists");
-                }
-                String password = row.get("password");
-                if (!isBlank(password)
-                        && password.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72) {
-                    errors.add("Password must be at most 72 UTF-8 bytes");
-                }
+                addDuplicateError(enrollment, rowNumber, seenEnrollments, "enrollment number", errors);
+                addDuplicateError(email, rowNumber, seenEmails, "email", errors);
+                rowResult.setStatus(row.get("studentstatus"));
             } else {
                 boolean matched = false;
                 if (!isBlank(enrollment) && usersRepository.findByEnrollmentno(enrollment) != null) {
@@ -191,18 +236,20 @@ public class CsvImportService {
                 }
             }
 
-            if ("ACADEMIC".equals(op) || "ADD".equals(op) || "UPDATE".equals(op)) {
+            if ("ACADEMIC".equals(op) || "UPDATE".equals(op)) {
                 validateCgpa(row.get("cgpa"), errors);
                 validatePercentage(row.get("tenthPercentage"), "10th Percentage", errors);
                 validatePercentage(row.get("twelfthPercentage"), "12th Percentage", errors);
                 validatePercentage(row.get("graduationPercentage"), "Graduation Percentage", errors);
             }
 
-            String identifier = !isBlank(enrollment) ? enrollment : (isBlank(email) ? "" : email);
-            if (!identifier.isEmpty()) {
-                Integer firstSeen = seenIdentifiers.putIfAbsent(identifier.toLowerCase(), rowNumber);
-                if (firstSeen != null) {
-                    errors.add("Duplicate identifier, first seen on row " + firstSeen);
+            if (!"ADD".equals(op)) {
+                String identifier = !isBlank(enrollment) ? enrollment : (isBlank(email) ? "" : email);
+                if (!identifier.isEmpty()) {
+                    Integer firstSeen = seenIdentifiers.putIfAbsent(identifier.toLowerCase(), rowNumber);
+                    if (firstSeen != null) {
+                        errors.add("Duplicate identifier, first seen on row " + firstSeen);
+                    }
                 }
             }
 
@@ -212,7 +259,9 @@ public class CsvImportService {
                 result.setErrorRows(result.getErrorRows() + 1);
             } else {
                 result.setValidRows(result.getValidRows() + 1);
-                rowResult.setStatus(row.get("status") != null ? row.get("status") : "OK");
+                if (!"ADD".equals(op)) {
+                    rowResult.setStatus(row.get("status") != null ? row.get("status") : "OK");
+                }
             }
             result.getRows().add(rowResult);
         }
@@ -266,6 +315,37 @@ public class CsvImportService {
         return value == null || value.trim().isEmpty();
     }
 
+    private int csvRowNumber(Map<String, String> row, int index) {
+        try {
+            return Integer.parseInt(row.getOrDefault("__rownumber", Integer.toString(index + 2)));
+        } catch (NumberFormatException ignored) {
+            return index + 2;
+        }
+    }
+
+    private UsersEntries studentFromAddRow(Map<String, String> row) {
+        UsersEntries student = new UsersEntries(row.get("enrollmentno"),
+                row.getOrDefault("phone", row.get("phoneno")));
+        student.setName(row.get("name"));
+        student.setEmail(row.get("email"));
+        student.setPassword(row.get("password"));
+        student.setStudentStatus(row.getOrDefault("studentstatus", row.get("status")));
+        student.setBatch(row.get("batch"));
+        student.setBranch(row.get("branch"));
+        student.setSection(row.get("section"));
+        return student;
+    }
+
+    private void addDuplicateError(String value, int rowNumber, Map<String, Integer> seen, String field,
+                                   List<String> errors) {
+        if (isBlank(value)) return;
+        String key = value.trim().toLowerCase(java.util.Locale.ROOT);
+        Integer firstSeen = seen.putIfAbsent(key, rowNumber);
+        if (firstSeen != null) {
+            errors.add("Duplicate " + field + " in CSV; first seen on row " + firstSeen);
+        }
+    }
+
     public CsvImportResult commit(String operation, List<Map<String, String>> rows) {
         String op = operation == null ? "ADD" : operation.toUpperCase();
         CsvValidationResult validation = validate(op, rows, false);
@@ -284,7 +364,7 @@ public class CsvImportService {
 
         for (int i = 0; i < rows.size(); i++) {
             Map<String, String> row = rows.get(i);
-            int rowNumber = i + 2;
+            int rowNumber = csvRowNumber(row, i);
             String enrollment = row.get("enrollmentno");
             String email = row.get("email");
             String identifier = !isBlank(enrollment) ? enrollment : email;
@@ -292,24 +372,14 @@ public class CsvImportService {
             CsvValidationResult.CsvRowResult validationRow = validation.getRows().size() > i
                     ? validation.getRows().get(i) : null;
             if (validationRow != null && !validationRow.isValid()) {
-                result.getErrors().add(new CsvImportResult.CsvError(rowNumber, identifier,
-                        "VALIDATION", validationRow.getError()));
+            result.getErrors().add(csvError(rowNumber, row, "VALIDATION", validationRow.getError()));
                 continue;
             }
 
             try {
                 switch (op) {
                     case "ADD": {
-                        UsersEntries student = new UsersEntries(enrollment, row.get("phoneno"));
-                        student.setName(row.get("name"));
-                        student.setEmail(email);
-                        applySharedFields(student, row);
-                        // Never store a plain-text password; hash with the existing encoder.
-                        String password = row.get("password");
-                        if (!isBlank(password)) {
-                            student.setPasswordHash(passwordEncoder.encode(password));
-                        }
-                        usersRepository.save(student);
+                        studentService.addStudent(studentFromAddRow(row));
                         created++;
                         break;
                     }
@@ -371,12 +441,18 @@ public class CsvImportService {
                 }
             } catch (ResponseStatusException e) {
                 result.setFailedRows(result.getFailedRows() + 1);
-                result.getErrors().add(new CsvImportResult.CsvError(rowNumber, identifier,
-                        "ERROR", e.getReason() != null ? e.getReason() : "Could not process row"));
+                result.getErrors().add(csvError(rowNumber, row, "ERROR",
+                        e.getReason() != null ? e.getReason() : "Could not process row"));
+            } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                result.setFailedRows(result.getFailedRows() + 1);
+                result.getErrors().add(csvError(rowNumber, row, "ERROR",
+                        "Enrollment number or email already exists"));
+            } catch (DataAccessException | com.mongodb.MongoException e) {
+                result.setFailedRows(result.getFailedRows() + 1);
+                result.getErrors().add(csvError(rowNumber, row, "ERROR", "Database could not save this row"));
             } catch (Exception e) {
                 result.setFailedRows(result.getFailedRows() + 1);
-                result.getErrors().add(new CsvImportResult.CsvError(rowNumber, identifier,
-                        "ERROR", "Unexpected error processing row"));
+                result.getErrors().add(csvError(rowNumber, row, "ERROR", "Could not process this row"));
             }
         }
         result.setCreatedRows(created);
@@ -384,6 +460,15 @@ public class CsvImportService {
         result.setSkippedRows(skipped + validation.getErrorRows());
         result.setSuccessfulRows(created + updated);
         return result;
+    }
+
+    private CsvImportResult.CsvError csvError(int rowNumber, Map<String, String> row, String error, String reason) {
+        String identifier = !isBlank(row.get("enrollmentno")) ? row.get("enrollmentno") : row.get("email");
+        CsvImportResult.CsvError csvError = new CsvImportResult.CsvError(rowNumber, identifier, error, reason);
+        csvError.setEnrollmentNo(row.get("enrollmentno"));
+        csvError.setName(row.get("name"));
+        csvError.setEmail(row.get("email"));
+        return csvError;
     }
 
     private String terminalBlock(Application application) {
@@ -485,12 +570,15 @@ public class CsvImportService {
     }
 
     public String buildErrorReport(String operation, List<Map<String, String>> rows, CsvImportResult result) {
-        StringBuilder csv = new StringBuilder("row_number,identifier,error,reason\n");
+        StringBuilder csv = new StringBuilder("row_number,identifier,error,reason,enrollment_no,name,email\n");
         for (CsvImportResult.CsvError error : result.getErrors()) {
             csv.append(error.getRowNumber()).append(',')
                     .append(quote(error.getIdentifier())).append(',')
                     .append(quote(error.getError())).append(',')
-                    .append(quote(error.getReason())).append('\n');
+                    .append(quote(error.getReason())).append(',')
+                    .append(quote(error.getEnrollmentNo())).append(',')
+                    .append(quote(error.getName())).append(',')
+                    .append(quote(error.getEmail())).append('\n');
         }
         return csv.toString();
     }

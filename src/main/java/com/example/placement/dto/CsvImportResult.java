@@ -1,8 +1,8 @@
 package com.example.placement.dto;
 
-import lombok.Data;
-
 import java.util.List;
+
+import lombok.Data;
 
 @Data
 public class CsvImportResult {
@@ -21,6 +21,9 @@ public class CsvImportResult {
         private String identifier;
         private String error;
         private String reason;
+        private String enrollmentNo;
+        private String name;
+        private String email;
 
         public CsvError(int rowNumber, String identifier, String error, String reason) {
             this.rowNumber = rowNumber;

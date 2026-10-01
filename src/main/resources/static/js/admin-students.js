@@ -359,9 +359,18 @@
     }
 
     function setupImport(file) {
+        if (!file.name || !file.name.toLowerCase().endsWith(".csv")) {
+            UI.showToast("Choose a .csv file", "error");
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            UI.showToast("CSV files must be 5 MB or smaller", "error");
+            return;
+        }
         fileText(file).then(function (content) {
+            if (!content.trim()) throw new Error("The CSV file is empty");
             state.csvContent = content;
-            el("fileNameHint").textContent = file.name + " (" + content.split(/\r?\n/).filter(function (l) { return l.trim(); }).length + " rows)";
+            el("fileNameHint").textContent = file.name + " selected";
             var operations = {
                 ADD: { title: "Add New Students", desc: "Insert students that do not yet exist. Enrollment is required." },
                 UPDATE: { title: "Update Existing Students", desc: "Merge academic & contact fields for existing students." },
@@ -475,6 +484,7 @@
         el("reviewStats").innerHTML =
             '<div class="review-stat-card"><strong>' + formatNumber(result.validRows) + "</strong><span>Records to process</span></div>" +
             '<div class="review-stat-card"><strong>' + formatNumber(result.errorRows) + "</strong><span>Skipped (invalid)</span></div>";
+        el("confirmImportBtn").textContent = state.operation === "ADD" ? "Import Valid Students" : "Confirm & Update";
         showImportStep(4);
     }
 
@@ -490,16 +500,28 @@
             body: JSON.stringify({ operation: state.operation, rows: lines })
         }).then(function (result) {
             state.importResult = result;
+            var successCount = state.operation === "ADD" ? result.createdRows : result.successfulRows;
+            var failures = result.errors || [];
             el("importResultBox").innerHTML =
                 '<div class="review-stats">' +
-                '<div class="review-stat-card"><strong>' + formatNumber(result.totalRows) + "</strong><span>Processed</span></div>" +
-                '<div class="review-stat-card"><strong>' + formatNumber(result.updatedRows) + "</strong><span>Updated</span></div>" +
-                '<div class="review-stat-card"><strong>' + formatNumber(result.createdRows) + "</strong><span>Created</span></div>" +
-                '<div class="review-stat-card"><strong>' + formatNumber(result.failedRows) + "</strong><span>Failed</span></div>" +
+                '<div class="review-stat-card"><strong>' + formatNumber(result.totalRows) + "</strong><span>Total Rows</span></div>" +
+                '<div class="review-stat-card"><strong>' + formatNumber(successCount) + "</strong><span>Successfully " + (state.operation === "ADD" ? "Added" : "Processed") + "</span></div>" +
+                '<div class="review-stat-card"><strong>' + formatNumber(result.failedRows) + "</strong><span>Not Added</span></div>" +
                 "</div>";
             if (result.failedRows > 0) {
-                el("importResultBox").innerHTML += '<p class="field-hint" style="color:var(--danger);">' +
-                    result.failedRows + " rows failed. Download the error report for details.</p>";
+                el("importFailureTableBody").innerHTML = failures.map(function (failure) {
+                    return "<tr>" +
+                        "<td>" + formatNumber(failure.rowNumber) + "</td>" +
+                        "<td>" + UI.escapeHtml(failure.enrollmentNo || "") + "</td>" +
+                        "<td>" + UI.escapeHtml(failure.name || "") + "</td>" +
+                        "<td>" + UI.escapeHtml(failure.email || "") + "</td>" +
+                        "<td>" + UI.escapeHtml(failure.reason || failure.error || "Could not process row") + "</td>" +
+                        "</tr>";
+                }).join("");
+                el("importFailureSection").style.display = "";
+            } else {
+                el("importFailureSection").style.display = "none";
+                el("importFailureTableBody").innerHTML = "";
             }
             el("downloadErrorReportBtn").style.display = result.failedRows > 0 ? "" : "none";
             showImportStep(5);
@@ -515,9 +537,8 @@
 
     function downloadErrorReport() {
         if (!state.importResult || state.importResult.failedRows === 0) return;
-        var lines = state.csvContent.split(/\r?\n/);
         downloadCsv("/admin/students/import/error-report",
-            { operation: state.operation, rows: lines }, "import_error_report.csv").then(function () {
+            { operation: state.operation, errors: state.importResult.errors || [] }, "import_error_report.csv").then(function () {
                 UI.showToast("Error report downloaded.", "success");
             }).catch(function (err) {
                 UI.showToast(err.message || "Could not generate error report", "error");

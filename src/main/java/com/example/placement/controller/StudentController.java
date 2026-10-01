@@ -1,23 +1,13 @@
 package com.example.placement.controller;
 
-import com.example.placement.dto.BulkRoundRequest;
-import com.example.placement.dto.BulkStatusRequest;
-import com.example.placement.dto.CsvImportRequest;
-import com.example.placement.dto.CsvImportResult;
-import com.example.placement.dto.CsvValidationResult;
-import com.example.placement.dto.EmailCsvRequest;
-import com.example.placement.dto.ExportRequest;
-import com.example.placement.dto.StudentDetail;
-import com.example.placement.dto.StudentListResponse;
-import com.example.placement.entity.UsersEntries;
-import com.example.placement.repository.UsersRepository;
-import com.example.placement.service.CsvExportService;
-import com.example.placement.service.CsvImportService;
-import com.example.placement.service.EmailCsvService;
-import com.example.placement.service.StudentService;
-import jakarta.validation.Valid;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.springframework.http.HttpHeaders;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -35,13 +25,22 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.io.IOException;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import com.example.placement.dto.BulkRoundRequest;
+import com.example.placement.dto.BulkStatusRequest;
+import com.example.placement.dto.CsvImportRequest;
+import com.example.placement.dto.CsvImportResult;
+import com.example.placement.dto.CsvValidationResult;
+import com.example.placement.dto.EmailCsvRequest;
+import com.example.placement.dto.ExportRequest;
+import com.example.placement.dto.StudentDetail;
+import com.example.placement.dto.StudentListResponse;
+import com.example.placement.entity.UsersEntries;
+import com.example.placement.service.CsvExportService;
+import com.example.placement.service.CsvImportService;
+import com.example.placement.service.EmailCsvService;
+import com.example.placement.service.StudentService;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/admin/students")
@@ -53,18 +52,13 @@ public class StudentController {
     private final CsvImportService csvImportService;
     private final CsvExportService csvExportService;
     private final EmailCsvService emailCsvService;
-    private final UsersRepository usersRepository;
-    private final PasswordEncoder passwordEncoder;
 
     public StudentController(StudentService studentService, CsvImportService csvImportService,
-                             CsvExportService csvExportService, EmailCsvService emailCsvService,
-                             UsersRepository usersRepository, PasswordEncoder passwordEncoder) {
+                             CsvExportService csvExportService, EmailCsvService emailCsvService) {
         this.studentService = studentService;
         this.csvImportService = csvImportService;
         this.csvExportService = csvExportService;
         this.emailCsvService = emailCsvService;
-        this.usersRepository = usersRepository;
-        this.passwordEncoder = passwordEncoder;
     }
 
     @ExceptionHandler(ResponseStatusException.class)
@@ -135,12 +129,6 @@ public class StudentController {
 
     @PostMapping
     public UsersEntries addStudent(@RequestBody UsersEntries student) {
-        // Moves the write-only "password" field into the hashed form used by the
-        // existing authentication system; the plain text is never stored.
-        if (student.getPassword() != null && !student.getPassword().isBlank()) {
-            student.setPasswordHash(passwordEncoder.encode(student.getPassword()));
-        }
-        student.setPassword(null);
         return studentService.addStudent(student);
     }
 
@@ -177,12 +165,14 @@ public class StudentController {
             if (filename == null || !filename.toLowerCase().endsWith(".csv")) {
                 return ResponseEntity.badRequest().body(Map.of("message", "Only .csv files are accepted"));
             }
-            String content = new String(file.getBytes(), Charset.forName("UTF-8"));
-            List<Map<String, String>> rows = csvImportService.parseCsv(List.of(content.split("\r?\n")));
+            String content = new String(file.getBytes(), StandardCharsets.UTF_8);
+            List<Map<String, String>> rows = csvImportService.parseCsvContent(content, operation);
             CsvValidationResult result = csvImportService.validate(operation, rows, true);
             return ResponseEntity.ok(result);
         } catch (IOException e) {
             return ResponseEntity.badRequest().body(Map.of("message", "Could not read the uploaded file"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
     }
 
@@ -191,15 +181,19 @@ public class StudentController {
         if (request.getRows() == null || request.getRows().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No CSV rows provided");
         }
-        List<Map<String, String>> rows = csvImportService.parseCsv(request.getRows());
-        return csvImportService.commit(request.getOperation(), rows);
+        try {
+            List<Map<String, String>> rows = csvImportService.parseCsv(request.getRows(), request.getOperation());
+            return csvImportService.commit(request.getOperation(), rows);
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
     }
 
     @PostMapping("/import/error-report")
     public ResponseEntity<byte[]> errorReport(@RequestBody CsvImportRequest request) {
-        List<Map<String, String>> rows = csvImportService.parseCsv(request.getRows());
-        CsvImportResult result = csvImportService.commit(request.getOperation(), rows);
-        String report = csvImportService.buildErrorReport(request.getOperation(), rows, result);
+        CsvImportResult result = new CsvImportResult();
+        result.setErrors(request.getErrors() == null ? List.of() : request.getErrors());
+        String report = csvImportService.buildErrorReport(request.getOperation(), List.of(), result);
         return csvResponse(report.getBytes(StandardCharsets.UTF_8),
                 "import_error_report_" + LocalDate.now() + ".csv");
     }

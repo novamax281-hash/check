@@ -336,6 +336,17 @@
 
         <div class="import-step" id="importStep5" style="display:none;">
             <div id="importResultBox"></div>
+            <div id="importFailureSection" style="display:none; margin-top:18px;">
+                <h3 style="margin-bottom:10px;">Not Added Students</h3>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                        <tr><th>Row</th><th>Enrollment No</th><th>Name</th><th>Email</th><th>Reason</th></tr>
+                        </thead>
+                        <tbody id="importFailureTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-secondary" id="downloadErrorReportBtn">Download Error Report</button>
                 <button type="button" class="btn" id="doneImportBtn">Done</button>

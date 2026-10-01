@@ -1,34 +1,43 @@
 package com.example.placement.service;
 
+import java.util.List;
+import java.util.Map;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+
 import com.example.placement.dto.CsvImportResult;
 import com.example.placement.dto.CsvValidationResult;
 import com.example.placement.entity.Application;
 import com.example.placement.entity.RoundStatus;
 import com.example.placement.entity.UsersEntries;
 import com.example.placement.repository.ApplicationRepository;
+import com.example.placement.repository.PlacementRepository;
 import com.example.placement.repository.UsersRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-
-import java.util.List;
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
 
 class CsvImportServiceTest {
 
     private UsersRepository usersRepository;
     private ApplicationRepository applicationRepository;
+    private StudentService studentService;
     private CsvImportService csvImportService;
 
     @BeforeEach
     void setUp() {
         usersRepository = mock(UsersRepository.class);
         applicationRepository = mock(ApplicationRepository.class);
-        csvImportService = new CsvImportService(usersRepository, applicationRepository, new BCryptPasswordEncoder());
+        studentService = new StudentService(usersRepository, applicationRepository, mock(PlacementRepository.class),
+            mock(ApplicationService.class), mock(MongoTemplate.class), new BCryptPasswordEncoder());
+        csvImportService = new CsvImportService(usersRepository, applicationRepository, studentService);
     }
 
     private Map<String, String> row(String... pairs) {
@@ -40,17 +49,16 @@ class CsvImportServiceTest {
     }
 
     @Test
-    void addValidationRejectsCgpaOutsideZeroToTen() {
+    void addValidationIgnoresDatabaseOnlyCgpaField() {
         when(usersRepository.findByEnrollmentno("2023CS101")).thenReturn(null);
         List<Map<String, String>> rows = List.of(
                 row("enrollmentno", "2023CS101", "email", "vikram@gmail.com", "cgpa", "85"));
 
         CsvValidationResult result = csvImportService.validate("ADD", rows, true);
         assertThat(result.getTotalRows()).isEqualTo(1);
-        assertThat(result.getValidRows()).isZero();
-        assertThat(result.getErrorRows()).isEqualTo(1);
+        assertThat(result.getValidRows()).isEqualTo(1);
+        assertThat(result.getErrorRows()).isZero();
         assertThat(result.getRows()).hasSize(1);
-        assertThat(result.getRows().get(0).getError()).contains("CGPA must be between 0 and 10");
     }
 
     @Test
@@ -114,6 +122,30 @@ class CsvImportServiceTest {
     }
 
     @Test
+    void duplicateEmailsAreDetectedIndependentlyOfEnrollmentNumbers() {
+        List<Map<String, String>> rows = List.of(
+                row("enrollmentno", "E1", "email", "same@mail.com"),
+                row("enrollmentno", "E2", "email", "SAME@mail.com"));
+
+        CsvValidationResult result = csvImportService.validate("ADD", rows, true);
+
+        assertThat(result.getRows().get(0).isValid()).isTrue();
+        assertThat(result.getRows().get(1).getError()).contains("Duplicate email");
+    }
+
+    @Test
+    void duplicateEnrollmentNumbersAreDetectedIndependentlyOfEmails() {
+        List<Map<String, String>> rows = List.of(
+                row("enrollmentno", "E1", "email", "first@mail.com"),
+                row("enrollmentno", "e1", "email", "second@mail.com"));
+
+        CsvValidationResult result = csvImportService.validate("ADD", rows, true);
+
+        assertThat(result.getRows().get(0).isValid()).isTrue();
+        assertThat(result.getRows().get(1).getError()).contains("Duplicate enrollment number");
+    }
+
+    @Test
     void statusValidationRejectsInvalidStatus() {
         when(usersRepository.findByEnrollmentno("2023CS101")).thenReturn(new UsersEntries("2023CS101", "9000000000"));
         List<Map<String, String>> rows = List.of(
@@ -169,6 +201,30 @@ class CsvImportServiceTest {
         assertThat(result.getCreatedRows()).isEqualTo(1);
         assertThat(result.getFailedRows()).isZero();
         verify(usersRepository).save(any());
+    }
+
+    @Test
+    void csvCommitHashesPasswordAndContinuesAfterInvalidRows() {
+        when(usersRepository.findByEnrollmentno("DUP")).thenReturn(new UsersEntries("DUP", "9000000000"));
+        when(usersRepository.findByEnrollmentno("NEW")).thenReturn(null);
+        when(usersRepository.findByEmailIgnoreCase("new@mail.com")).thenReturn(null);
+        when(usersRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        List<Map<String, String>> rows = List.of(
+                row("enrollmentno", "DUP", "name", "Duplicate", "email", "duplicate@mail.com"),
+                row("enrollmentno", "NEW", "name", "New Student", "email", "new@mail.com",
+                        "password", "Pass@123", "studentstatus", "Active"));
+
+        CsvImportResult result = csvImportService.commit("ADD", rows);
+
+        assertThat(result.getTotalRows()).isEqualTo(2);
+        assertThat(result.getCreatedRows()).isEqualTo(1);
+        assertThat(result.getFailedRows()).isEqualTo(1);
+        assertThat(result.getErrors().get(0).getEnrollmentNo()).isEqualTo("DUP");
+        assertThat(result.getErrors().get(0).getReason()).contains("already exists");
+        org.mockito.ArgumentCaptor<UsersEntries> saved = org.mockito.ArgumentCaptor.forClass(UsersEntries.class);
+        verify(usersRepository).save(saved.capture());
+        assertThat(new BCryptPasswordEncoder().matches("Pass@123", saved.getValue().getPasswordHash())).isTrue();
+        assertThat(saved.getValue().getPassword()).isNull();
     }
 
     @Test
@@ -273,6 +329,44 @@ class CsvImportServiceTest {
         var rows = csvImportService.parseCsv(List.of(header, line));
         assertThat(rows).hasSize(1);
         assertThat(rows.get(0).get("name")).isEqualTo("Sharma, Vikram");
+    }
+
+    @Test
+    void addTemplateContainsOnlyTheStudentFormFields() {
+        assertThat(csvImportService.templateColumns("ADD")).containsExactly(
+                "enrollmentNo", "name", "email", "password", "phone", "batch", "branch", "section", "studentStatus");
+    }
+
+    @Test
+    void addParserRequiresExactHeadersAndPreservesQuotedMultilineValues() {
+        String headers = "enrollmentNo,name,email,password,phone,batch,branch,section,studentStatus";
+        String content = headers + "\r\n2023CS101,\"Doe, John\r\nJr.\",john@example.com,,9876543210,2023-2027,CSE,A,Active";
+
+        var rows = csvImportService.parseCsvContent(content, "ADD");
+
+        assertThat(rows).hasSize(1);
+        assertThat(rows.get(0).get("name")).isEqualTo("Doe, John\r\nJr.");
+        assertThat(rows.get(0).get("__rownumber")).isEqualTo("2");
+        assertThatThrownBy(() -> csvImportService.parseCsvContent(
+                "enrollmentNo,name,email,course", "ADD"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("exactly the student fields");
+    }
+
+    @Test
+    void addParserIgnoresEmptyRecordsAndRejectsRowsWithMissingColumns() {
+        String headers = "enrollmentNo,name,email,password,phone,batch,branch,section,studentStatus";
+        var rows = csvImportService.parseCsvContent(headers + "\n,,,,,,,,\n"
+                + "E1,Jane,jane@mail.com,,9000000000,2023-2027,CSE,A,Active\n"
+                + "E2,John,john@mail.com,,9000000001,2023-2027,CSE", "ADD");
+
+        assertThat(rows).hasSize(2);
+        assertThat(rows.get(0).get("__rownumber")).isEqualTo("3");
+        assertThat(rows.get(1).get("__rownumber")).isEqualTo("4");
+        CsvValidationResult result = csvImportService.validate("ADD", rows, true);
+        assertThat(result.getRows().get(0).isValid()).isTrue();
+        assertThat(result.getRows().get(1).isValid()).isFalse();
+        assertThat(result.getRows().get(1).getError()).contains("expected 9");
     }
 
     @Test

@@ -1,25 +1,34 @@
 package com.example.placement.service;
 
-import com.example.placement.entity.UsersEntries;
-import com.example.placement.entity.Placement;
-import com.example.placement.entity.Application;
-import com.example.placement.entity.ApplicationRound;
-import com.example.placement.dto.StudentDetail;
-import com.example.placement.dto.StudentListResponse;
-import com.example.placement.repository.ApplicationRepository;
-import com.example.placement.repository.PlacementRepository;
-import com.example.placement.repository.UsersRepository;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.springframework.data.mongodb.core.MongoTemplate;
-import org.springframework.web.server.ResponseStatusException;
-
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.*;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.server.ResponseStatusException;
+
+import com.example.placement.dto.StudentDetail;
+import com.example.placement.dto.StudentListResponse;
+import com.example.placement.entity.Application;
+import com.example.placement.entity.ApplicationRound;
+import com.example.placement.entity.Placement;
+import com.example.placement.entity.UsersEntries;
+import com.example.placement.repository.ApplicationRepository;
+import com.example.placement.repository.PlacementRepository;
+import com.example.placement.repository.UsersRepository;
 
 class StudentServiceTest {
 
@@ -28,6 +37,7 @@ class StudentServiceTest {
     private PlacementRepository placementRepository;
     private ApplicationService applicationService;
     private MongoTemplate mongoTemplate;
+    private PasswordEncoder passwordEncoder;
     private StudentService studentService;
 
     @BeforeEach
@@ -37,8 +47,9 @@ class StudentServiceTest {
         placementRepository = mock(PlacementRepository.class);
         applicationService = mock(ApplicationService.class);
         mongoTemplate = mock(MongoTemplate.class);
+        passwordEncoder = mock(PasswordEncoder.class);
         studentService = new StudentService(usersRepository, applicationRepository, placementRepository,
-                applicationService, mongoTemplate);
+            applicationService, mongoTemplate, passwordEncoder);
     }
 
     private UsersEntries student(String id, String enrollment, String name, String email, String branch,
@@ -272,6 +283,7 @@ class StudentServiceTest {
     @Test
     void addStudentSaves() {
         when(usersRepository.findByEnrollmentno("E1")).thenReturn(null);
+        when(usersRepository.findByEmailIgnoreCase("s2@mail.com")).thenReturn(null);
         UsersEntries newStudent = student(null, "E1", "S2", "s2@mail.com", "CSE", "2023", null);
         when(usersRepository.save(any())).thenAnswer(invocation -> {
             UsersEntries saved = invocation.getArgument(0);
@@ -282,6 +294,33 @@ class StudentServiceTest {
         assertThat(saved.getId()).isEqualTo("new");
         assertThat(saved.getRole()).isEqualTo("Student");
         assertThat(saved.getStudentStatus()).isEqualTo("Active");
+    }
+
+    @Test
+    void addStudentHashesPasswordAndDoesNotPersistPlainText() {
+        when(usersRepository.findByEnrollmentno("E1")).thenReturn(null);
+        when(usersRepository.findByEmailIgnoreCase("s2@mail.com")).thenReturn(null);
+        when(passwordEncoder.encode("Pass@123")).thenReturn("hashed-password");
+        when(usersRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        UsersEntries newStudent = student(null, "E1", "S2", "s2@mail.com", null, null, null);
+        newStudent.setPassword("Pass@123");
+
+        UsersEntries saved = studentService.addStudent(newStudent);
+
+        assertThat(saved.getPasswordHash()).isEqualTo("hashed-password");
+        assertThat(saved.getPassword()).isNull();
+    }
+
+    @Test
+    void addStudentRejectsDuplicateEmail() {
+        when(usersRepository.findByEnrollmentno("E1")).thenReturn(null);
+        when(usersRepository.findByEmailIgnoreCase("s2@mail.com"))
+                .thenReturn(student("u1", "OTHER", "S1", "s2@mail.com", null, null, null));
+        UsersEntries newStudent = student(null, "E1", "S2", "s2@mail.com", null, null, null);
+
+        assertThatThrownBy(() -> studentService.addStudent(newStudent))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("email already exists");
     }
 
     private UsersEntries coordinator(String id, String enrollment, String name, String email) {
