@@ -1,17 +1,19 @@
 package com.example.placement.config;
 
-import com.example.placement.security.CustomAuthenticationProvider;
-import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+
+import com.example.placement.security.CustomAuthenticationProvider;
+
+import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
 public class SecurityConfig {
@@ -43,7 +45,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/index.html", "/login.html", "/css/**", "/js/**",
                                 "/api/auth/send-otp", "/api/auth/verify-otp", "/api/auth/register/**",
-                                "/api/auth/student/login", "/api/auth/forgot-password/**",
+                                "/api/auth/student/login", "/api/auth/staff/login", "/api/auth/forgot-password/**",
                                 "/actuator/health", "/actuator/health/**",
                                 "/favicon.ico", "/favicon.svg").permitAll()
                         .requestMatchers("/dashboard.html", "/placement-apply.html", "/my-applications.html",

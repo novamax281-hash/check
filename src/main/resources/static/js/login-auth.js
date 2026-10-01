@@ -28,6 +28,8 @@ const authHeading = document.getElementById("authHeading");
 const authSubtitle = document.getElementById("authSubtitle");
 const studentEmail = document.getElementById("studentEmail");
 const studentPassword = document.getElementById("studentPassword");
+const staffEmail = document.getElementById("staffEmail");
+const staffPassword = document.getElementById("staffPassword");
 const regName = document.getElementById("regName");
 const regEmail = document.getElementById("regEmail");
 const regEnrollment = document.getElementById("regEnrollment");
@@ -40,15 +42,16 @@ const regPassword = document.getElementById("regPassword");
 const regPasswordConfirm = document.getElementById("regPasswordConfirm");
 
 const AUTH_FIELDS = [
-    "studentEmailGroup", "studentPasswordGroup", "staffEnrollmentGroup", "staffMobileGroup",
+    "studentEmailGroup", "studentPasswordGroup", "staffEmailGroup", "staffPasswordGroup",
     "regNameGroup", "regEmailGroup", "regBatchGroup", "regTenthGroup", "regTwelfthGroup",
     "regEnrollmentGroup", "regMobileGroup", "regPasswordGroup", "regPasswordConfirmGroup"
 ];
 
 let authMode = "student";
-let pendingOtpMode = "staff";
+let pendingOtpMode = "register";
 let pendingOtpData = null;
 let resetVerified = false;
+let resetReturnMode = "student";
 let cooldownInterval = null;
 let resetCooldownInterval = null;
 let dailyLimitInterval = null;
@@ -172,13 +175,13 @@ function setMode(mode) {
         staffLoginLink.style.display = "inline";
         staffLoginLink.textContent = "Staff sign in";
     } else if (mode === "staff") {
-        showGroup("staffEnrollmentGroup", true);
-        showGroup("staffMobileGroup", true);
+        showGroup("staffEmailGroup", true);
+        showGroup("staffPasswordGroup", true);
         authHeading.textContent = "Staff Sign In";
-        authSubtitle.textContent = "Enter your staff enrollment number and registered mobile to receive an OTP.";
-        loginButton.textContent = "SEND OTP";
+        authSubtitle.textContent = "Sign in with your registered staff email and password.";
+        loginButton.textContent = "SIGN IN";
         authToggleWrap.style.display = "none";
-        forgotPasswordLink.style.display = "none";
+        forgotPasswordLink.style.display = "inline";
         staffLoginLink.style.display = "inline";
         staffLoginLink.textContent = "Student sign in";
     } else if (mode === "register") {
@@ -303,6 +306,18 @@ async function submitStudentLogin() {
     window.location.href = "/dashboard.html";
 }
 
+async function submitStaffLogin() {
+    const response = await postJson("/api/auth/staff/login", {
+        email: staffEmail.value.trim().toLowerCase(),
+        password: staffPassword.value
+    });
+    if (!response.ok) {
+        setMessage(response.result.message || "Invalid email or password.", true);
+        return;
+    }
+    window.location.href = "/admin-dashboard.html";
+}
+
 async function requestOtp(mode, data, isResend) {
     const endpoint = mode === "register" ? "/api/auth/register/send-otp" : "/api/auth/send-otp";
     if (isResend) setLinkDisabled(resendLink, true);
@@ -394,17 +409,12 @@ async function submitAuthForm() {
         if (authMode === "student") {
             await submitStudentLogin();
         } else if (authMode === "forgot") {
-            const email = studentEmail.value.trim().toLowerCase();
+            const email = (resetReturnMode === "staff" ? staffEmail.value : studentEmail.value)
+                .trim().toLowerCase();
             if (!email) throw new Error("Enter your registered email address.");
             await sendForgotOtp(email, false);
         } else if (authMode === "staff") {
-            const data = {
-                enrollmentno: document.getElementById("enrollmentno").value.trim(),
-                mobile: document.getElementById("mobile").value.trim()
-            };
-            if (!/^[a-zA-Z0-9]{1,50}$/.test(data.enrollmentno)) throw new Error("Enter a valid staff enrollment number.");
-            if (!/^[0-9]{10}$/.test(data.mobile)) throw new Error("Enter a valid 10-digit mobile number.");
-            await requestOtp("staff", data);
+            await submitStaffLogin();
         } else {
             if (!regName.value.trim()) throw new Error("Enter your full name.");
             const data = registrationData();
@@ -424,22 +434,15 @@ async function verifyOtp() {
     otpButton.textContent = "Verifying...";
     try {
         const data = Object.assign({}, pendingOtpData, { otp: otpInput.value.trim() });
-        const endpoint = pendingOtpMode === "register" ? "/api/auth/register/verify" : "/api/auth/verify-otp";
-        const response = await postJson(endpoint, data);
+        const response = await postJson("/api/auth/register/verify", data);
         if (!response.ok) {
             otpSentMessage.className = "message error";
             otpSentMessage.textContent = response.result.message || "Invalid or expired OTP.";
             return;
         }
-        if (pendingOtpMode === "register") {
-            setMode("student");
-            studentEmail.value = pendingOtpData.email;
-            setMessage(response.result.message || "Registration successful. Sign in with your email and password.", false);
-        } else if (response.result.role === "ADMIN") {
-            window.location.href = "/admin-dashboard.html";
-        } else {
-            window.location.href = "/dashboard.html";
-        }
+        setMode("student");
+        studentEmail.value = pendingOtpData.email;
+        setMessage(response.result.message || "Registration successful. Sign in with your email and password.", false);
     } catch (error) {
         otpSentMessage.className = "message error";
         otpSentMessage.textContent = "Could not verify the OTP. Please try again.";
@@ -503,8 +506,9 @@ async function resetStudentPassword(event) {
             return;
         }
         const email = resetEmail.value;
-        setMode("student");
-        studentEmail.value = email;
+        setMode(resetReturnMode);
+        if (resetReturnMode === "staff") staffEmail.value = email;
+        else studentEmail.value = email;
         setMessage(response.result.message || "Password reset. Sign in with your new password.", false);
     } catch (error) {
         setResetMessage("Could not reset the password. Please try again.", true);
@@ -541,12 +545,12 @@ resendResetLink.addEventListener("click", function(event) {
 
 backLink.addEventListener("click", function(event) {
     event.preventDefault();
-    setMode(pendingOtpMode === "register" ? "register" : "staff");
+    setMode("register");
 });
 
 document.getElementById("backToLoginFromReset").addEventListener("click", function(event) {
     event.preventDefault();
-    setMode("student");
+    setMode(resetReturnMode);
 });
 
 toggleAuthMode.addEventListener("click", function(event) {
@@ -557,6 +561,8 @@ toggleAuthMode.addEventListener("click", function(event) {
 
 forgotPasswordLink.addEventListener("click", function(event) {
     event.preventDefault();
+    resetReturnMode = authMode === "staff" ? "staff" : "student";
+    if (resetReturnMode === "staff") studentEmail.value = staffEmail.value;
     setMode("forgot");
 });
 

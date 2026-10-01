@@ -1,17 +1,17 @@
 package com.example.placement.service;
 
-import com.example.placement.entity.UsersEntries;
-import com.example.placement.repository.UsersRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
-
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import com.example.placement.entity.UsersEntries;
+import com.example.placement.repository.UsersRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 class AuthenticationServicePasswordTest {
 
@@ -47,6 +47,8 @@ class AuthenticationServicePasswordTest {
         when(usersRepository.findByEmailIgnoreCase("admin@liet.in")).thenReturn(admin);
 
         assertThat(authenticationService.authenticateStudent("admin@liet.in", "StudentPass123")).isNull();
+        assertThat(authenticationService.authenticateStaff("admin@liet.in", "StudentPass123")).isSameAs(admin);
+        assertThat(authenticationService.authenticateStaff("student@liet.in", "StudentPass123")).isNull();
     }
 
     @Test

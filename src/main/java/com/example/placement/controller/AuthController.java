@@ -7,8 +7,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
@@ -34,8 +34,8 @@ import com.example.placement.repository.UsersRepository;
 import com.example.placement.service.AuthenticationService;
 import com.example.placement.service.OtpService;
 
-import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 
 @RestController
@@ -139,6 +139,25 @@ public class AuthController {
         return ResponseEntity.ok(new LoginResponse("Login successful", "STUDENT"));
         }
 
+        @PostMapping("/staff/login")
+        public ResponseEntity<LoginResponse> staffLogin(@Valid @RequestBody StudentLoginRequest loginRequest,
+                                HttpServletRequest request) {
+        UsersEntries user = authenticationService.authenticateStaff(
+            loginRequest.getEmail().trim().toLowerCase(), loginRequest.getPassword());
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new LoginResponse("Invalid email or password", ""));
+        }
+        UserDetails principal = User.withUsername(user.getEnrollmentno())
+            .password("")
+            .authorities("ROLE_ADMIN")
+            .build();
+        Authentication authentication = UsernamePasswordAuthenticationToken.authenticated(
+            principal, null, principal.getAuthorities());
+        establishSession(authentication, request);
+        return ResponseEntity.ok(new LoginResponse("Login successful", "ADMIN"));
+        }
+
     @PostMapping("/register/send-otp")
     public ResponseEntity<LoginResponse> sendRegisterOtp(@Valid @RequestBody RegisterRequest registerRequest,
                                                          HttpServletRequest request) {
@@ -202,9 +221,9 @@ public class AuthController {
         String email = emailRequest.getEmail().trim().toLowerCase();
         String key = passwordResetKey(email);
         UsersEntries user = usersRepository.findByEmailIgnoreCase(email);
-        if (!authenticationService.isStudent(user)) {
+        if (!canResetPassword(user)) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(new LoginResponse("No student account is registered with that email address.", ""));
+                .body(new LoginResponse("No account is registered with that email address.", ""));
         }
 
         OtpService.OtpRequestResult result = otpService.requestOtp(key, email);
@@ -220,18 +239,19 @@ public class AuthController {
                     .body(new LoginResponse("Invalid or expired OTP", ""));
         }
         UsersEntries user = usersRepository.findByEmailIgnoreCase(email);
-        if (!authenticationService.isStudent(user)) {
+        if (!canResetPassword(user)) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new LoginResponse("Invalid or expired OTP", ""));
         }
         try {
-            authenticationService.saveStudentPassword(user, resetRequest.getNewPassword());
+            authenticationService.savePassword(user, resetRequest.getNewPassword());
         } catch (IllegalArgumentException exception) {
             return ResponseEntity.badRequest()
                     .body(new LoginResponse("Password must be at most 72 UTF-8 bytes", ""));
         }
         return ResponseEntity.ok(new LoginResponse(
-                "Password reset successfully. Sign in with your new password.", "STUDENT"));
+            "Password reset successfully. Sign in with your new password.",
+            isStaff(user) ? "ADMIN" : "STUDENT"));
     }
 
     @PostMapping("/forgot-password/verify-otp")
@@ -239,11 +259,12 @@ public class AuthController {
         String email = verifyRequest.getEmail().trim().toLowerCase();
         String key = passwordResetKey(email);
         UsersEntries user = usersRepository.findByEmailIgnoreCase(email);
-        if (!authenticationService.isStudent(user) || !otpService.matchesOtp(key, verifyRequest.getOtp())) {
+        if (!canResetPassword(user) || !otpService.matchesOtp(key, verifyRequest.getOtp())) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new LoginResponse("Invalid or expired OTP", ""));
         }
-        return ResponseEntity.ok(new LoginResponse("Code verified. Create your new password.", "STUDENT"));
+        return ResponseEntity.ok(new LoginResponse("Code verified. Create your new password.",
+            isStaff(user) ? "ADMIN" : "STUDENT"));
     }
 
     private ResponseEntity<LoginResponse> otpResponse(OtpService.OtpRequestResult result,
@@ -303,6 +324,10 @@ public class AuthController {
     private boolean isStaff(UsersEntries user) {
         return user != null && user.getRole() != null
                 && (user.getRole().equalsIgnoreCase("admin") || user.getRole().equalsIgnoreCase("coordinator"));
+    }
+
+    private boolean canResetPassword(UsersEntries user) {
+        return authenticationService.isStudent(user) || isStaff(user);
     }
 
     static boolean isLietEmail(String email) {

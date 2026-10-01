@@ -1,5 +1,7 @@
 package com.example.placement.controller;
 
+import java.util.Objects;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -61,6 +63,28 @@ class AuthControllerPasswordTest {
         var context = (org.springframework.security.core.context.SecurityContext) session.getAttribute(
             HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
         assertThat(context.getAuthentication().getName()).isEqualTo("2024CS01");
+    }
+
+    @Test
+    void staffPasswordLoginCreatesAdminSession() {
+        UsersEntries admin = new UsersEntries("STAFF1", "9000000001");
+        admin.setEmail("staff@liet.in");
+        admin.setRole("Admin");
+        StudentLoginRequest login = new StudentLoginRequest();
+        login.setEmail("STAFF@LIET.IN");
+        login.setPassword("StaffPass123");
+        when(authenticationService.authenticateStaff("staff@liet.in", "StaffPass123")).thenReturn(admin);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+
+        var response = controller.staffLogin(login, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(Objects.requireNonNull(response.getBody()).getRole()).isEqualTo("ADMIN");
+        HttpSession session = Objects.requireNonNull(request.getSession(false));
+        var context = (org.springframework.security.core.context.SecurityContext) Objects.requireNonNull(
+            session.getAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY));
+        assertThat(context.getAuthentication().getAuthorities()).extracting("authority")
+                .containsExactly("ROLE_ADMIN");
     }
 
     @Test
@@ -132,7 +156,7 @@ class AuthControllerPasswordTest {
         var response = controller.resetPassword(reset);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
-        verify(authenticationService, never()).saveStudentPassword(any(), any());
+        verify(authenticationService, never()).savePassword(any(), any());
     }
 
     @Test
@@ -149,7 +173,24 @@ class AuthControllerPasswordTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody().getMessage()).contains("Code verified");
-        verify(authenticationService, never()).saveStudentPassword(any(), any());
+        verify(authenticationService, never()).savePassword(any(), any());
+    }
+
+    @Test
+    void staffCanVerifyPasswordResetOtp() {
+        OtpVerifyRequest verifyRequest = new OtpVerifyRequest();
+        verifyRequest.setEmail("staff@liet.in");
+        verifyRequest.setOtp("123456");
+        UsersEntries staff = new UsersEntries("STAFF1", "9000000001");
+        staff.setRole("Admin");
+        when(usersRepository.findByEmailIgnoreCase("staff@liet.in")).thenReturn(staff);
+        when(authenticationService.isStudent(staff)).thenReturn(false);
+        when(otpService.matchesOtp("password-reset:staff@liet.in", "123456")).thenReturn(true);
+
+        var response = controller.verifyPasswordResetOtp(verifyRequest);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(Objects.requireNonNull(response.getBody()).getRole()).isEqualTo("ADMIN");
     }
 
     @Test
@@ -167,7 +208,7 @@ class AuthControllerPasswordTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody().getMessage()).contains("Code verified");
         verify(otpService).matchesOtp("password-reset:student@liet.in", "123456");
-        verify(authenticationService, never()).saveStudentPassword(any(), any());
+        verify(authenticationService, never()).savePassword(any(), any());
     }
 
     @Test
@@ -180,12 +221,33 @@ class AuthControllerPasswordTest {
         when(otpService.validateOtp("password-reset:student@liet.in", "123456")).thenReturn(true);
         when(usersRepository.findByEmailIgnoreCase("student@liet.in")).thenReturn(student);
         when(authenticationService.isStudent(student)).thenReturn(true);
-        when(authenticationService.saveStudentPassword(student, "NewStudentPass123")).thenReturn(student);
+        when(authenticationService.savePassword(student, "NewStudentPass123")).thenReturn(student);
 
         var response = controller.resetPassword(reset);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
-        verify(authenticationService).saveStudentPassword(student, "NewStudentPass123");
+        verify(authenticationService).savePassword(student, "NewStudentPass123");
+    }
+
+    @Test
+    void staffCanResetPasswordAfterEmailOtpVerification() {
+        PasswordResetRequest reset = new PasswordResetRequest();
+        reset.setEmail("staff@liet.in");
+        reset.setOtp("123456");
+        reset.setNewPassword("NewStaffPass123");
+        UsersEntries staff = new UsersEntries("STAFF1", "9000000001");
+        staff.setEmail("staff@liet.in");
+        staff.setRole("Admin");
+        when(otpService.validateOtp("password-reset:staff@liet.in", "123456")).thenReturn(true);
+        when(usersRepository.findByEmailIgnoreCase("staff@liet.in")).thenReturn(staff);
+        when(authenticationService.isStudent(staff)).thenReturn(false);
+        when(authenticationService.savePassword(staff, "NewStaffPass123")).thenReturn(staff);
+
+        var response = controller.resetPassword(reset);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(Objects.requireNonNull(response.getBody()).getRole()).isEqualTo("ADMIN");
+        verify(authenticationService).savePassword(staff, "NewStaffPass123");
     }
 
     @Test
@@ -199,7 +261,7 @@ class AuthControllerPasswordTest {
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
         assertThat(response.getBody().getMessage())
-                .isEqualTo("No student account is registered with that email address.");
+            .isEqualTo("No account is registered with that email address.");
         verify(otpService, never()).requestOtp(any(), any());
     }
 
@@ -212,11 +274,13 @@ class AuthControllerPasswordTest {
         staff.setEmail("staff@liet.in");
         when(usersRepository.findByEmailIgnoreCase("staff@liet.in")).thenReturn(staff);
         when(authenticationService.isStudent(staff)).thenReturn(false);
+        when(otpService.requestOtp("password-reset:staff@liet.in", "staff@liet.in"))
+            .thenReturn(new OtpService.OtpRequestResult(OtpService.RequestStatus.SENT, 4, 0));
 
         var response = controller.sendPasswordResetOtp(request, new MockHttpServletRequest());
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
-        verify(otpService, never()).requestOtp(any(), any());
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        verify(otpService).requestOtp("password-reset:staff@liet.in", "staff@liet.in");
     }
 
     @Test
