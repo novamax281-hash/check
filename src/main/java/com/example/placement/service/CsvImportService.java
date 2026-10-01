@@ -10,6 +10,7 @@ import com.example.placement.entity.UsersEntries;
 import com.example.placement.repository.ApplicationRepository;
 import com.example.placement.repository.UsersRepository;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -26,10 +27,13 @@ public class CsvImportService {
 
     private final UsersRepository usersRepository;
     private final ApplicationRepository applicationRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public CsvImportService(UsersRepository usersRepository, ApplicationRepository applicationRepository) {
+    public CsvImportService(UsersRepository usersRepository, ApplicationRepository applicationRepository,
+                            PasswordEncoder passwordEncoder) {
         this.usersRepository = usersRepository;
         this.applicationRepository = applicationRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public List<String> supportedOperations() {
@@ -52,7 +56,7 @@ public class CsvImportService {
             default:
                 return List.of("enrollmentno", "name", "email", "phoneno", "batch", "branch", "section",
                         "course", "college", "cgpa", "tenthPercentage", "twelfthPercentage",
-                        "graduationPercentage", "dob", "gender", "city", "state", "studentStatus");
+                        "graduationPercentage", "dob", "gender", "city", "state", "password", "studentStatus");
         }
     }
 
@@ -139,6 +143,13 @@ public class CsvImportService {
                     errors.add("Email is required");
                 } else if (!email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
                     errors.add("Invalid email format");
+                } else if (usersRepository.findByEmailIgnoreCase(email) != null) {
+                    errors.add("Student with this email already exists");
+                }
+                String password = row.get("password");
+                if (!isBlank(password)
+                        && password.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72) {
+                    errors.add("Password must be at most 72 UTF-8 bytes");
                 }
             } else {
                 boolean matched = false;
@@ -181,7 +192,7 @@ public class CsvImportService {
             }
 
             if ("ACADEMIC".equals(op) || "ADD".equals(op) || "UPDATE".equals(op)) {
-                validatePercentage(row.get("cgpa"), "CGPA", errors);
+                validateCgpa(row.get("cgpa"), errors);
                 validatePercentage(row.get("tenthPercentage"), "10th Percentage", errors);
                 validatePercentage(row.get("twelfthPercentage"), "12th Percentage", errors);
                 validatePercentage(row.get("graduationPercentage"), "Graduation Percentage", errors);
@@ -232,6 +243,25 @@ public class CsvImportService {
         }
     }
 
+    /**
+     * CGPA uses a 0-10 scale (matching registration and ProfileController), not the 0-100
+     * percentage scale used by tenth/twelfth/graduation marks. Validating it against the
+     * percentage range would silently accept impossible values such as 85.
+     */
+    private void validateCgpa(String value, List<String> errors) {
+        if (isBlank(value)) {
+            return;
+        }
+        try {
+            double parsed = Double.parseDouble(value.trim());
+            if (parsed < 0 || parsed > 10) {
+                errors.add("CGPA must be between 0 and 10");
+            }
+        } catch (NumberFormatException ignored) {
+            errors.add("CGPA must be a number");
+        }
+    }
+
     private boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
     }
@@ -274,6 +304,11 @@ public class CsvImportService {
                         student.setName(row.get("name"));
                         student.setEmail(email);
                         applySharedFields(student, row);
+                        // Never store a plain-text password; hash with the existing encoder.
+                        String password = row.get("password");
+                        if (!isBlank(password)) {
+                            student.setPasswordHash(passwordEncoder.encode(password));
+                        }
                         usersRepository.save(student);
                         created++;
                         break;

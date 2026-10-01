@@ -4,10 +4,13 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 import org.springframework.data.mongodb.core.mapping.FieldType;
 import org.springframework.data.mongodb.core.mapping.MongoId;
+
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -30,6 +33,11 @@ public class UsersEntries {
     @ToString.Exclude
     private String passwordHash;
 
+    /** Plain-text password accepted on create/import only; never serialized back to clients. */
+    @JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
+    @ToString.Exclude
+    private String password;
+
     private String role;
 
     private String studentStatus;
@@ -47,6 +55,9 @@ public class UsersEntries {
     private String college;
 
     private Double cgpa;
+
+    /** Semester-wise SGPA values, index 0 = semester 1. Blank semesters are null. */
+    private List<Double> sgpas;
 
     private Double tenthPercentage;
 

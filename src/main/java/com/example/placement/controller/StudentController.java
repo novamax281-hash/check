@@ -1,5 +1,6 @@
 package com.example.placement.controller;
 
+import com.example.placement.dto.BulkRoundRequest;
 import com.example.placement.dto.BulkStatusRequest;
 import com.example.placement.dto.CsvImportRequest;
 import com.example.placement.dto.CsvImportResult;
@@ -16,6 +17,7 @@ import com.example.placement.service.EmailCsvService;
 import com.example.placement.service.StudentService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -52,15 +54,17 @@ public class StudentController {
     private final CsvExportService csvExportService;
     private final EmailCsvService emailCsvService;
     private final UsersRepository usersRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public StudentController(StudentService studentService, CsvImportService csvImportService,
                              CsvExportService csvExportService, EmailCsvService emailCsvService,
-                             UsersRepository usersRepository) {
+                             UsersRepository usersRepository, PasswordEncoder passwordEncoder) {
         this.studentService = studentService;
         this.csvImportService = csvImportService;
         this.csvExportService = csvExportService;
         this.emailCsvService = emailCsvService;
         this.usersRepository = usersRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @ExceptionHandler(ResponseStatusException.class)
@@ -131,6 +135,12 @@ public class StudentController {
 
     @PostMapping
     public UsersEntries addStudent(@RequestBody UsersEntries student) {
+        // Moves the write-only "password" field into the hashed form used by the
+        // existing authentication system; the plain text is never stored.
+        if (student.getPassword() != null && !student.getPassword().isBlank()) {
+            student.setPasswordHash(passwordEncoder.encode(student.getPassword()));
+        }
+        student.setPassword(null);
         return studentService.addStudent(student);
     }
 
@@ -140,19 +150,17 @@ public class StudentController {
     }
 
     @PostMapping("/bulk-round")
-    public Map<String, Object> bulkRound(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked")
-        List<String> applicationIds = (List<String>) body.getOrDefault("applicationIds", List.of());
-        @SuppressWarnings("unchecked")
-        List<String> studentIds = (List<String>) body.getOrDefault("studentIds", List.of());
-        Integer targetRound = body.get("targetRound") == null ? null
-                : Integer.valueOf(String.valueOf(body.get("targetRound")));
-        String remark = body.get("adminRemark") == null ? null : String.valueOf(body.get("adminRemark"));
+    public Map<String, Object> bulkRound(@Valid @RequestBody BulkRoundRequest request) {
+        List<String> applicationIds = request.getApplicationIds() == null
+                ? List.of() : request.getApplicationIds();
+        List<String> studentIds = request.getStudentIds() == null
+                ? List.of() : request.getStudentIds();
+        String remark = request.getAdminRemark();
         if (applicationIds.isEmpty() && studentIds.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "At least one application ID or student ID is required");
         }
-        return studentService.bulkMoveRound(applicationIds, studentIds, targetRound, remark);
+        return studentService.bulkMoveRound(applicationIds, studentIds, request.getTargetRound(), remark);
     }
 
     @PostMapping("/import/validate")
@@ -211,13 +219,25 @@ public class StudentController {
             throws IOException {
         List<StudentDetail> students = resolveStudents(request.getScope(), request);
         String content = csvExportService.studentsCsv(students, request.getColumns());
-        String filename = "students_export_" + LocalDate.now().toString().replace("-", "_") + ".csv";
-        emailCsvService.sendCsv(request.getRecipientEmail(), content, filename);
+        String filename = safeCsvFilename(request.getFileName(),
+                "students_export_" + LocalDate.now().toString().replace("-", "_") + ".csv");
+        emailCsvService.sendCsv(request.getRecipientEmail(), content, filename, request.getSubject());
         return ResponseEntity.ok(Map.of(
                 "message", "CSV emailed successfully",
                 "recipient", request.getRecipientEmail(),
                 "file", filename,
                 "students", students.size()));
+    }
+
+    private static String safeCsvFilename(String requested, String fallback) {
+        if (requested == null || requested.isBlank()) {
+            return fallback;
+        }
+        String cleaned = requested.trim().replaceAll("[^a-zA-Z0-9._-]", "_");
+        if (!cleaned.toLowerCase().endsWith(".csv")) {
+            cleaned = cleaned + ".csv";
+        }
+        return cleaned;
     }
 
     private List<StudentDetail> resolveStudents(String scope, ExportRequest request) {

@@ -30,6 +30,7 @@
         importResult: null
     };
 
+    var studentsRequestId = 0;
     var debounceTimer = null;
 
     function el(id) { return document.getElementById(id); }
@@ -166,7 +167,11 @@
         tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text-muted)">Loading students...</td></tr>';
         el("resultCount").textContent = "Loading students...";
 
+        // Debounced search plus filter changes can overlap; only the newest
+        // request may write state, otherwise a slow earlier response wins.
+        var requestId = ++studentsRequestId;
         api("/admin/students?" + buildQuery()).then(function (data) {
+            if (requestId !== studentsRequestId) return;
             state.total = data.total;
             state.totalPages = data.totalPages || 1;
             state.students = data.students || [];
@@ -181,6 +186,7 @@
             updateFilterCount();
             updateSelectionUI();
         }).catch(function (err) {
+            if (requestId !== studentsRequestId) return;
             UI.showToast(err.message || "Could not load students", "error");
             tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text-muted)">' +
                 UI.escapeHtml(err.message || "Could not load students") + "</td></tr>";
@@ -208,6 +214,10 @@
             var checked = state.selected.has(student.id) ? "checked" : "";
             var statusLabel = student.studentStatus || "Active";
             var badgeClass = UI.badge(statusLabel);
+            var detailLink = student.id
+                ? '<a class="btn btn-small btn-secondary" href="admin-student-detail.html?id='
+                    + encodeURIComponent(student.id) + '">View</a>'
+                : '<span class="field-hint">Unavailable</span>';
             return "<tr>" +
                 '<td><input type="checkbox" class="row-checkbox" data-id="' + UI.escapeHtml(student.id) + '"' + checked + "></td>" +
                 '<td><div class="student-cell">' +
@@ -220,8 +230,7 @@
                 "<td>" + UI.escapeHtml(student.batch || "—") + "</td>" +
                 "<td>" + (student.applicationCount || 0) + "</td>" +
                 '<td><span class="badge ' + badgeClass + '">' + UI.escapeHtml(statusLabel) + "</span></td>" +
-                '<td class="table-actions"><a class="btn btn-small btn-secondary" href="admin-student-detail.html?id=' +
-                encodeURIComponent(student.id) + '">View</a></td>' +
+                '<td class="table-actions">' + detailLink + "</td>" +
                 "</tr>";
         }).join("");
 
@@ -666,6 +675,7 @@
             enrollmentno: el("sEnrollment").value.trim(),
             name: el("sName").value.trim(),
             email: el("sEmail").value.trim(),
+            password: el("sPassword").value,
             phoneno: el("sPhone").value.trim(),
             batch: el("sBatch").value.trim(),
             branch: el("sBranch").value.trim(),
@@ -840,7 +850,7 @@
         el("cancelStudentBtn").addEventListener("click", function () { UI.closeModal(el("studentModal")); });
         el("saveStudentBtn").addEventListener("click", saveStudent);
         el("addStudentBtn").addEventListener("click", function () {
-            ["sEnrollment", "sName", "sEmail", "sPhone", "sBatch", "sBranch", "sSection"].forEach(function (id) {
+            ["sEnrollment", "sName", "sEmail", "sPassword", "sPhone", "sBatch", "sBranch", "sSection"].forEach(function (id) {
                 var input = document.getElementById(id);
                 if (input) input.value = "";
             });

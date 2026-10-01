@@ -15,10 +15,12 @@ let noticesRequestInFlight = false;
 
 const statFields = [
     ["statTotal", "total"],
-    ["statUnderReview", "underReview"],
+    ["statInProgress", "inProgress"],
     ["statShortlisted", "shortlisted"],
+    ["statInterviewScheduled", "interviewScheduled"],
     ["statSelected", "selected"],
-    ["statRejected", "rejected"]
+    ["statRejected", "rejected"],
+    ["statWithdrawn", "withdrawn"]
 ];
 
 async function loadProfile() {

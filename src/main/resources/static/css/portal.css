@@ -69,7 +69,7 @@
   --text-subtle: #8291A6;
   --text-inverse: #000000;
   
-  --primary: #07090d;
+  --primary: #416481;
   --primary-hover: #677bb4;
   --primary-light: #172E56;
   --primary-text: #FFFFFF;
@@ -773,6 +773,13 @@ button, a, input, select, textarea {
 }
 
 .btn:disabled, button.btn:disabled, .btn[disabled], button.btn[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn.applied, button.btn.applied {
   background: var(--success-bg) !important;
   color: var(--success) !important;
   border-color: var(--success-border) !important;
@@ -786,6 +793,17 @@ a.btn, button.btn {
 
 a.btn:hover, button.btn:hover {
   color: var(--primary-text) !important;
+}
+
+.btn-outline {
+  background: transparent !important;
+  color: var(--primary) !important;
+  border: 2px solid var(--primary) !important;
+}
+
+.btn-outline:hover {
+  background: rgba(14, 165, 233, 0.08) !important;
+  color: var(--primary) !important;
 }
 
 .btn-secondary {
@@ -1718,6 +1736,135 @@ tr:hover td {
   background: var(--bg-subtle);
 }
 
+/* Applications table: a fixed column layout keeps every column readable, and the
+   wrapper scrolls horizontally instead of squeezing columns into unreadable slivers. */
+.apps-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.apps-table {
+  width: 100%;
+  min-width: 1590px;
+  table-layout: fixed;
+}
+
+.apps-table th,
+.apps-table td {
+  padding: 12px 12px;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.apps-table thead th {
+  vertical-align: middle;
+  white-space: nowrap;
+  padding: 12px;
+}
+
+.apps-table tbody tr {
+  height: 56px;
+}
+
+.apps-table td.select-cell {
+  vertical-align: top;
+  padding-top: 14px;
+  text-align: center;
+}
+
+.apps-table .col-check { width: 44px; }
+.apps-table .col-student { width: 150px; }
+.apps-table .col-email { width: 186px; }
+.apps-table .col-company { width: 140px; }
+.apps-table .col-roles { width: 190px; }
+.apps-table .col-applied-role { width: 160px; }
+.apps-table .col-course { width: 100px; }
+.apps-table .col-batch { width: 140px; }
+.apps-table .col-applied { width: 96px; }
+.apps-table .col-round { width: 150px; }
+.apps-table .col-score { width: 66px; }
+.apps-table .col-status { width: 108px; }
+.apps-table .col-actions { width: 60px; text-align: right; }
+
+.apps-table .cell-ellipsis {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.apps-table .cell-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.apps-table .cell-name {
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+.apps-table .cell-applied-role {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.apps-table .cell-muted {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.apps-table .meta-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+
+.apps-table .col-score {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.apps-table .round-track {
+  flex-wrap: wrap;
+  gap: 4px;
+  row-gap: 4px;
+}
+
+.apps-table .round-chip {
+  width: 22px;
+  height: 22px;
+  font-size: 11px;
+}
+
+.apps-table .col-status .badge {
+  white-space: nowrap;
+}
+
+@media (max-width: 1400px) {
+  .apps-table {
+    min-width: 1396px;
+  }
+  .apps-table .col-check { width: 40px; }
+  .apps-table .col-student { width: 130px; }
+  .apps-table .col-email { width: 150px; }
+  .apps-table .col-company { width: 120px; }
+  .apps-table .col-roles { width: 160px; }
+  .apps-table .col-applied-role { width: 140px; }
+  .apps-table .col-course { width: 90px; }
+  .apps-table .col-batch { width: 120px; }
+  .apps-table .col-applied { width: 90px; }
+  .apps-table .col-round { width: 140px; }
+  .apps-table .col-score { width: 60px; }
+  .apps-table .col-status { width: 100px; }
+  .apps-table .col-actions { width: 56px; }
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -1767,6 +1914,24 @@ tr:hover td {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 24px;
+}
+
+.show-more-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 28px 0 8px;
+}
+
+.show-more-wrap .show-more-btn {
+  min-width: 180px;
+}
+
+.show-more-count {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
 }
 
 .job-card {
@@ -2462,6 +2627,450 @@ tr:hover td {
 .placement-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
+}
+
+/* ---------- Dynamic semester SGPA list ---------- */
+
+.sgpa-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sgpa-row {
+  display: grid;
+  grid-template-columns: 120px 1fr 34px;
+  align-items: center;
+  gap: 10px;
+}
+
+.sgpa-row-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.sgpa-row input {
+  max-width: 160px;
+}
+
+.sgpa-remove {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.sgpa-remove:hover {
+  color: var(--danger);
+  border-color: var(--danger-border);
+  background: var(--danger-bg);
+}
+
+.sgpa-empty {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.sgpa-error {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger);
+}
+
+@media (max-width: 520px) {
+  .sgpa-row {
+    grid-template-columns: 1fr 34px;
+  }
+  .sgpa-row-label {
+    grid-column: 1 / -1;
+  }
+  .sgpa-row input {
+    max-width: none;
+  }
+}
+
+/* ---------- Student opportunity cards ---------- */
+
+.op-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.op-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(14, 165, 233, 0.5);
+  box-shadow: var(--shadow-md);
+}
+
+.op-card.is-closed {
+  opacity: 0.72;
+}
+
+.op-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.op-logo {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.22), rgba(14, 165, 233, 0.08));
+  border: 1px solid rgba(14, 165, 233, 0.35);
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.3px;
+}
+
+.op-logo-lg {
+  width: 48px;
+  height: 48px;
+  font-size: 16px;
+}
+
+.op-head-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.op-company {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.op-role {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.op-head-tags {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.op-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.op-tag-status {
+  text-transform: capitalize;
+}
+
+.op-tag-status[data-status="Open"] {
+  background: var(--success-bg);
+  color: var(--success);
+  border-color: var(--success-border);
+}
+
+.op-tag-status[data-status="Closed"] {
+  background: var(--danger-bg);
+  color: var(--danger);
+  border-color: var(--danger-border);
+}
+
+.op-pay {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.op-pay-value {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.op-pay-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-subtle);
+}
+
+.op-meta {
+  list-style: none;
+  margin: 0;
+  padding: 10px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.op-meta li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  min-width: 0;
+}
+
+.op-meta li svg {
+  width: 14px;
+  height: 14px;
+  color: var(--text-subtle);
+  flex-shrink: 0;
+}
+
+.op-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.op-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-subtle);
+}
+
+.op-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.op-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 3px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-subtle);
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.op-chip-elig {
+  border-color: rgba(14, 165, 233, 0.4);
+  background: rgba(14, 165, 233, 0.1);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.op-chip-more,
+.op-chip-empty {
+  color: var(--text-subtle);
+  font-weight: 600;
+}
+
+.op-courses {
+  font-size: 13px;
+  color: var(--text-main);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.op-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.op-actions {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+
+.op-actions .btn {
+  flex: 1;
+  justify-content: center;
+}
+
+.op-docs-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.op-docs-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.op-docs-btn:hover {
+  color: var(--primary);
+  border-color: rgba(14, 165, 233, 0.5);
+}
+
+/* ---------- View details modal ---------- */
+
+.jd-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.jd-company {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.jd-roles {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.jd-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px 18px;
+  margin: 0;
+}
+
+.jd-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+
+.jd-row dt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-subtle);
+  white-space: nowrap;
+}
+
+.jd-row dt svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.jd-row dd {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-main);
+  overflow-wrap: anywhere;
+}
+
+.jd-section {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.jd-desc {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+a.op-chip {
+  text-decoration: none;
+}
+
+a.op-chip:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+@media (max-width: 560px) {
+  .op-head-tags {
+    display: none;
+  }
+  .op-actions {
+    flex-wrap: wrap;
+  }
+  .op-actions .btn {
+    flex: 1 1 100%;
+  }
 }
 
 .placement-card h3 {

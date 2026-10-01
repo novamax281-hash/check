@@ -231,7 +231,8 @@ public class OtpService {
     }
 
     public void storeOtp(String key, String otp) {
-        otpStore.put(key, new OtpEntry(otp, Instant.now().plusSeconds(otpExpirySeconds), Instant.now(), 0));
+        Instant now = clock.instant();
+        otpStore.put(key, new OtpEntry(otp, now.plusSeconds(otpExpirySeconds), now, 0));
     }
 
     public void removeOtp(String key, String otp) {
@@ -243,10 +244,11 @@ public class OtpService {
         if (entry == null) {
             return true;
         }
-        if (Instant.now().isAfter(entry.expiresAt())) {
+        Instant now = clock.instant();
+        if (now.isAfter(entry.expiresAt())) {
             return true;
         }
-        return entry.requestedAt().plusSeconds(RESEND_COOLDOWN_SECONDS).isBefore(Instant.now());
+        return entry.requestedAt().plusSeconds(RESEND_COOLDOWN_SECONDS).isBefore(now);
     }
 
     public long resendWaitSeconds(String key) {
@@ -255,7 +257,7 @@ public class OtpService {
             return 0;
         }
         Instant allowedAt = entry.requestedAt().plusSeconds(RESEND_COOLDOWN_SECONDS);
-        long wait = Instant.now().until(allowedAt, java.time.temporal.ChronoUnit.SECONDS);
+        long wait = clock.instant().until(allowedAt, java.time.temporal.ChronoUnit.SECONDS);
         return Math.max(0, wait + 1);
     }
 
@@ -275,7 +277,7 @@ public class OtpService {
         if (entry == null) {
             return false;
         }
-        if (Instant.now().isAfter(entry.expiresAt())) {
+        if (clock.instant().isAfter(entry.expiresAt())) {
             otpStore.remove(key);
             return false;
         }

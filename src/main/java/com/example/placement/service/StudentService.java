@@ -317,6 +317,22 @@ public class StudentService {
         if (update.getCity() != null && !update.getCity().isBlank()) existing.setCity(update.getCity().trim());
         if (update.getState() != null && !update.getState().isBlank()) existing.setState(update.getState().trim());
         if (update.getCgpa() != null) existing.setCgpa(update.getCgpa());
+        if (update.getSgpas() != null) {
+            List<Double> sgpas = new ArrayList<>();
+            for (Double value : update.getSgpas()) {
+                sgpas.add(value == null ? null : Math.round(value * 100.0) / 100.0);
+            }
+            existing.setSgpas(sgpas);
+            double sum = 0;
+            int counted = 0;
+            for (Double value : sgpas) {
+                if (value != null) {
+                    sum += value;
+                    counted++;
+                }
+            }
+            existing.setCgpa(counted == 0 ? null : Math.round(sum / counted * 100.0) / 100.0);
+        }
         if (update.getTenthPercentage() != null) existing.setTenthPercentage(update.getTenthPercentage());
         if (update.getTwelfthPercentage() != null) existing.setTwelfthPercentage(update.getTwelfthPercentage());
         if (update.getGraduationPercentage() != null) existing.setGraduationPercentage(update.getGraduationPercentage());

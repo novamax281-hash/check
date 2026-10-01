@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Applications | LLOYD Career</title>
-    <link rel="stylesheet" href="css/portal.css?v=16">
+    <link rel="stylesheet" href="css/portal.css?v=20">
     <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
 </head>
 <body data-role="admin" data-active="applications" data-title="Applications">
@@ -29,9 +29,11 @@
                 </button>
                 <button type="button" class="btn btn-secondary" id="selectQualifiedBtn">Select All Qualified</button>
                 <button type="button" class="btn btn-secondary" id="appBulkBtn">Bulk Actions</button>
+                <button type="button" class="btn btn-secondary" id="importStatusBtn">Import Status (CSV)</button>
                 <button type="button" class="btn btn-secondary" id="exportBtn" title="Download filtered list as CSV">Export CSV</button>
                 <button type="button" class="btn btn-secondary" id="customizeExportBtn" title="Choose which columns to include">Customize Export</button>
-                <button type="button" class="btn btn-secondary" id="appAdvancedToggleBtn">Rounds &amp; Students &blackdown;</button>
+                <button type="button" class="btn btn-secondary" id="emailExportBtn" title="Email filtered list as CSV">Email CSV</button>
+                <button type="button" class="btn btn-secondary" id="appAdvancedToggleBtn">Round Management ▾</button>
             </div>
 
             
@@ -80,37 +82,7 @@
                 </div>
             </section>
 
-            <section class="step-card" id="userSearchCard">
-                <h2>Student Applicant Search</h2>
-                <div class="toolbar" style="margin-top: 12px;">
-                    <input type="search" id="userSearch" class="search" placeholder="Search students by name, email or enrollment..." autocomplete="off">
-                    <button type="button" id="userSearchClearBtn" class="btn btn-small btn-secondary hidden">Clear</button>
-                </div>
 
-                <div class="toolbar" style="margin-top: 12px;">
-                    <select id="userBatchFilter"><option value="">All batches</option></select>
-                    <select id="userBranchFilter"><option value="">All branches</option></select>
-                    <select id="userStatusFilter"><option value="">All application statuses</option></select>
-                    <select id="userJobFilter"><option value="">All jobs</option></select>
-                    <input type="date" id="userDateFrom">
-                    <input type="date" id="userDateTo">
-                    <button type="button" class="btn btn-small btn-secondary" id="userClearBtn">Clear Filters</button>
-                </div>
-
-                <div class="list-meta" style="margin-top:12px;"><span id="userListState">Loading students&hellip;</span></div>
-                <div class="user-results" id="userResults"></div>
-                <div class="pagination" id="userPagination"></div>
-
-                <div class="empty" id="userLoadingMsg">
-                    <div class="empty-title">Loading students&hellip;</div>
-                </div>
-                <div class="empty hidden" id="userErrorMsg">
-                    <div class="empty-title">Unable to load students</div>
-                </div>
-                <div class="empty hidden" id="userEmptyMsg">
-                    <div class="empty-title">No students found</div>
-                </div>
-            </section>
         </div>
 
         <div class="bulk-bar hidden" id="bulkBar">
@@ -123,11 +95,26 @@
 
         <div class="list-meta" id="appListMeta"><span id="appResultCount"></span></div>
 
-        <div class="table-responsive">
-            <table>
+        <div class="table-responsive apps-table-wrap">
+            <table class="apps-table">
+                <colgroup>
+                    <col class="col-check">
+                    <col class="col-student">
+                    <col class="col-email">
+                    <col class="col-company">
+                    <col class="col-roles">
+                    <col class="col-applied-role">
+                    <col class="col-course">
+                    <col class="col-batch">
+                    <col class="col-applied">
+                    <col class="col-round">
+                    <col class="col-score">
+                    <col class="col-status">
+                    <col class="col-actions">
+                </colgroup>
                 <thead>
                 <tr>
-                    <th style="width:36px"><input type="checkbox" id="selectAllCheckbox" title="Select all on this page"></th>
+                    <th class="col-check"><input type="checkbox" id="selectAllCheckbox" title="Select all on this page"></th>
                     <th>Student</th>
                     <th>Email</th>
                     <th>Company</th>
@@ -137,9 +124,9 @@
                     <th>Batch &middot; Branch</th>
                     <th>Applied</th>
                     <th>Round</th>
-                    <th>Score</th>
+                    <th class="col-score">Score</th>
                     <th>Status</th>
-                    <th style="text-align:right;">Actions</th>
+                    <th class="col-actions">Actions</th>
                 </tr>
                 </thead>
                 <tbody id="appsBody"></tbody>
@@ -265,8 +252,126 @@
     </div>
 </div>
 
-<script src="js/ui.js?v=9"></script>
-<script src="js/admin-applications.js?v=8"></script>
+<div class="modal" id="importStatusModal">
+    <div class="modal-box modal-lg">
+        <div class="modal-header">
+            <h2>Import Application Status (CSV)</h2>
+            <button type="button" class="modal-close" data-import-close aria-label="Close">&times;</button>
+        </div>
+
+        <div class="step-indicator" id="importStatusSteps" style="display:flex; gap:12px; font-size:12px; font-weight:600; margin-bottom:16px;">
+            <span class="step-dot" data-step="1">1 Upload</span>
+            <span class="step-arrow">&rarr;</span>
+            <span class="step-dot" data-step="2">2 Validate</span>
+            <span class="step-arrow">&rarr;</span>
+            <span class="step-dot" data-step="3">3 Confirm</span>
+        </div>
+
+        <div class="import-step" id="importStatusStep1">
+            <p class="field-hint" style="margin-bottom:12px;">Choose the CSV file containing <strong>Email,Status</strong> columns. Students are matched by email.</p>
+            <div class="drop-zone" id="importStatusDropZone" style="border:2px dashed var(--border-color); padding:32px; text-align:center; border-radius:var(--radius-md);">
+                <p><strong>Drop CSV here</strong> or</p>
+                <button type="button" class="btn btn-secondary" id="importStatusChooseFileBtn" style="margin-top:8px;">Choose CSV File</button>
+                <input type="file" id="importStatusFileInput" accept=".csv,text/csv" style="display:none;">
+                <p class="field-hint" id="importStatusFileHint" style="margin-top:8px;"></p>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="importStatusDownloadTemplateBtn">Download CSV Template</button>
+            </div>
+        </div>
+
+        <div class="import-step" id="importStatusStep2" style="display:none;">
+            <div class="import-summary" id="importStatusValidationSummary"></div>
+            <div id="importStatusGlobalErrors" style="color:var(--danger); margin-bottom:10px;"></div>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                    <tr><th>Row</th><th>Email</th><th>Status</th><th>Result</th></tr>
+                    </thead>
+                    <tbody id="importStatusValidationTableBody"></tbody>
+                </table>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="importStatusBackToUploadBtn">Back</button>
+                <button type="button" class="btn" id="importStatusConfirmBtn">Confirm & Update</button>
+            </div>
+        </div>
+
+        <div class="import-step" id="importStatusStep3" style="display:none;">
+            <div id="importStatusResultBox"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" id="importStatusDownloadErrorsBtn" style="display:none;">Download Failed Rows</button>
+                <button type="button" class="btn" id="importStatusDoneBtn">Done</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="emailExportModal">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2>Email Application Export</h2>
+        </div>
+        <div class="form-group">
+            <label>Recipient Email</label>
+            <input type="email" id="emailExportRecipient" placeholder="recipient@example.com" required>
+        </div>
+        <div class="form-group">
+            <label>Email Subject</label>
+            <input type="text" id="emailExportSubject" placeholder="Application Export">
+        </div>
+        <div class="form-group">
+            <label>Export File Name</label>
+            <input type="text" id="emailExportFileName" placeholder="applications_export">
+        </div>
+        <div class="form-group">
+            <label>Export Scope</label>
+            <select id="emailExportScopeSelect">
+                <option value="selected">Selected applications</option>
+                <option value="filtered" selected>Current filtered applications</option>
+                <option value="all">All applications</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Columns</label>
+            <div class="column-picker" id="emailExportColumns"></div>
+            <div style="margin-top:8px; display:flex; gap:8px;">
+                <button type="button" class="btn btn-small btn-secondary" id="emailExportSelectAllBtn">Select All</button>
+                <button type="button" class="btn btn-small btn-secondary" id="emailExportClearAllBtn">Clear All</button>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn btn-secondary" id="cancelEmailExportBtn">Cancel</button>
+            <button class="btn" id="sendEmailExportBtn">Generate & Send</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal" id="exportModal" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
+    <div class="modal-box">
+        <div class="modal-header">
+            <h2 id="exportModalTitle">Customize Export</h2>
+        </div>
+        <p style="color:var(--text-muted);">Choose the columns to include. The export always respects the filters currently applied to the table.</p>
+        <div class="toolbar" style="margin: 14px 0;">
+            <button type="button" class="btn btn-small btn-secondary" id="exportSelectAllBtn">Select all</button>
+            <button type="button" class="btn btn-small btn-secondary" id="exportClearAllBtn">Clear all</button>
+            <button type="button" class="btn btn-small btn-secondary" id="exportResetBtn">Reset default</button>
+            <span class="badge" id="exportCountBadge">0 selected</span>
+        </div>
+        <div id="exportFieldsContainer" style="max-height: 46vh; overflow-y; overflow-y: auto; border:1px solid var(--border); border-radius:10px; padding:14px;">
+            <p style="color:var(--text-muted);">Loading available fields...</p>
+        </div>
+        <p class="field-hint" id="exportStatusHint" style="margin-top:10px;"></p>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" id="cancelExportBtn">Cancel</button>
+            <button type="button" class="btn" id="confirmExportBtn">Export CSV</button>
+        </div>
+    </div>
+</div>
+
+<script src="js/ui.js?v=10"></script>
+<script src="js/admin-applications.js?v=12"></script>
 <script>
     (function () {
         "use strict";
@@ -353,28 +458,5 @@
         refreshFilterBadge();
     })();
 </script>
-
-<div class="modal" id="exportModal" role="dialog" aria-modal="true" aria-labelledby="exportModalTitle">
-    <div class="modal-box">
-        <div class="modal-header">
-            <h2 id="exportModalTitle">Customize Export</h2>
-        </div>
-        <p style="color:var(--text-muted);">Choose the columns to include. The export always respects the filters currently applied to the table.</p>
-        <div class="toolbar" style="margin: 14px 0;">
-            <button type="button" class="btn btn-small btn-secondary" id="exportSelectAllBtn">Select all</button>
-            <button type="button" class="btn btn-small btn-secondary" id="exportClearAllBtn">Clear all</button>
-            <button type="button" class="btn btn-small btn-secondary" id="exportResetBtn">Reset default</button>
-            <span class="badge" id="exportCountBadge">0 selected</span>
-        </div>
-        <div id="exportFieldsContainer" style="max-height: 46vh; overflow-y: auto; border:1px solid var(--border); border-radius:10px; padding:14px;">
-            <p style="color:var(--text-muted);">Loading available fields...</p>
-        </div>
-        <p class="field-hint" id="exportStatusHint" style="margin-top:10px;"></p>
-        <div class="modal-actions">
-            <button type="button" class="btn btn-secondary" id="cancelExportBtn">Cancel</button>
-            <button type="button" class="btn" id="confirmExportBtn">Export CSV</button>
-        </div>
-    </div>
-</div>
 </body>
 </html>

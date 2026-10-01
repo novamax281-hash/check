@@ -179,4 +179,35 @@ class NoticeServiceTest {
         request.setExpiresAt(expiry);
         return request;
     }
+
+    @Test
+    void updateKeepsANoticeDisabledWhenActiveIsOmitted() {
+        when(noticeRepository.findById("n1")).thenReturn(Optional.of(disabled()));
+        when(noticeRepository.save(any(Notice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Notice updated = noticeService.update("n1", request());
+
+        assertThat(updated.isActive())
+                .as("an update that omits 'active' must not re-publish a disabled notice")
+                .isFalse();
+    }
+
+    @Test
+    void updateStillHonoursAnExplicitActiveFlag() {
+        when(noticeRepository.findById("n1")).thenReturn(Optional.of(disabled()));
+        when(noticeRepository.save(any(Notice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        NoticeRequest request = request();
+        request.setActive(true);
+
+        assertThat(noticeService.update("n1", request).isActive()).isTrue();
+    }
+
+    private Notice disabled() {
+        Notice notice = new Notice();
+        notice.setId("n1");
+        notice.setTitle("Old title");
+        notice.setMessage("Old message");
+        notice.setActive(false);
+        return notice;
+    }
 }

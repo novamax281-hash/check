@@ -76,14 +76,21 @@ let jobs = [];
 let editingId = null;
 
 async function loadJobs() {
-    const response = await fetch("/admin/jobs", { credentials: "include" });
-    if (UI.redirectIfUnauthorized(response)) return;
-    jobs = await response.json();
-    const esc = window.UI.escapeHtml;
-    const companies = [...new Set(jobs.map(j => j.company).filter(Boolean))].sort();
-    companyFilter.innerHTML = '<option value="">All companies</option>' +
-        companies.map(c => '<option value="' + esc(c) + '">' + esc(c) + "</option>").join("");
-    render();
+    try {
+        const response = await fetch("/admin/jobs", { credentials: "include" });
+        if (UI.redirectIfUnauthorized(response)) return;
+        if (!response.ok) throw new Error("Could not load placements");
+        const payload = await response.json();
+        if (!Array.isArray(payload)) throw new Error("Unexpected placements payload");
+        jobs = payload;
+        const esc = window.UI.escapeHtml;
+        const companies = [...new Set(jobs.map(j => j.company).filter(Boolean))].sort();
+        companyFilter.innerHTML = '<option value="">All companies</option>' +
+            companies.map(c => '<option value="' + esc(c) + '">' + esc(c) + "</option>").join("");
+        render();
+    } catch (error) {
+        window.UI.showToast("Could not load placements. Please retry.", "error");
+    }
 }
 
 function render() {
@@ -427,6 +434,9 @@ async function saveJob() {
         const saved = await response.json();
 
         await syncJobRounds(saved.id || editingId, rounds);
+        // The rounds are memoized per job; drop the cache so the modal shows the
+        // rounds that were just saved instead of the pre-save list.
+        reloadConfig(saved.id || editingId);
         closeModal();
         window.UI.showToast(editingId ? "Placement updated." : "Placement added.", "success");
         loadJobs();
@@ -506,7 +516,11 @@ function openRoundsModal(job) {
 
 async function loadConfiguredRounds() {
     if (!roundsJobId) return;
-    const rounds = await reloadConfig(roundsJobId);
+    const requestedJobId = roundsJobId;
+    const rounds = await reloadConfig(requestedJobId);
+    // The user may have opened Rounds for a different job while this was in
+    // flight; rendering now would overwrite the newer modal with stale data.
+    if (roundsJobId !== requestedJobId) return;
     const esc = window.UI.escapeHtml;
     if (!editingDialogRound) {
 
@@ -724,9 +738,10 @@ async function uploadDocs(file) {
     formData.append("file", file);
     window.UI.setButtonLoading(uploadDocsBtn, true, "Uploading...");
     try {
+        const documentUrl = "/admin/jobs/" + docsJobId + "/documents";
         const url = docsReplaceId
-            ? "/admin/jobs/" + docsJobId + "/documents/" + encodeURIComponent(docsReplaceId)
-            : "/admin/jobs/" + docsJobId + "/documents";
+            ? documentUrl + "?publicId=" + encodeURIComponent(docsReplaceId)
+            : documentUrl;
         const response = await fetch(url, {
             method: docsReplaceId ? "PUT" : "POST",
             credentials: "include",
@@ -771,7 +786,8 @@ async function deleteDoc(publicId) {
         { title: "Delete Document", danger: true, confirmText: "Delete" });
     if (!confirmed) return;
     try {
-        const response = await fetch("/admin/jobs/" + docsJobId + "/documents/" + encodeURIComponent(publicId), {
+        const response = await fetch("/admin/jobs/" + docsJobId + "/documents?publicId="
+            + encodeURIComponent(publicId), {
             method: "DELETE",
             credentials: "include"
         });

@@ -1,5 +1,6 @@
 package com.example.placement.controller;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -15,8 +16,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.example.placement.entity.JobDocument;
 import com.example.placement.entity.Placement;
 import com.example.placement.entity.PlacementRound;
 import com.example.placement.repository.PlacementRepository;
@@ -29,6 +35,7 @@ class AdminControllerUpdateJobTest {
 
     private PlacementRepository placementRepository;
     private AdminController controller;
+    private CloudinaryService cloudinaryService;
 
     @BeforeEach
     void setUp() {
@@ -36,9 +43,11 @@ class AdminControllerUpdateJobTest {
         ApplicationService applicationService = mock(ApplicationService.class);
         CsvExportService csvExportService = mock(CsvExportService.class);
         UsersRepository usersRepository = mock(UsersRepository.class);
-        CloudinaryService cloudinaryService = mock(CloudinaryService.class);
+        cloudinaryService = mock(CloudinaryService.class);
         controller = new AdminController(placementRepository, applicationService,
-                csvExportService, usersRepository, cloudinaryService);
+                csvExportService, usersRepository, cloudinaryService,
+                mock(com.example.placement.service.CsvImportService.class),
+                mock(com.example.placement.service.EmailCsvService.class));
     }
 
     private Placement existingJob() {
@@ -151,4 +160,36 @@ class AdminControllerUpdateJobTest {
 
         assertThrows(ResponseStatusException.class, () -> controller.addJob(job));
     }
+
+        @Test
+        void replaceDocumentQueryRouteAcceptsSlashContainingCloudinaryPublicId() throws Exception {
+        Placement job = existingJob();
+        String publicId = "placement-portal/" + job.getId() + "/cc2b4de";
+        JobDocument oldDocument = new JobDocument("old.pdf", "https://example.com/old.pdf",
+            publicId, "raw", 10, LocalDateTime.now());
+        JobDocument newDocument = new JobDocument("new.pdf", "https://example.com/new.pdf",
+            "placement-portal/" + job.getId() + "/replacement", "raw", 20, LocalDateTime.now());
+        job.setDocuments(new ArrayList<>(List.of(oldDocument)));
+        when(placementRepository.findById(job.getId())).thenReturn(Optional.of(job));
+        when(placementRepository.save(any(Placement.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+        when(cloudinaryService.upload(any(), org.mockito.ArgumentMatchers.eq(job.getId())))
+            .thenReturn(newDocument);
+        MockMvc mockMvc = MockMvcBuilders.standaloneSetup(controller).build();
+        MockMultipartFile file = new MockMultipartFile("file", "new.pdf", "application/pdf",
+            new byte[] { 1, 2, 3 });
+
+        mockMvc.perform(MockMvcRequestBuilders.multipart("/admin/jobs/" + job.getId() + "/documents")
+                .file(file)
+                .param("publicId", publicId)
+                .with(request -> {
+                    request.setMethod("PUT");
+                    return request;
+                }))
+            .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isOk());
+
+        assertEquals(List.of(newDocument), job.getDocuments());
+        verify(cloudinaryService).delete(publicId);
+        verify(placementRepository).save(job);
+        }
 }

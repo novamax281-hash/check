@@ -69,7 +69,12 @@ public class NoticeService {
         notice.setMessage(request.getMessage().trim());
         notice.setLink(normalizeLink(request.getLink()));
         notice.setCategory(blankToNull(request.getCategory()));
-        notice.setActive(request.getActive() == null ? true : request.getActive());
+        if (creating) {
+            notice.setActive(request.getActive() == null ? Boolean.TRUE : request.getActive());
+        } else if (request.getActive() != null) {
+            // Omitting "active" on an update must not silently re-publish a disabled notice.
+            notice.setActive(request.getActive());
+        }
         notice.setExpiresAt(request.getExpiresAt());
         notice.setUpdatedAt(LocalDateTime.now());
         if (creating && notice.getCreatedAt() == null) {

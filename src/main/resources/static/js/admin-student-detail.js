@@ -31,22 +31,37 @@
             '<div class="info-value">' + UI.escapeHtml(value == null || value === "" ? "—" : value) + "</div></div>";
     }
 
+    function setHidden(id, hidden) {
+        var node = el(id);
+        if (node) node.classList.toggle("hidden", hidden);
+    }
+
+    function showPageError(message) {
+        setHidden("loadingBox", true);
+        setHidden("profileContent", true);
+        setHidden("errorBox", false);
+        var errorText = el("errorText");
+        if (errorText) errorText.textContent = message;
+    }
+
     function loadStudent() {
-        el("errorBox").classList.add("hidden");
-        el("profileContent").classList.add("hidden");
-        el("loadingBox").classList.remove("hidden");
+        if (!studentId) {
+            showPageError("No student ID was provided. Return to Students and select a student.");
+            return;
+        }
+        setHidden("errorBox", true);
+        setHidden("profileContent", true);
+        setHidden("loadingBox", false);
 
         api("/admin/students/" + encodeURIComponent(studentId)).then(function (data) {
             student = data;
             apps = data.applications || [];
             renderProfile();
             renderTabs();
-            el("loadingBox").classList.add("hidden");
-            el("profileContent").classList.remove("hidden");
+            setHidden("loadingBox", true);
+            setHidden("profileContent", false);
         }).catch(function (err) {
-            el("loadingBox").classList.add("hidden");
-            el("errorBox").classList.remove("hidden");
-            el("errorText").textContent = err.message || "Could not load this student.";
+            showPageError(err.message || "Could not load this student.");
         });
     }
 
@@ -312,9 +327,9 @@
 
     function init() {
         var params = new URLSearchParams(window.location.search);
-        studentId = params.get("id");
+        studentId = (params.get("id") || "").trim();
         if (!studentId) {
-            window.location.href = "admin-students.html";
+            showPageError("No student ID was provided. Return to Students and select a student.");
             return;
         }
 

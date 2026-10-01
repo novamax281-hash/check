@@ -781,8 +781,69 @@ class ApplicationServiceTest {
     }
 
     @Test
+    void eligibleForEitherBatchRangeWhenPlacementDefinesMultiple() {
+        Placement job = job("2022-2024, 2026-2028", null, null, null, null);
+
+        assertTrue(applicationService.isEligible(job, student("2023-2027", null, null, null, null)));
+        assertTrue(applicationService.isEligible(job, student("2027-2031", null, null, null, null)));
+        assertTrue(applicationService.isEligible(job, student("2024-2028", null, null, null, null)));
+    }
+
+    @Test
+    void batchInTheGapBetweenTwoRangesIsNotEligible() {
+        // Regression: collapsing the spec to min/max would treat this as 2022-2028
+        // and wrongly admit the 2025 batch sitting in the gap.
+        Placement job = job("2022-2024, 2026-2028", null, null, null, null);
+
+        assertEquals(false, applicationService.isEligible(job, student("2025", null, null, null, null)));
+        assertEquals(false, applicationService.isEligible(job, student("2029-2033", null, null, null, null)));
+        // A longer batch that starts in the gap still overlaps 2026-2028, so it stays eligible.
+        assertTrue(applicationService.isEligible(job, student("2025-2029", null, null, null, null)));
+        assertTrue(applicationService.isEligible(job, student("2018-2022", null, null, null, null)));
+    }
+
+    @Test
     void eligibleWhenJobHasNoRequirements() {
         Placement job = job(null, null, null, null, null);
+        UsersEntries student = student("2021-2025", 82.0, 78.0, 74.0, 8.1);
+
+        assertTrue(applicationService.isEligible(job, student));
+    }
+
+    @Test
+    void courseRestrictedPlacementHiddenFromStudentOfAnotherCourse() {
+        Placement job = job(null, null, null, null, null);
+        job.setCourses("B.Tech, MCA");
+        UsersEntries student = student("2021-2025", 82.0, 78.0, 74.0, 8.1);
+        student.setCourse("BBA");
+
+        assertEquals(false, applicationService.isEligible(job, student));
+    }
+
+    @Test
+    void courseMatchIsCaseInsensitiveAndTrimsWhitespace() {
+        Placement job = job(null, null, null, null, null);
+        job.setCourses(" b.tech , MCA");
+        UsersEntries student = student("2021-2025", 82.0, 78.0, 74.0, 8.1);
+        student.setCourse("B.TECH");
+
+        assertTrue(applicationService.isEligible(job, student));
+    }
+
+    @Test
+    void placementWithNoConfiguredCoursesIsOpenToAllCourses() {
+        Placement job = job(null, null, null, null, null);
+        job.setCourses(null);
+        UsersEntries student = student("2021-2025", 82.0, 78.0, 74.0, 8.1);
+        student.setCourse("Anything");
+
+        assertTrue(applicationService.isEligible(job, student));
+    }
+
+    @Test
+    void studentWithNoStoredCourseStillSeesCourseRestrictedPlacements() {
+        Placement job = job(null, null, null, null, null);
+        job.setCourses("B.Tech");
         UsersEntries student = student("2021-2025", 82.0, 78.0, 74.0, 8.1);
 
         assertTrue(applicationService.isEligible(job, student));
@@ -935,8 +996,7 @@ class ApplicationServiceTest {
                 null, "2028-2030", null, null, null));
     }
 
-    private ApplicationDetail detail(String id, String company, String branch, String batch,
-                                     String appliedOn, int currentRound, String role) {
+    private ApplicationDetail detail(String id, String company, String branch, String batch,                                     String appliedOn, int currentRound, String role) {
         ApplicationDetail detail = new ApplicationDetail();
         detail.setApplicationId(id);
         detail.setCompany(company);

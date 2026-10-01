@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
@@ -55,8 +56,13 @@ public class AdminNoticeController {
 
     @PatchMapping("/{id}/status")
     public Notice setStatus(@PathVariable String id, @RequestBody(required = false) Map<String, Boolean> body) {
-        boolean active = body == null || !Boolean.FALSE.equals(body.get("active"));
-        return noticeService.setActive(id, active);
+        // An absent or null "active" used to default to true, so a malformed request
+        // published a notice to every student instead of being rejected.
+        if (body == null || body.get("active") == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "An 'active' boolean is required");
+        }
+        return noticeService.setActive(id, body.get("active"));
     }
 
     @DeleteMapping("/{id}")

@@ -61,32 +61,20 @@ const setRoundRemark = document.getElementById("setRoundRemark");
 const applySetRoundBtn = document.getElementById("applySetRoundBtn");
 const cancelSetRoundBtn = document.getElementById("cancelSetRoundBtn");
 
-const userSearch = document.getElementById("userSearch");
-const userSearchClearBtn = document.getElementById("userSearchClearBtn");
-const userBatchFilter = document.getElementById("userBatchFilter");
-const userBranchFilter = document.getElementById("userBranchFilter");
-const userStatusFilter = document.getElementById("userStatusFilter");
-const userJobFilter = document.getElementById("userJobFilter");
-const userDateFrom = document.getElementById("userDateFrom");
-const userDateTo = document.getElementById("userDateTo");
-const userClearBtn = document.getElementById("userClearBtn");
-const userResults = document.getElementById("userResults");
-const userPagination = document.getElementById("userPagination");
-const userListState = document.getElementById("userListState");
-const userLoadingMsg = document.getElementById("userLoadingMsg");
-const userErrorMsg = document.getElementById("userErrorMsg");
-const userEmptyMsg = document.getElementById("userEmptyMsg");
-const userSearchCard = document.getElementById("userSearchCard");
+const exportBtn = document.getElementById("exportBtn");
+const customizeExportBtn = document.getElementById("customizeExportBtn");
+const importStatusBtn = document.getElementById("importStatusBtn");
+const emailExportBtn = document.getElementById("emailExportBtn");
+const selectQualifiedBtn = document.getElementById("selectQualifiedBtn");
+const appBulkBtn = document.getElementById("appBulkBtn");
+const appAdvancedToggleBtn = document.getElementById("appAdvancedToggleBtn");
+const appFilterToggleBtn = document.getElementById("appFilterToggleBtn");
+
 
 const statuses = ["IN_PROGRESS", "SELECTED", "REJECTED", "WITHDRAWN",
     "Applied", "Under Review", "Shortlisted", "Interview Scheduled"];
 
 let applications = [];
-let allUsers = [];
-let usersLazyLoaded = false;
-let usersLoadPromise = null;
-let usersById = {};
-let usersByEnrollment = {};
 let editingApp = null;
 let pendingAction = null;
 let selectedIds = new Set();
@@ -96,9 +84,6 @@ let mgmtJobs = [];
 
 let appPage = 1;
 const APP_PAGE_SIZE = 25;
-let userPage = 1;
-const USER_PAGE_SIZE = 20;
-let userPageCount = 1;
 
 let jobRoundsCache = {};
 const configPromises = {};
@@ -129,106 +114,14 @@ function unpaginateAllApplicationsPage(data) {
 }
 
 async function loadApplications() {
-    userLoadingMsg.classList.remove("hidden");
-    userErrorMsg.classList.add("hidden");
-    userEmptyMsg.classList.add("hidden");
-    userListState.textContent = "Loading students…";
     try {
-        const appsResponse = await fetch("/admin/applications", { credentials: "include" });
-        if (UI.redirectIfUnauthorized(appsResponse)) return;
         applications = await fetchAllApplicationsPage();
-        enrichApplicationsWithUsers();
         fillFilters();
         render();
         refreshMgmtApplicants();
-        renderUsersLazyHint();
     } catch (e) {
         emptyMsg.style.display = "block";
-        userLoadingMsg.classList.add("hidden");
-        userEmptyMsg.classList.add("hidden");
-        userErrorMsg.classList.remove("hidden");
-        userListState.textContent = "Unable to load students";
-        userResults.innerHTML = "";
     }
-}
-
-function ensureUsersLazy() {
-    if (usersLazyLoaded) return Promise.resolve(allUsers);
-    if (usersLoadPromise) return usersLoadPromise;
-    usersLoadPromise = fetch("/admin/users", { credentials: "include" })
-        .then(function(resp) {
-            if (UI.redirectIfUnauthorized(resp)) return [];
-            return resp.ok ? resp.json() : [];
-        })
-        .then(function(list) {
-            allUsers = Array.isArray(list) ? list : [];
-            usersLazyLoaded = true;
-            buildUsersIndex();
-            return allUsers;
-        })
-        .catch(function() {
-            allUsers = [];
-            usersLazyLoaded = true;
-            buildUsersIndex();
-            return allUsers;
-        });
-    return usersLoadPromise;
-}
-
-function renderUsersLazyHint() {
-    userListState.textContent = "Select a filter or search to load students…";
-    userResults.innerHTML = "";
-    userLoadingMsg.classList.add("hidden");
-    userErrorMsg.classList.add("hidden");
-    userEmptyMsg.classList.remove("hidden");
-}
-
-function buildUsersIndex() {
-    usersById = {};
-    usersByEnrollment = {};
-    (Array.isArray(allUsers) ? allUsers : []).forEach(function(user) {
-        if (user && user.id) {
-            usersById[user.id] = user;
-            if (user.enrollmentno && String(user.enrollmentno).trim()) {
-                usersByEnrollment[normalizeKey(user.enrollmentno)] = user;
-            }
-        }
-    });
-}
-
-function resolveUserForApplication(app) {
-    if (!app) return null;
-    let user;
-    if (app.studentId && usersById[app.studentId]) {
-        user = usersById[app.studentId];
-    }
-    if (!user && app.studentId) {
-        user = usersById[normalizeKey(app.studentId)] || usersByEnrollment[normalizeKey(app.studentId)];
-    }
-    if (!user && app.enrollmentno) {
-        user = usersByEnrollment[normalizeKey(app.enrollmentno)];
-    }
-    return user || null;
-}
-
-function enrichApplicationsWithUsers() {
-    applications.forEach(function(app) {
-        const user = resolveUserForApplication(app);
-        if (!user) return;
-        const name = firstNonEmpty(user.name);
-        const email = firstNonEmpty(user.email);
-        const enrollment = firstNonEmpty(user.enrollmentno);
-        const phone = firstNonEmpty(user.phoneno);
-        if (name) app.studentName = name;
-        if (email) app.studentEmail = email;
-        if (enrollment) app.enrollmentno = enrollment;
-        if (phone) app.phoneNo = phone;
-        if (!app.studentId && user.id) app.studentId = user.id;
-    });
-}
-
-function normalizeKey(value) {
-    return value === null || value === undefined ? "" : String(value).trim().toLowerCase();
 }
 
 function fillFilters() {
@@ -246,12 +139,6 @@ function fillFilters() {
     branchFilter.innerHTML = '<option value="">All branches</option>' +
         branches.map(b => '<option value="' + esc(b) + '">' + esc(b) + "</option>").join("");
 
-    userBatchFilter.innerHTML = '<option value="">All batches</option>' +
-        batches.map(b => '<option value="' + esc(b) + '">' + esc(b) + "</option>").join("");
-    userBranchFilter.innerHTML = '<option value="">All branches</option>' +
-        branches.map(b => '<option value="' + esc(b) + '">' + esc(b) + "</option>").join("");
-    userStatusFilter.innerHTML = '<option value="">All application statuses</option>' +
-        presentStatuses.map(s => '<option value="' + esc(s) + '">' + esc(s) + "</option>").join("");
 }
 
 function fillJobFilters() {
@@ -264,7 +151,6 @@ function fillJobFilters() {
     mgmtJobs.forEach(function(job) { jobsById[job.id] = job; });
     jobFilter.innerHTML = '<option value="">All Jobs</option>' + options;
     mgmtJobSelect.innerHTML = '<option value="">Select a Job…</option>' + options;
-    userJobFilter.innerHTML = '<option value="">All jobs</option>' + options;
 }
 
 function ensureConfig(jobId) {
@@ -428,7 +314,7 @@ function filterApplications() {
         const matchesCompany = !company || app.company === company;
         const matchesStatus = !status || app.status === status;
         const matchesRound = !round || String(app.currentRound) === round;
-        const matchesBatch = !batch || window.UI.batchMatches(app.batch, batch);
+        const matchesBatch = !batch || window.UI.studentBatchMatches(app.batch, batch);
         const matchesBranch = !branch || app.branch === branch;
         const matchesDate = inDateRange(app.applicationDate, fromMs, toMs);
         return matchesSearch && matchesJob && matchesCompany && matchesStatus && matchesRound
@@ -461,21 +347,28 @@ function render() {
             : '<td class="select-cell"><input type="checkbox" class="row-select" data-id="'
                 + esc(app.applicationId) + '"' + (checked ? " checked" : "") + "></td>";
         const score = latestScore(app);
+        const jobRoles = app.role || "-";
+        const appliedRole = app.effectiveRole || app.selectedRole || app.role || "-";
+        const studentName = app.studentName || "-";
+        const studentEmail = app.studentEmail || "-";
+        const company = app.company || "-";
+        const course = app.selectedCourse || app.studentCourse || "-";
+        const appliedOn = formatDate(app.applicationDate);
         return `
             <tr>
                 ${checkbox}
-                <td>${esc(app.studentName || "-")}</td>
-                <td>${esc(app.studentEmail || "-")}</td>
-                <td>${esc(app.company || "-")}</td>
-                <td>${esc(app.role || "-")}</td>
-                <td>${esc(app.effectiveRole || app.selectedRole || app.role || "-")}</td>
-                <td>${esc(app.selectedCourse || app.studentCourse || "-")}</td>
-                <td><div class="meta-chips"><span class="meta-chip">${esc(app.batch || "—")}</span><span class="chip-sep">·</span><span class="meta-chip">${esc(app.branch || "—")}</span></div></td>
-                <td>${esc(formatDate(app.applicationDate))}</td>
+                <td><span class="cell-name cell-clamp-2" title="${esc(studentName)}">${esc(studentName)}</span></td>
+                <td><span class="cell-ellipsis" title="${esc(studentEmail)}">${esc(studentEmail)}</span></td>
+                <td><span class="cell-clamp-2" title="${esc(company)}">${esc(company)}</span></td>
+                <td><span class="cell-clamp-2 cell-muted" title="${esc(jobRoles)}">${esc(jobRoles)}</span></td>
+                <td><span class="cell-clamp-2 cell-applied-role" title="${esc(appliedRole)}">${esc(appliedRole)}</span></td>
+                <td><span class="cell-clamp-2" title="${esc(course)}">${esc(course)}</span></td>
+                <td><div class="meta-chips"><span class="meta-chip" title="${esc(app.batch || "")}">${esc(app.batch || "—")}</span><span class="chip-sep">·</span><span class="meta-chip" title="${esc(app.branch || "")}">${esc(app.branch || "—")}</span></div></td>
+                <td><span class="cell-ellipsis cell-muted">${esc(appliedOn)}</span></td>
                 <td>${window.UI.roundPills(app)}</td>
-                <td>${score != null ? esc(score) : "-"}</td>
+                <td class="col-score">${score != null ? esc(score) : "-"}</td>
                 <td><span class="badge ${window.UI.badge(app.status)}">${esc(app.status || "Applied")}</span></td>
-                <td>${actionsMenuHtml(app)}</td>
+                <td class="col-actions">${actionsMenuHtml(app)}</td>
             </tr>
         `;
     }).join("");
@@ -519,92 +412,6 @@ function renderAppPagination(total, pageCount) {
         + '<span class="page-buttons">' + buttons + "</span>";
 }
 
-function firstNonEmpty() {
-    for (let i = 0; i < arguments.length; i++) {
-        const value = arguments[i];
-        if (value !== null && value !== undefined && String(value).trim() !== "") return String(value).trim();
-    }
-    return "";
-}
-
-function groupUsers() {
-    const map = new Map();
-    applications.forEach(function(app) {
-        const key = app.studentId || app.enrollmentno || app.studentEmail || app.applicationId;
-        if (!key) return;
-        let user = map.get(key);
-        if (!user) {
-            user = {
-                key: key,
-                studentId: app.studentId || "",
-                studentName: "",
-                studentEmail: "",
-                enrollmentno: "",
-                phoneNo: "",
-                studentIdSet: new Set(),
-                apps: [],
-                batches: new Set(),
-                branches: new Set(),
-                statuses: new Set()
-            };
-            map.set(key, user);
-        }
-        if (app.studentId) user.studentIdSet.add(app.studentId);
-        if (app.studentName) user.studentName = user.studentName || app.studentName;
-        if (app.studentEmail) user.studentEmail = user.studentEmail || app.studentEmail;
-        if (app.enrollmentno) user.enrollmentno = user.enrollmentno || app.enrollmentno;
-        if (app.phoneNo) user.phoneNo = user.phoneNo || app.phoneNo;
-        user.apps.push(app);
-        if (app.batch) user.batches.add(app.batch);
-        if (app.branch) user.branches.add(app.branch);
-        if (app.status) user.statuses.add(app.status);
-    });
-
-    return Array.from(map.values()).map(function(user) {
-        user.studentName = firstNonEmpty(user.studentName, user.enrollmentno, user.studentEmail);
-        user.studentEmail = firstNonEmpty(user.studentEmail);
-        user.enrollmentno = firstNonEmpty(user.enrollmentno);
-        user.phoneNo = firstNonEmpty(user.phoneNo);
-        return user;
-    });
-}
-
-function filterUsers() {
-    const keyword = userSearch.value.toLowerCase().trim();
-    const batch = userBatchFilter.value;
-    const branch = userBranchFilter.value;
-    const status = userStatusFilter.value;
-    const fromMs = userDateFrom.value ? new Date(userDateFrom.value + "T00:00:00").getTime() : null;
-    const toMs = userDateTo.value ? new Date(userDateTo.value + "T23:59:59.999").getTime() : null;
-
-    return groupUsers().filter(function(user) {
-        const jobFilterVal = userJobFilter ? userJobFilter.value : "";
-        if (jobFilterVal) {
-            const hasJob = user.apps.some(function(app) { return jobIdOf(app) === jobFilterVal; });
-            if (!hasJob) return false;
-        }
-        if (keyword) {
-            const haystack = (user.studentName + " " + user.studentEmail + " " + user.enrollmentno
-                + " " + user.phoneNo + " " + user.studentId + " " + user.apps.map(function(app) {
-                    return (app.company || "") + " " + (app.role || "") + " " + (app.applicationId || "");
-                }).join(" ")).toLowerCase();
-            if (!haystack.includes(keyword)) return false;
-        }
-        if (batch && !Array.from(user.batches).some(function(b) { return window.UI.batchMatches(b, batch); })) return false;
-        if (branch && !user.branches.has(branch)) return false;
-        if (status && !Array.from(user.statuses).some(function(s) {
-            return String(s).toLowerCase() === String(status).toLowerCase();
-        })) return false;
-        if (fromMs || toMs) {
-            const anyInRange = user.apps.some(function(app) {
-                return inDateRange(app.applicationDate, fromMs, toMs);
-            });
-            if (!anyInRange) return false;
-        }
-        return true;
-    });
-}
-
 function statusDisplay(status) {
     const value = String(status || "Applied").trim();
     switch (value.toUpperCase()) {
@@ -614,20 +421,6 @@ function statusDisplay(status) {
         case "WITHDRAWN": return "Withdrawn";
         default: return value || "Applied";
     }
-}
-
-function userStatusSummary(user) {
-    const counts = {};
-    user.apps.forEach(function(app) {
-        const st = app.status || "Applied";
-        counts[st] = (counts[st] || 0) + 1;
-    });
-    return Object.keys(counts).sort().map(function(st) {
-        return '<span class="badge ' + window.UI.badge(st) + '" title="' + counts[st]
-            + " application" + (counts[st] === 1 ? "" : "s") + " with status "
-            + window.UI.escapeHtml(statusDisplay(st)) + '">'
-            + window.UI.escapeHtml(statusDisplay(st)) + " <strong>" + counts[st] + "</strong></span>";
-    }).join("");
 }
 
 function fmtDateTimeNice(value) {
@@ -681,47 +474,6 @@ function currentRoundLabel(app) {
     const entry = (app.rounds || []).find(function(item) { return Number(item.round) === roundNumber; });
     if (entry && entry.name) return "Round " + roundNumber + " — " + entry.name;
     return roundLabel(jobIdOf(app), roundNumber);
-}
-
-function detailIdForUser(user) {
-    return "usr-" + String(user.key).replace(/[^A-Za-z0-9_-]/g, "_");
-}
-
-function userRowHtml(user) {
-    const esc = window.UI.escapeHtml;
-    const detailId = detailIdForUser(user);
-    const name = user.studentName || "Name unavailable";
-    const email = user.studentEmail || "Email unavailable";
-    const enrollment = user.enrollmentno ? "Enrollment: " + user.enrollmentno : "Enrollment unavailable";
-    const batchChips = Array.from(user.batches).length
-        ? '<span class="meta-chip">Batch: ' + esc(Array.from(user.batches).join(", ")) + "</span>" : "";
-    const branchChips = Array.from(user.branches).length
-        ? '<span class="meta-chip">Branch: ' + esc(Array.from(user.branches).join(", ")) + "</span>" : "";
-    const appCountLabel = user.apps.length + " application" + (user.apps.length === 1 ? "" : "s");
-    const hasFallbackName = !user.studentName;
-    return '<div class="user-row" data-key="' + esc(user.key) + '" data-appcount="' + user.apps.length + '">'
-        + '<div class="user-row-head">'
-        + '<div class="user-id-block">'
-        + '<span class="user-avatar" aria-hidden="true">' + esc(window.UI.initials(user.studentName || user.enrollmentno)) + "</span>"
-        + '<div class="user-id-copy">'
-        + '<div class="user-row-name' + (hasFallbackName ? " unavailable" : "") + '">' + esc(name) + "</div>"
-        + '<div class="user-email">' + esc(email) + "</div>"
-        + '<div class="user-enrollment">' + esc(enrollment) + "</div>"
-        + "</div>"
-        + "</div>"
-        + '<div class="user-row-chips">'
-        + '<span class="meta-chip muted">Apps: ' + user.apps.length + "</span>"
-        + batchChips + branchChips
-        + "</div>"
-        + '<div class="user-row-status">' + userStatusSummary(user) + "</div>"
-        + '<button type="button" class="user-expand user-expand-btn" data-user-expand="' + esc(user.key)
-        + '" aria-expanded="false" aria-controls="' + esc(detailId) + '">'
-        + '<span class="user-expand-text">' + (user.apps.length === 1 ? "View 1 application" : "View " + user.apps.length + " applications") + "</span>"
-        + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>'
-        + "</button>"
-        + "</div>"
-        + '<div class="user-row-detail hidden" id="' + esc(detailId) + '">' + userDetailHtml(user) + "</div>"
-        + "</div>";
 }
 
 function userDetailHtml(user) {
@@ -778,70 +530,6 @@ function userDetailHtml(user) {
         + '<div class="user-apps">' + appRows + "</div>";
 }
 
-function goUserPage(target) {
-    const users = filterUsers();
-    userPageCount = Math.max(1, Math.ceil(users.length / USER_PAGE_SIZE));
-    userPage = Math.max(1, Math.min(target, userPageCount));
-    renderUsers();
-}
-
-function renderUserPagination(total) {
-    if (userPageCount <= 1) {
-        userPagination.innerHTML = "";
-        return;
-    }
-    let buttons = "";
-    buttons += '<button type="button" class="page-btn" data-upage="' + (userPage - 1) + '"'
-        + (userPage <= 1 ? " disabled" : "") + ' aria-label="Previous page">‹</button>';
-    for (let p = 1; p <= userPageCount; p++) {
-        const show = userPageCount <= 11 || p === 1 || p === userPageCount || (p >= userPage - 1 && p <= userPage + 1);
-        if (!show) {
-            if (p === 2 || p === userPageCount - 1) buttons += '<span class="page-ellipsis">…</span>';
-            continue;
-        }
-        buttons += '<button type="button" class="page-btn' + (p === userPage ? " active" : "")
-            + '" data-upage="' + p + '">' + p + "</button>";
-    }
-    buttons += '<button type="button" class="page-btn" data-upage="' + (userPage + 1) + '"'
-        + (userPage >= userPageCount ? " disabled" : "") + ' aria-label="Next page">›</button>';
-    userPagination.innerHTML = '<span class="page-info">' + total + " user" + (total === 1 ? "" : "s")
-        + " · Page " + userPage + " of " + userPageCount + "</span>"
-        + '<span class="page-buttons">' + buttons + "</span>";
-}
-
-function renderUsers() {
-    userLoadingMsg.classList.add("hidden");
-    userErrorMsg.classList.add("hidden");
-
-    const users = filterUsers();
-    const total = users.length;
-    userEmptyMsg.classList.toggle("hidden", total !== 0);
-
-    let stateText;
-    const appCount = users.reduce(function(sum, user) { return sum + user.apps.length; }, 0);
-    const keyword = userSearch.value.trim();
-    if (keyword) {
-        stateText = "Search results: " + total + " student" + (total === 1 ? "" : "s")
-            + " • " + appCount + " application" + (appCount === 1 ? "" : "s");
-    } else {
-        stateText = "Showing " + total + " student" + (total === 1 ? "" : "s")
-            + " • " + appCount + " application" + (appCount === 1 ? "" : "s");
-    }
-    userListState.textContent = stateText;
-
-    userPageCount = Math.max(1, Math.ceil(total / USER_PAGE_SIZE));
-    if (userPage > userPageCount) userPage = userPageCount;
-    const start = (userPage - 1) * USER_PAGE_SIZE;
-    const slice = users.slice(start, start + USER_PAGE_SIZE);
-
-    userResults.innerHTML = slice.map(userRowHtml).join("");
-    renderUserPagination(total);
-}
-
-function resetUserPage() {
-    userPage = 1;
-}
-
 function clearAppFilters() {
     [searchBox, jobFilter, companyFilter, statusFilter, roundFilter, batchFilter,
         branchFilter, dateFromFilter, dateToFilter].forEach(function(el) {
@@ -850,30 +538,6 @@ function clearAppFilters() {
     });
     resetAppPage();
     render();
-}
-
-function clearUserFilters() {
-    [userSearch, userBatchFilter, userBranchFilter, userStatusFilter, userJobFilter,
-        userDateFrom, userDateTo].forEach(function(el) {
-        if (el.tagName === "SELECT") el.selectedIndex = 0;
-        else el.value = "";
-    });
-    updateUserSearchClear();
-    resetUserPage();
-    renderUsers();
-}
-
-function updateUserSearchClear() {
-    if (!userSearchClearBtn) return;
-    userSearchClearBtn.classList.toggle("hidden", !userSearch.value);
-}
-
-function clearUserSearch() {
-    userSearch.value = "";
-    updateUserSearchClear();
-    resetUserPage();
-    renderUsers();
-    userSearch.focus();
 }
 
 function selectedActionableApps() {
@@ -936,10 +600,13 @@ async function runBulkAction(mode) {
         } else {
             const error = await response.json().catch(function() { return {}; });
             window.UI.showToast(error.message || "Bulk update failed.", "error");
+            // Re-enable: the early return used to leave both bulk buttons disabled.
+            syncSelectionUi();
             return;
         }
     } catch (networkError) {
         window.UI.showToast("Network error. Please retry.", "error");
+        syncSelectionUi();
         return;
     }
 
@@ -1047,20 +714,25 @@ async function submitAction(mode) {
 
     if (mode === "reject" && !isCurrentRoundPending(app)) {
         const remark = (body.adminRemark || "").trim();
-        const response = await fetch("/admin/applications/" + app.applicationId + "/status", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ status: "REJECTED", remark: remark })
-        });
-        if (UI.redirectIfUnauthorized(response)) return;
-        closeActionModal();
-        if (response.ok) {
-            window.UI.showToast("Application rejected.", "success");
-            refreshMgmtApplicants();
-            loadApplications();
-        } else {
-            window.UI.showToast("Unable to reject this application.", "error");
+        try {
+            const response = await fetch("/admin/applications/" + app.applicationId + "/status", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify({ status: "REJECTED", remark: remark })
+            });
+            if (UI.redirectIfUnauthorized(response)) return;
+            if (response.ok) {
+                closeActionModal();
+                window.UI.showToast("Application rejected.", "success");
+                refreshMgmtApplicants();
+                loadApplications();
+            } else {
+                // Keep the modal open on failure so the typed remark is not lost.
+                window.UI.showToast("Unable to reject this application.", "error");
+            }
+        } catch (networkError) {
+            window.UI.showToast("Network error. Please retry.", "error");
         }
         return;
     }
@@ -1083,7 +755,6 @@ function storeApplication(updated) {
         return app.applicationId === updated.applicationId;
     });
     if (index >= 0) applications[index] = updated;
-    renderUsers();
 }
 
 function replaceApplication(updated) {
@@ -1105,9 +776,14 @@ function actionSuccessMessage(mode, updated) {
 }
 
 async function loadMgmtJobs() {
-    const response = await fetch("/admin/jobs", { credentials: "include" });
-    if (UI.redirectIfUnauthorized(response) || !response.ok) return;
-    mgmtJobs = await response.json();
+    try {
+        const response = await fetch("/admin/jobs", { credentials: "include" });
+        if (UI.redirectIfUnauthorized(response) || !response.ok) return;
+        const payload = await response.json();
+        mgmtJobs = Array.isArray(payload) ? payload : [];
+    } catch (e) {
+        mgmtJobs = [];
+    }
 }
 
 function refreshMgmtApplicants() {
@@ -1377,30 +1053,38 @@ function closeLegacyModal() {
 
 async function saveStatus() {
     saveStatusBtn.disabled = true;
-    const response = await fetch("/admin/applications/" + editingApp.applicationId + "/status", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-            status: statusSelect.value,
-            remark: remarkInput.value.trim()
-        })
-    });
-    if (UI.redirectIfUnauthorized(response)) return;
-    saveStatusBtn.disabled = false;
-    if (response.ok) {
-        closeLegacyModal();
-        window.UI.showToast("Application status updated.", "success");
-        loadApplications();
-    } else {
-        window.UI.showToast("Unable to update status.", "error");
+    try {
+        const response = await fetch("/admin/applications/" + editingApp.applicationId + "/status", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+                status: statusSelect.value,
+                remark: remarkInput.value.trim()
+            })
+        });
+        if (UI.redirectIfUnauthorized(response)) return;
+        if (response.ok) {
+            closeLegacyModal();
+            window.UI.showToast("Application status updated.", "success");
+            loadApplications();
+        } else {
+            window.UI.showToast("Unable to update status.", "error");
+        }
+    } catch (networkError) {
+        window.UI.showToast("Network error. Please retry.", "error");
+    } finally {
+        // Without this the button stayed disabled after a failed save.
+        saveStatusBtn.disabled = false;
     }
 }
 
 appsBody.addEventListener("click", function(event) {
     const menuButton = event.target.closest(".menu-btn");
     if (menuButton) {
-        const menu = document.querySelector('.row-menu[data-menu-for="' + menuButton.dataset.menu + '"]');
+        // Build the selector from a CSS.escape'd id: an applicationId containing
+        // a quote would otherwise throw a SyntaxError here.
+        const menu = document.querySelector('.row-menu[data-menu-for="' + CSS.escape(menuButton.dataset.menu) + '"]');
         const wasOpen = menu && !menu.classList.contains("hidden");
         closeOpenMenus();
         if (menu && !wasOpen) menu.classList.remove("hidden");
@@ -1516,7 +1200,6 @@ exportBtn.addEventListener("click", function() {
 
 /* ---------- customize export ---------- */
 
-const customizeExportBtn = document.getElementById("customizeExportBtn");
 const exportModal = document.getElementById("exportModal");
 const exportFieldsContainer = document.getElementById("exportFieldsContainer");
 const exportCountBadge = document.getElementById("exportCountBadge");
@@ -1555,12 +1238,11 @@ function renderExportGroups() {
         }).join("");
         return '<div class="export-group"><h4>' + esc(group) + "</h4>" + boxes + "</div>";
     }).join("");
-    exportFieldsContainer.addEventListener("change", updateExportCount);
     updateExportCount();
 }
 
 async function openExportModal() {
-    exportStatusHint.textContent = "";
+    if (exportStatusHint) exportStatusHint.textContent = "";
     if (!exportCatalog) {
         exportFieldsContainer.innerHTML = '<p style="color:var(--text-muted);">Loading available fields...</p>';
         window.UI.openModal(exportModal);
@@ -1572,7 +1254,9 @@ async function openExportModal() {
             renderExportGroups();
         } catch (loadError) {
             exportFieldsContainer.innerHTML = "";
-            exportStatusHint.textContent = "Could not load the field list. Close and try again.";
+            if (exportStatusHint) {
+                exportStatusHint.textContent = "Could not load the field list. Close and try again.";
+            }
         }
         return;
     }
@@ -1612,11 +1296,28 @@ if (confirmExportBtn) {
     confirmExportBtn.addEventListener("click", function() {
         const fields = selectedExportFields();
         if (!fields.length) {
-            exportStatusHint.textContent = "Select at least one column to export.";
+            if (exportStatusHint) exportStatusHint.textContent = "Select at least one column to export.";
             return;
         }
         window.UI.closeModal(exportModal);
         downloadApplicationsCsv(confirmExportBtn, fields);
+    });
+}
+if (exportFieldsContainer) {
+    // Bound once: the container is reused across opens, so this must not be
+    // re-registered inside renderExportGroups.
+    exportFieldsContainer.addEventListener("change", updateExportCount);
+}
+if (exportModal) {
+    document.addEventListener("keydown", function(event) {
+        if (event.key === "Escape" && exportModal.classList.contains("open")) {
+            window.UI.closeModal(exportModal);
+        }
+    });
+    exportModal.addEventListener("click", function(event) {
+        if (event.target === exportModal) {
+            window.UI.closeModal(exportModal);
+        }
     });
 }
 
@@ -1711,21 +1412,298 @@ appPagination.addEventListener("click", function(event) {
     goAppPage(Number(button.dataset.apage));
 });
 
-userSearch.addEventListener("input", function() { updateUserSearchClear(); resetUserPage(); ensureUsersLazy().then(renderUsers); });
-userSearchClearBtn.addEventListener("click", function() { clearUserSearch(); ensureUsersLazy().then(renderUsers); });
-userBatchFilter.addEventListener("change", function() { resetUserPage(); ensureUsersLazy().then(renderUsers); });
-userBranchFilter.addEventListener("change", function() { resetUserPage(); ensureUsersLazy().then(renderUsers); });
-userStatusFilter.addEventListener("change", function() { resetUserPage(); ensureUsersLazy().then(renderUsers); });
-userDateFrom.addEventListener("change", function() { resetUserPage(); renderUsers(); });
-userDateTo.addEventListener("change", function() { resetUserPage(); renderUsers(); });
-userJobFilter.addEventListener("change", function() { resetUserPage(); ensureUsersLazy().then(renderUsers); });
-userClearBtn.addEventListener("click", clearUserFilters);
 
-userPagination.addEventListener("click", function(event) {
-    const button = event.target.closest(".page-btn");
-    if (!button || button.disabled || !button.dataset.upage) return;
-    goUserPage(Number(button.dataset.upage));
-});
+/* ---------- Import Status CSV ---------- */
+
+let importStatusCsvContent = null;
+let importStatusValidationResult = null;
+
+function showImportStatusStep(step) {
+    for (let i = 1; i <= 3; i++) {
+        document.getElementById("importStatusStep" + i).style.display = i === step ? "" : "none";
+    }
+    const dots = document.getElementById("importStatusSteps").querySelectorAll(".step-dot");
+    dots.forEach(function (dot, index) {
+        const number = index + 1;
+        dot.classList.remove("active", "done");
+        if (number < step || step === 4) dot.classList.add("done");
+        else if (number === step) dot.classList.add("active");
+    });
+}
+
+function setupImportStatus(file) {
+    const reader = new FileReader();
+    reader.onload = function () {
+        importStatusCsvContent = String(reader.result);
+        const lines = importStatusCsvContent.split(/\r?\n/).filter(function (l) { return l.trim(); });
+        document.getElementById("importStatusFileHint").textContent = file.name + " (" + lines.length + " rows)";
+        showImportStatusStep(2);
+        validateImportStatus();
+    };
+    reader.onerror = function () { window.UI.showToast("Could not read the file", "error"); };
+    reader.readAsText(file, "UTF-8");
+}
+
+function validateImportStatus() {
+    document.getElementById("importStatusConfirmBtn").disabled = true;
+    document.getElementById("importStatusConfirmBtn").textContent = "Validating...";
+
+    const form = new FormData();
+    const blob = new Blob([importStatusCsvContent], { type: "text/csv" });
+    form.append("file", blob, "upload.csv");
+
+    fetch("/admin/applications/import/status", { method: "POST", credentials: "include", body: form })
+        .then(function (res) {
+            return res.text().then(function (text) {
+                let data = null;
+                try { data = text ? JSON.parse(text) : null; } catch (e) {}
+                if (window.UI.redirectIfUnauthorized(res)) throw new Error("Unauthorized");
+                if (!res.ok) throw new Error(data && data.message ? data.message : "Validation failed");
+                return data;
+            });
+        })
+        .then(function (result) {
+            importStatusValidationResult = result;
+            renderImportStatusValidation(result);
+            showImportStatusStep(2);
+        })
+        .catch(function (err) {
+            window.UI.showToast(err.message || "Could not validate the file", "error");
+        })
+        .finally(function () {
+            document.getElementById("importStatusConfirmBtn").disabled = false;
+            document.getElementById("importStatusConfirmBtn").textContent = "Confirm & Update";
+        });
+}
+
+function renderImportStatusValidation(result) {
+    const summary = document.getElementById("importStatusValidationSummary");
+    summary.innerHTML = ""
+        + '<div class="stat-card"><strong>' + formatNumber(result.total) + "</strong><span>Total Rows</span></div>"
+        + '<div class="stat-card"><strong>' + formatNumber(result.updated) + "</strong><span>Valid</span></div>"
+        + '<div class="stat-card"><strong>' + formatNumber(result.failed) + "</strong><span>Failed</span></div>";
+
+    document.getElementById("importStatusGlobalErrors").textContent = "";
+
+    const tbody = document.getElementById("importStatusValidationTableBody");
+    tbody.innerHTML = (result.failures || []).map(function (failure) {
+        return "<tr style=\"color:var(--danger)\">"
+            + "<td>" + failure.row + "</td>"
+            + "<td>" + window.UI.escapeHtml(failure.email) + "</td>"
+            + "<td>" + window.UI.escapeHtml(failure.status || "") + "</td>"
+            + "<td>Invalid &mdash; " + window.UI.escapeHtml(failure.reason) + "</td>"
+            + "</tr>";
+    }).join("") + (result.failures && result.failures.length < result.total ? ""
+        : '<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">All rows valid.</td></tr>');
+
+    if (!result.failures || !result.failures.length) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">All rows valid.</td></tr>';
+    }
+}
+
+function confirmImportStatus() {
+    if (!importStatusCsvContent) return;
+    document.getElementById("importStatusConfirmBtn").disabled = true;
+    document.getElementById("importStatusConfirmBtn").textContent = "Updating...";
+
+    const form = new FormData();
+    const blob = new Blob([importStatusCsvContent], { type: "text/csv" });
+    form.append("file", blob, "upload.csv");
+    form.append("apply", "true");
+
+    fetch("/admin/applications/import/status", { method: "POST", credentials: "include", body: form })
+        .then(function (res) {
+            return res.text().then(function (text) {
+                let data = null;
+                try { data = text ? JSON.parse(text) : null; } catch (e) {}
+                if (window.UI.redirectIfUnauthorized(res)) throw new Error("Unauthorized");
+                if (!res.ok) throw new Error(data && data.message ? data.message : "Import failed");
+                return data;
+            });
+        })
+        .then(function (result) {
+            document.getElementById("importStatusResultBox").innerHTML =
+                '<div class="review-stats">'
+                + '<div class="review-stat-card"><strong>' + formatNumber(result.total) + "</strong><span>Total</span></div>"
+                + '<div class="review-stat-card"><strong>' + formatNumber(result.updated) + "</strong><span>Updated</span></div>"
+                + '<div class="review-stat-card"><strong>' + formatNumber(result.failed) + "</strong><span>Failed</span></div>"
+                + "</div>";
+            if (result.failed > 0) {
+                document.getElementById("importStatusResultBox").innerHTML +=
+                    '<p class="field-hint" style="color:var(--danger);">' + result.failed + " rows failed. Download the error report for details.</p>";
+                document.getElementById("importStatusDownloadErrorsBtn").style.display = "";
+            } else {
+                document.getElementById("importStatusDownloadErrorsBtn").style.display = "none";
+            }
+            showImportStatusStep(3);
+            loadApplications();
+        })
+        .catch(function (err) {
+            window.UI.showToast(err.message || "Import failed", "error");
+        })
+        .finally(function () {
+            document.getElementById("importStatusConfirmBtn").disabled = false;
+            document.getElementById("importStatusConfirmBtn").textContent = "Confirm & Update";
+        });
+}
+
+function downloadImportStatusErrors() {
+    if (!importStatusCsvContent || !importStatusValidationResult || importStatusValidationResult.failed === 0) return;
+    const form = new FormData();
+    const blob = new Blob([importStatusCsvContent], { type: "text/csv" });
+    form.append("file", blob, "upload.csv");
+    form.append("apply", "false");
+
+    fetch("/admin/applications/import/status", { method: "POST", credentials: "include", body: form })
+        .then(function (res) {
+            if (window.UI.redirectIfUnauthorized(res)) throw new Error("Unauthorized");
+            if (!res.ok) throw new Error("Could not generate error report");
+            return res.blob();
+        })
+        .then(function (blob) {
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "import_status_errors_" + new Date().toISOString().slice(0, 10) + ".csv";
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(function () { URL.revokeObjectURL(link.href); }, 1000);
+            window.UI.showToast("Error report downloaded.", "success");
+        })
+        .catch(function (err) {
+            window.UI.showToast(err.message || "Could not download error report", "error");
+        });
+}
+
+/* ---------- Email Export for Applications ---------- */
+
+let emailExportCatalog = null;
+
+function renderEmailExportColumns() {
+    if (!emailExportCatalog) return;
+    const defaults = new Set(emailExportCatalog.defaults || []);
+    const esc = window.UI.escapeHtml;
+    const groups = emailExportCatalog.groups || {};
+    const names = Object.keys(groups);
+    const container = document.getElementById("emailExportColumns");
+    container.innerHTML = names.map(function (group) {
+        const boxes = (groups[group] || []).map(function (field) {
+            const id = "eexp-" + field.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+            return '<label class="checkbox-row" for="' + id + '">'
+                + '<input type="checkbox" id="' + id + '" value="' + esc(field) + '"'
+                + (defaults.has(field) ? " checked" : "") + ">"
+                + '<span>' + esc(field) + (defaults.has(field) ? ' <em class="field-hint">(default)</em>' : "")
+                + "</span></label>";
+        }).join("");
+        return '<div class="export-group"><h4>' + esc(group) + "</h4>" + boxes + "</div>";
+    }).join("");
+    updateEmailExportCount();
+}
+
+function updateEmailExportCount() {
+    const count = document.getElementById("emailExportColumns").querySelectorAll('input[type="checkbox"]:checked').length;
+    // Could add a badge if needed
+}
+
+function selectedEmailExportFields() {
+    return Array.prototype.slice
+        .call(document.getElementById("emailExportColumns").querySelectorAll('input[type="checkbox"]:checked'))
+        .map(function (box) { return box.value; });
+}
+
+async function loadEmailExportCatalog() {
+    if (emailExportCatalog) return;
+    try {
+        const response = await fetch("/admin/applications/export-fields", { credentials: "include" });
+        if (window.UI.redirectIfUnauthorized(response)) return;
+        if (!response.ok) throw new Error("Request failed");
+        emailExportCatalog = await response.json();
+    } catch (e) {
+        console.error("Failed to load export fields", e);
+    }
+}
+
+async function openEmailExportModal() {
+    await loadEmailExportCatalog();
+    renderEmailExportColumns();
+    window.UI.openModal(document.getElementById("emailExportModal"));
+}
+
+function sendEmailExport() {
+    const recipient = document.getElementById("emailExportRecipient").value.trim();
+    if (!recipient) {
+        window.UI.showToast("Enter a recipient email address", "error");
+        return;
+    }
+    const fields = selectedEmailExportFields();
+    if (!fields.length) {
+        window.UI.showToast("Select at least one column to export", "error");
+        return;
+    }
+
+    const scope = document.getElementById("emailExportScopeSelect").value;
+    let applicationIds = [];
+    if (scope === "selected") {
+        applicationIds = Array.from(selectedIds);
+        if (!applicationIds.length) {
+            window.UI.showToast("No applications selected", "error");
+            return;
+        }
+    }
+
+    const subject = document.getElementById("emailExportSubject").value.trim();
+    const fileName = document.getElementById("emailExportFileName").value.trim();
+
+    document.getElementById("sendEmailExportBtn").disabled = true;
+    document.getElementById("sendEmailExportBtn").textContent = "Sending...";
+
+    const body = {
+        recipientEmail: recipient,
+        subject: subject || "Application Export",
+        fileName: fileName || "applications_export",
+        scope: scope,
+        applicationIds: applicationIds,
+        fields: fields,
+        search: searchBox.value.trim() || null,
+        status: statusFilter.value || null,
+        jobId: jobFilter.value || null,
+        company: companyFilter.value || null,
+        batch: batchFilter.value || null,
+        branch: branchFilter.value || null,
+        round: roundFilter.value ? parseInt(roundFilter.value, 10) : null,
+        appliedFrom: dateFromFilter.value || null,
+        appliedTo: dateToFilter.value || null
+    };
+
+    fetch("/admin/applications/email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body)
+    })
+        .then(function (res) {
+            return res.text().then(function (text) {
+                let data = null;
+                try { data = text ? JSON.parse(text) : null; } catch (e) {}
+                if (window.UI.redirectIfUnauthorized(res)) throw new Error("Unauthorized");
+                if (!res.ok) throw new Error(data && data.message ? data.message : "Could not send email");
+                return data;
+            });
+        })
+        .then(function (data) {
+            window.UI.showToast("CSV emailed to " + data.recipient + " (" + data.rows + " rows)", "success");
+            window.UI.closeModal(document.getElementById("emailExportModal"));
+        })
+        .catch(function (err) {
+            window.UI.showToast(err.message || "Could not send the email", "error");
+        })
+        .finally(function () {
+            document.getElementById("sendEmailExportBtn").disabled = false;
+            document.getElementById("sendEmailExportBtn").textContent = "Generate & Send";
+        });
+}
+
+
 
 function findApplicationById(id) {
     return applications.find(function(app) { return app.applicationId === id; }) || null;
@@ -1745,40 +1723,10 @@ async function focusRoundManagement(app) {
     renderMgmtPanel(app);
     const section = document.getElementById("roundMgmtSection");
     if (section && section.scrollIntoView) section.scrollIntoView({ behavior: "smooth", block: "start" });
-    window.UI.showToast("Opened " + window.UI.escapeHtml(app.company || "job")
+    window.UI.showToast("Opened " + (app.company || "job")
         + " in Round Management.", "info");
 }
 
-userResults.addEventListener("click", function(event) {
-    const expand = event.target.closest(".user-expand");
-    if (expand) {
-        const row = expand.closest(".user-row");
-        const detail = row && row.querySelector(".user-row-detail");
-        if (!detail) return;
-        const nowHidden = detail.classList.toggle("hidden");
-        expand.classList.toggle("open", !nowHidden);
-        expand.setAttribute("aria-expanded", String(!nowHidden));
-        const text = expand.querySelector(".user-expand-text");
-        if (text) {
-            const count = (row && row.dataset.appcount) || "";
-            text.textContent = nowHidden
-                ? (count ? "View " + count + " applications" : "View applications")
-                : "Hide applications";
-        }
-        return;
-    }
-    const viewBtn = event.target.closest(".act-view");
-    if (viewBtn) {
-        const app = findApplicationById(viewBtn.dataset.id);
-        if (app) openLegacyModal(app);
-        return;
-    }
-    const manageBtn = event.target.closest(".act-manage");
-    if (manageBtn) {
-        const app = findApplicationById(manageBtn.dataset.id);
-        if (app) focusRoundManagement(app);
-    }
-});
 
 jobFilter.addEventListener("change", function() {
     rebuildRoundFilter();
@@ -1794,11 +1742,172 @@ mgmtAppSelect.addEventListener("change", function() {
 });
 
 document.addEventListener("DOMContentLoaded", function() {
-    Promise.all([loadApplications(), loadMgmtJobs()]).then(function() {
-        fillJobFilters();
+    Promise.all([loadApplications(), loadMgmtJobs()])
+        .then(function() {
+            fillJobFilters();
 
-        refreshMgmtApplicants();
-        rebuildRoundFilter();
-        render();
-    });
+            refreshMgmtApplicants();
+            rebuildRoundFilter();
+            render();
+        })
+        .catch(function(loadError) {
+            window.UI.showToast("Could not load applications. Please retry.", "error");
+            emptyMsg.style.display = "block";
+        });
+
+    if (importStatusBtn) {
+        importStatusBtn.addEventListener("click", function() {
+            importStatusCsvContent = null;
+            importStatusValidationResult = null;
+            document.getElementById("importStatusFileHint").textContent = "";
+            document.getElementById("importStatusFileInput").value = "";
+            document.getElementById("importStatusResultBox").innerHTML = "";
+            document.getElementById("importStatusDownloadErrorsBtn").style.display = "none";
+            showImportStatusStep(1);
+            window.UI.openModal(document.getElementById("importStatusModal"));
+        });
+    }
+
+    const importStatusDropZone = document.getElementById("importStatusDropZone");
+    const importStatusFileInput = document.getElementById("importStatusFileInput");
+    const importStatusChooseFileBtn = document.getElementById("importStatusChooseFileBtn");
+    const importStatusDownloadTemplateBtn = document.getElementById("importStatusDownloadTemplateBtn");
+    const importStatusBackToUploadBtn = document.getElementById("importStatusBackToUploadBtn");
+    const importStatusConfirmBtn = document.getElementById("importStatusConfirmBtn");
+    const importStatusDownloadErrorsBtn = document.getElementById("importStatusDownloadErrorsBtn");
+    const importStatusDoneBtn = document.getElementById("importStatusDoneBtn");
+    const importStatusModalClose = document.querySelector("#importStatusModal [data-import-close]");
+
+    if (importStatusDropZone) {
+        ["dragenter", "dragover"].forEach(function (event) {
+            importStatusDropZone.addEventListener(event, function (e) {
+                e.preventDefault();
+                importStatusDropZone.classList.add("dragover");
+            });
+        });
+        ["dragleave", "drop"].forEach(function (event) {
+            importStatusDropZone.addEventListener(event, function (e) {
+                e.preventDefault();
+                importStatusDropZone.classList.remove("dragover");
+            });
+        });
+        importStatusDropZone.addEventListener("drop", function (e) {
+            const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+            if (file) setupImportStatus(file);
+        });
+    }
+
+    if (importStatusChooseFileBtn) {
+        importStatusChooseFileBtn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            importStatusFileInput.click();
+        });
+    }
+
+    if (importStatusFileInput) {
+        importStatusFileInput.addEventListener("change", function () {
+            const file = importStatusFileInput.files[0];
+            if (file) setupImportStatus(file);
+        });
+    }
+
+    if (importStatusDownloadTemplateBtn) {
+        importStatusDownloadTemplateBtn.addEventListener("click", function () {
+            window.open("/admin/applications/import/status/template", "_blank");
+            document.getElementById("importStatusFileHint").textContent = "Template downloaded.";
+        });
+    }
+
+    if (importStatusBackToUploadBtn) {
+        importStatusBackToUploadBtn.addEventListener("click", function () { showImportStatusStep(1); });
+    }
+
+    if (importStatusConfirmBtn) {
+        importStatusConfirmBtn.addEventListener("click", confirmImportStatus);
+    }
+
+    if (importStatusDownloadErrorsBtn) {
+        importStatusDownloadErrorsBtn.addEventListener("click", downloadImportStatusErrors);
+    }
+
+    if (importStatusDoneBtn) {
+        importStatusDoneBtn.addEventListener("click", function () { window.UI.closeModal(document.getElementById("importStatusModal")); });
+    }
+
+    if (importStatusModalClose) {
+        importStatusModalClose.addEventListener("click", function () { window.UI.closeModal(document.getElementById("importStatusModal")); });
+    }
+
+    if (emailExportBtn) {
+        emailExportBtn.addEventListener("click", openEmailExportModal);
+    }
+
+    const cancelEmailExportBtn = document.getElementById("cancelEmailExportBtn");
+    const sendEmailExportBtn = document.getElementById("sendEmailExportBtn");
+    const emailExportSelectAllBtn = document.getElementById("emailExportSelectAllBtn");
+    const emailExportClearAllBtn = document.getElementById("emailExportClearAllBtn");
+
+    if (cancelEmailExportBtn) {
+        cancelEmailExportBtn.addEventListener("click", function () { window.UI.closeModal(document.getElementById("emailExportModal")); });
+    }
+
+    if (sendEmailExportBtn) {
+        sendEmailExportBtn.addEventListener("click", sendEmailExport);
+    }
+
+    if (emailExportSelectAllBtn) {
+        emailExportSelectAllBtn.addEventListener("click", function () {
+            document.getElementById("emailExportColumns").querySelectorAll('input[type="checkbox"]')
+                .forEach(function (box) { box.checked = true; });
+            updateEmailExportCount();
+        });
+    }
+
+    if (emailExportClearAllBtn) {
+        emailExportClearAllBtn.addEventListener("click", function () {
+            document.getElementById("emailExportColumns").querySelectorAll('input[type="checkbox"]')
+                .forEach(function (box) { box.checked = false; });
+            updateEmailExportCount();
+        });
+    }
+
+    if (selectQualifiedBtn) {
+        selectQualifiedBtn.addEventListener("click", function() {
+            selectedIds.clear();
+            actionableIds.forEach(function(id) { selectedIds.add(id); });
+            document.querySelectorAll(".row-select").forEach(function(box) {
+                box.checked = selectedIds.has(box.dataset.id);
+            });
+            syncSelectionUi();
+        });
+    }
+
+    if (appBulkBtn) {
+        appBulkBtn.addEventListener("click", function () {
+            var boxes = document.querySelectorAll("#appsBody .row-select");
+            var anyChecked = Array.from(boxes).some(function (box) { return box.checked; });
+            if (!anyChecked && boxes.length) {
+                boxes.forEach(function (box) { box.checked = true; box.dispatchEvent(new Event("change")); });
+            }
+            if (bulkBar) {
+                bulkBar.classList.remove("hidden");
+                bulkBar.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+        });
+    }
+
+    if (appAdvancedToggleBtn) {
+        appAdvancedToggleBtn.addEventListener("click", function () {
+            var open = appAdvancedPanel.classList.toggle("open");
+            appAdvancedPanel.classList.toggle("hidden", !open);
+            appAdvancedToggleBtn.textContent = "Rounds & Students " + (open ? "▴" : "▾");
+        });
+    }
+
+    if (appFilterToggleBtn) {
+        appFilterToggleBtn.addEventListener("click", function () {
+            var isHidden = appFilterPanel.style.display === "none";
+            appFilterPanel.style.display = isHidden ? "block" : "none";
+        });
+    }
 });

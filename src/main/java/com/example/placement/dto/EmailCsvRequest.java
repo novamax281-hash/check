@@ -19,6 +19,10 @@ public class EmailCsvRequest {
 
     private List<String> columns;
 
+    private String subject;
+
+    private String fileName;
+
     private String search;
     private List<String> batch;
     private List<String> branch;

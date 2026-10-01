@@ -1,15 +1,9 @@
 const searchBox = document.getElementById("searchBox");
 const companyFilter = document.getElementById("companyFilter");
 const statusFilter = document.getElementById("statusFilter");
-const batchFilter = document.getElementById("batchFilter");
-const branchFilter = document.getElementById("branchFilter");
-const roundFilter = document.getElementById("roundFilter");
-const dateFromFilter = document.getElementById("dateFrom");
-const dateToFilter = document.getElementById("dateTo");
 const clearFiltersBtn = document.getElementById("clearFiltersBtn");
 const appsBody = document.getElementById("appsBody");
 const emptyMsg = document.getElementById("emptyMsg");
-const appStats = document.getElementById("appStats");
 const resultCount = document.getElementById("resultCount");
 const paginationEl = document.getElementById("pagination");
 
@@ -39,88 +33,38 @@ async function loadApplications() {
     try {
         const response = await fetch("/user/applications", { credentials: "include" });
         if (UI.redirectIfUnauthorized(response)) return;
-        if (!response.ok) return;
+        if (!response.ok) throw new Error("Could not load applications");
         applications = await response.json();
-        fillStats();
         fillFilters();
         resetPage();
         render();
     } catch (e) {
+        // Show a distinct failure state; showing the "no applications" panel here
+        // made a network error look like an empty account.
         emptyMsg.style.display = "block";
+        const title = emptyMsg.querySelector(".empty-title");
+        if (title) title.textContent = "Could not load your applications";
+        window.UI.showToast("Could not load your applications. Please retry.", "error");
     }
-}
-
-function fillStats() {
-    let inProgress = 0, applied = 0, underReview = 0, shortlisted = 0;
-    let interview = 0, selected = 0, rejected = 0, withdrawn = 0;
-    applications.forEach(function(app) {
-        switch (String(statusOf(app)).toUpperCase()) {
-            case "IN_PROGRESS": inProgress++; break;
-            case "APPLIED": applied++; break;
-            case "UNDER REVIEW": underReview++; break;
-            case "SHORTLISTED": shortlisted++; break;
-            case "INTERVIEW SCHEDULED": interview++; break;
-            case "SELECTED": selected++; break;
-            case "REJECTED": rejected++; break;
-            case "WITHDRAWN": withdrawn++; break;
-        }
-    });
-    const cards = [
-        ["Total Applications", applications.length],
-        ["In Progress", inProgress + applied + underReview],
-        ["Shortlisted", shortlisted],
-        ["Interview Scheduled", interview],
-        ["Selected", selected],
-        ["Rejected", rejected],
-        ["Withdrawn", withdrawn]
-    ];
-    appStats.innerHTML = cards.map(function(card) {
-        return '<div class="stat-card"><strong>' + card[1] + '</strong><span>' + card[0] + "</span></div>";
-    }).join("");
 }
 
 function fillFilters() {
     companyFilter.innerHTML = optionList(applications.map(a => a.company), "All companies");
     statusFilter.innerHTML = optionList(statuses.concat(applications.map(a => a.status)), "All statuses");
-    batchFilter.innerHTML = optionList(applications.map(a => a.batch), "All batches");
-    branchFilter.innerHTML = optionList(applications.map(a => a.branch), "All branches");
-
-    const maxRound = applications.reduce(function(max, app) {
-        return Math.max(max, Number(app.totalRounds) || 0, Number(app.currentRound) || 0);
-    }, 0);
-    let roundOptions = "";
-    for (let i = 1; i <= Math.max(maxRound, 4); i++) {
-        roundOptions += '<option value="' + i + '">Round ' + i + "</option>";
-    }
-    roundFilter.innerHTML = '<option value="">All rounds</option>' + roundOptions;
 }
 
 function filteredApps() {
     const search = searchBox.value.toLowerCase().trim();
     const company = companyFilter.value;
     const status = statusFilter.value;
-    const batch = batchFilter.value;
-    const branch = branchFilter.value;
-    const round = roundFilter.value;
-    const fromMs = dateFromFilter.value ? new Date(dateFromFilter.value + "T00:00:00").getTime() : null;
-    const toMs = dateToFilter.value ? new Date(dateToFilter.value + "T23:59:59.999").getTime() : null;
 
     return applications.filter(function(app) {
         const text = (app.company + " " + app.role + " " + (app.batch || "") + " "
             + (app.branch || "") + " " + (app.location || "")).toLowerCase();
-        const appMs = window.UI.parseTimestamp(app.applicationDate);
         const matchesSearch = !search || text.includes(search);
         const matchesCompany = !company || app.company === company;
         const matchesStatus = !status || statusOf(app) === status;
-        const matchesBatch = !batch || window.UI.batchMatches(app.batch, batch);
-        const matchesBranch = !branch || app.branch === branch;
-        const matchesRound = !round || String(app.currentRound) === round;
-        const matchesDate = (!fromMs && !toMs) ||
-            (appMs !== null &&
-                (!fromMs || appMs >= fromMs) &&
-                (!toMs || appMs <= toMs));
-        return matchesSearch && matchesCompany && matchesStatus && matchesBatch &&
-            matchesBranch && matchesRound && matchesDate;
+        return matchesSearch && matchesCompany && matchesStatus;
     });
 }
 
@@ -247,8 +191,7 @@ function render() {
 }
 
 function clearFilters() {
-    [searchBox, companyFilter, statusFilter, batchFilter, branchFilter, roundFilter,
-        dateFromFilter, dateToFilter].forEach(function(el) {
+    [searchBox, companyFilter, statusFilter].forEach(function(el) {
         if (el.tagName === "INPUT") el.value = "";
         else el.selectedIndex = 0;
     });
@@ -276,11 +219,6 @@ paginationEl.addEventListener("click", function(event) {
 searchBox.addEventListener("input", function() { resetPage(); render(); });
 companyFilter.addEventListener("change", function() { resetPage(); render(); });
 statusFilter.addEventListener("change", function() { resetPage(); render(); });
-batchFilter.addEventListener("change", function() { resetPage(); render(); });
-branchFilter.addEventListener("change", function() { resetPage(); render(); });
-roundFilter.addEventListener("change", function() { resetPage(); render(); });
-dateFromFilter.addEventListener("change", function() { resetPage(); render(); });
-dateToFilter.addEventListener("change", function() { resetPage(); render(); });
 clearFiltersBtn.addEventListener("click", clearFilters);
 
 document.addEventListener("DOMContentLoaded", loadApplications);

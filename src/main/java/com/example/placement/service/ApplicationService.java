@@ -109,10 +109,25 @@ public class ApplicationService {
         if (!batchAllows(job.getBatch(), student.getBatch())) {
             return false;
         }
-        return meetsCutoff(job.getMinTenth(), student.getTenthPercentage())
+        return courseAllows(job.getCourses(), student.getCourse())
+                && meetsCutoff(job.getMinTenth(), student.getTenthPercentage())
                 && meetsCutoff(job.getMinTwelfth(), student.getTwelfthPercentage())
                 && meetsCutoff(job.getMinGraduation(), student.getGraduationPercentage())
                 && meetsCutoff(job.getMinCgpa(), student.getCgpa());
+    }
+
+    private static boolean courseAllows(String jobCourses, String studentCourse) {
+        if (jobCourses == null || jobCourses.trim().isEmpty()) {
+            return true;
+        }
+        if (studentCourse == null || studentCourse.trim().isEmpty()) {
+            return true;
+        }
+        List<String> configured = Arrays.stream(jobCourses.split(","))
+                .map(String::trim)
+                .filter(course -> !course.isEmpty())
+                .collect(Collectors.toList());
+        return configured.stream().anyMatch(course -> course.equalsIgnoreCase(studentCourse.trim()));
     }
 
     private static boolean meetsCutoff(Double requirement, Double value) {
@@ -140,15 +155,25 @@ public class ApplicationService {
         return job.contains(student) || student.contains(job);
     }
 
-    /** Mirrors UI.batchMatches so an export honours exactly the batch filter shown on screen. */
+    /**
+     * Mirrors UI.batchMatches: exact match, or the student's starting year falls inside a selected
+     * range. This filters the applications table by the student's own batch, which is a different
+     * question from placement eligibility in {@link #batchAllows}.
+     */
     private static boolean batchMatches(String batch, String requested) {
-        if (batch == null || batch.isBlank()) {
+        if (batch == null || batch.isBlank() || requested == null || requested.isBlank()) {
             return false;
         }
         if (batch.trim().equalsIgnoreCase(requested.trim())) {
             return true;
         }
-        return BatchRanges.overlapsAny(batch, requested);
+        List<BatchRanges.Range> batchRanges = BatchRanges.parse(batch);
+        List<BatchRanges.Range> requestedRanges = BatchRanges.parse(requested);
+        if (batchRanges.isEmpty() || requestedRanges.isEmpty()) {
+            return false;
+        }
+        int start = batchRanges.get(0).start();
+        return requestedRanges.stream().anyMatch(range -> start >= range.start() && start <= range.end());
     }
 
     public List<ApplicationDetail> getStudentApplications(String studentId) {
@@ -969,6 +994,7 @@ public class ApplicationService {
         long rejected = 0;
         long inProgress = 0;
         long withdrawn = 0;
+        long interviewScheduled = 0;
         for (Application application : applications) {
             String status = application.getStatus() == null ? ""
                     : application.getStatus().trim().toUpperCase(Locale.ROOT);
@@ -981,9 +1007,11 @@ public class ApplicationService {
             } else if ("SHORTLISTED".equals(status) || hasQualifiedRound(application)) {
                 shortlisted++;
             } else if (STATUS_IN_PROGRESS.equals(status) || "APPLIED".equals(status)
-                    || "IN PROCESS".equals(status) || "UNDER REVIEW".equals(status)
-                    || "INTERVIEW SCHEDULED".equals(status)) {
+                    || "IN PROCESS".equals(status) || "UNDER REVIEW".equals(status)) {
                 inProgress++;
+            } else if ("INTERVIEW SCHEDULED".equals(status)) {
+                // Counted on its own so it is not double counted as in progress.
+                interviewScheduled++;
             }
         }
         stats.put("underReview", inProgress);
@@ -991,6 +1019,7 @@ public class ApplicationService {
         stats.put("selected", selected);
         stats.put("rejected", rejected);
         stats.put("inProgress", inProgress);
+        stats.put("interviewScheduled", interviewScheduled);
         stats.put("withdrawn", withdrawn);
         return stats;
     }

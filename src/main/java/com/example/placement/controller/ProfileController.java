@@ -2,6 +2,7 @@ package com.example.placement.controller;
 
 import com.example.placement.entity.UsersEntries;
 import com.example.placement.repository.UsersRepository;
+import com.example.placement.service.BatchRanges;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.List;
 import java.util.function.Consumer;
 
 @RestController
@@ -33,6 +35,8 @@ public class ProfileController {
         UsersEntries user = currentUser(authentication);
         String role = user.getRole();
 
+        validateAcademicFields(update);
+
         copyIfPresent(update.getName(), user::setName);
         copyIfPresent(update.getDob(), user::setDob);
         copyIfPresent(update.getGender(), user::setGender);
@@ -42,10 +46,17 @@ public class ProfileController {
         copyIfPresent(update.getBatch(), user::setBatch);
         copyIfPresent(update.getBranch(), user::setBranch);
         copyIfPresent(update.getSection(), user::setSection);
-        copyIfPresent(update.getDepartment(), user::setDepartment);
         copyIfPresent(update.getCourse(), user::setCourse);
         copyIfPresent(update.getCollege(), user::setCollege);
-        copyIfPresent(update.getCgpa(), user::setCgpa);
+        if (update.getSgpas() != null) {
+            List<Double> sgpas = normalizeSgpas(update.getSgpas());
+            user.setSgpas(sgpas);
+            // Overall CGPA is derived from the semester SGPAs so placement eligibility
+            // (which reads cgpa) always reflects the marks a student actually entered.
+            user.setCgpa(average(sgpas));
+        } else {
+            copyIfPresent(update.getCgpa(), user::setCgpa);
+        }
         copyIfPresent(update.getTenthPercentage(), user::setTenthPercentage);
         copyIfPresent(update.getTwelfthPercentage(), user::setTwelfthPercentage);
         copyIfPresent(update.getGraduationPercentage(), user::setGraduationPercentage);
@@ -81,5 +92,60 @@ public class ProfileController {
         if (incoming != null) {
             setter.accept(incoming);
         }
+    }
+
+    /**
+     * These values decide placement eligibility, so the self-service profile form must not
+     * be able to store marks or a batch outside the ranges accepted at registration.
+     * Previously a student could post an arbitrary CGPA/percentage and unlock any drive.
+     */
+    private void validateAcademicFields(UsersEntries update) {
+        requireRange("CGPA", update.getCgpa(), 0, 10);
+        requireRange("10th percentage", update.getTenthPercentage(), 0, 100);
+        requireRange("12th percentage", update.getTwelfthPercentage(), 0, 100);
+        requireRange("graduation percentage", update.getGraduationPercentage(), 0, 100);
+        if (update.getSgpas() != null) {
+            for (Double sgpa : update.getSgpas()) {
+                requireRange("Semester SGPA", sgpa, 0, 10);
+            }
+        }
+        String batch = update.getBatch();
+        if (batch != null && !batch.isBlank() && !BatchRanges.isValidSpec(batch)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Each eligible batch must be a valid From Year and To Year, for example 2022-2026");
+        }
+    }
+
+    private void requireRange(String label, Double value, double min, double max) {
+        if (value == null) {
+            return;
+        }
+        if (value.isNaN() || value.isInfinite() || value < min || value > max) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    label + " must be between " + (long) min + " and " + (long) max);
+        }
+    }
+
+    private static List<Double> normalizeSgpas(List<Double> incoming) {
+        List<Double> cleaned = new java.util.ArrayList<>();
+        for (Double value : incoming) {
+            cleaned.add(value == null ? null : Math.round(value * 100.0) / 100.0);
+        }
+        return cleaned;
+    }
+
+    private static Double average(List<Double> values) {
+        double sum = 0;
+        int counted = 0;
+        for (Double value : values) {
+            if (value != null) {
+                sum += value;
+                counted++;
+            }
+        }
+        if (counted == 0) {
+            return null;
+        }
+        return Math.round(sum / counted * 100.0) / 100.0;
     }
 }

@@ -9,6 +9,7 @@ import com.example.placement.repository.ApplicationRepository;
 import com.example.placement.repository.UsersRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 import java.util.List;
 import java.util.Map;
@@ -27,7 +28,7 @@ class CsvImportServiceTest {
     void setUp() {
         usersRepository = mock(UsersRepository.class);
         applicationRepository = mock(ApplicationRepository.class);
-        csvImportService = new CsvImportService(usersRepository, applicationRepository);
+        csvImportService = new CsvImportService(usersRepository, applicationRepository, new BCryptPasswordEncoder());
     }
 
     private Map<String, String> row(String... pairs) {
@@ -36,6 +37,31 @@ class CsvImportServiceTest {
             map.put(pairs[i], pairs[i + 1]);
         }
         return map;
+    }
+
+    @Test
+    void addValidationRejectsCgpaOutsideZeroToTen() {
+        when(usersRepository.findByEnrollmentno("2023CS101")).thenReturn(null);
+        List<Map<String, String>> rows = List.of(
+                row("enrollmentno", "2023CS101", "email", "vikram@gmail.com", "cgpa", "85"));
+
+        CsvValidationResult result = csvImportService.validate("ADD", rows, true);
+        assertThat(result.getTotalRows()).isEqualTo(1);
+        assertThat(result.getValidRows()).isZero();
+        assertThat(result.getErrorRows()).isEqualTo(1);
+        assertThat(result.getRows()).hasSize(1);
+        assertThat(result.getRows().get(0).getError()).contains("CGPA must be between 0 and 10");
+    }
+
+    @Test
+    void addValidationAcceptsValidCgpaScale() {
+        when(usersRepository.findByEnrollmentno("2023CS101")).thenReturn(null);
+        List<Map<String, String>> rows = List.of(
+                row("enrollmentno", "2023CS101", "email", "vikram@gmail.com", "cgpa", "8.5"));
+
+        CsvValidationResult result = csvImportService.validate("ADD", rows, true);
+        assertThat(result.getValidRows()).isEqualTo(1);
+        assertThat(result.getErrorRows()).isZero();
     }
 
     @Test

@@ -16,6 +16,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -77,13 +79,16 @@ class NoticeControllerTest {
     }
 
     @Test
-    void statusPatchDefaultsToActiveWhenBodyIsAbsent() {
-        Notice existing = new Notice();
-        existing.setId("n1");
-        when(noticeService.setActive("n1", true)).thenReturn(existing);
-
-        assertThat(adminController.setStatus("n1", null).getId()).isEqualTo("n1");
-        verify(noticeService).setActive("n1", true);
+    void statusPatchRejectsBodyWithoutAnActiveFlag() {
+        // Previously a missing "active" defaulted to true, so a malformed request
+        // silently published the notice to every student.
+        assertThatThrownBy(() -> adminController.setStatus("n1", null))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("active");
+        assertThatThrownBy(() -> adminController.setStatus("n1", Map.of()))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("active");
+        verify(noticeService, never()).setActive(anyString(), anyBoolean());
     }
 
     @Test

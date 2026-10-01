@@ -1,5 +1,6 @@
 package com.example.placement.controller;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -150,5 +151,36 @@ class UserControllerApplyCourseTest {
         assertEquals(HttpStatus.OK, response.getStatusCode());
         verify(applicationService).apply(eq("student-1"), eq("job-1"),
                 eq(RESUME), eq("Java"), eq((String) null));
+    }
+
+    @Test
+    void placementsViewReturnsOnlyCapablePlacements() {
+        Placement accessible = new Placement();
+        accessible.setId("job-capable");
+        accessible.setStatus("Open");
+        Placement notCapable = new Placement();
+        notCapable.setId("job-not-capable");
+        notCapable.setStatus("Open");
+        Placement closed = new Placement();
+        closed.setId("job-closed");
+        closed.setStatus("Closed");
+        when(placementRepository.findVisibleJobs()).thenReturn(List.of(accessible, notCapable, closed));
+        when(applicationService.isEligible(accessible, student)).thenReturn(true);
+        when(applicationService.isEligible(notCapable, student)).thenReturn(false);
+
+        var response = controller.getAllPlacements(authentication);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        List<String> ids = response.getBody().stream().map(Placement::getId).toList();
+        assertEquals(List.of("job-capable"), ids);
+    }
+
+    @Test
+    void placementsViewReturnsEmptyWhenStudentHasNoProfile() {
+        when(usersRepository.findByEnrollmentno("ENR001")).thenReturn(null);
+
+        var response = controller.getAllPlacements(authentication);
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
     }
 }

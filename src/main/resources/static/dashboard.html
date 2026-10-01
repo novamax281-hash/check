@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Student Dashboard | LLOYD Career</title>
-    <link rel="stylesheet" href="css/portal.css?v=17">
+    <link rel="stylesheet" href="css/portal.css?v=20">
     <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
 </head>
 <body data-role="student" data-active="dashboard" data-title="Dashboard">
@@ -26,10 +26,12 @@
         <div class="dashboard-main">
         <div class="stat-grid dashboard-stats-skeleton" id="statsLoading" aria-hidden="true">
             <div class="stat-card"><strong><span></span></strong><span>Total Applications</span></div>
-            <div class="stat-card"><strong><span></span></strong><span>Under Review</span></div>
+            <div class="stat-card"><strong><span></span></strong><span>In Progress</span></div>
             <div class="stat-card"><strong><span></span></strong><span>Shortlisted</span></div>
+            <div class="stat-card"><strong><span></span></strong><span>Interview Scheduled</span></div>
             <div class="stat-card"><strong><span></span></strong><span>Selected</span></div>
             <div class="stat-card"><strong><span></span></strong><span>Rejected</span></div>
+            <div class="stat-card"><strong><span></span></strong><span>Withdrawn</span></div>
         </div>
         <div class="dashboard-section-error hidden" id="statsError" role="alert">
             <span id="statsErrorMessage">Unable to load application statistics.</span>
@@ -41,12 +43,16 @@
                 <span>Total Applications</span>
             </div>
             <div class="stat-card">
-                <strong id="statUnderReview">0</strong>
-                <span>Under Review</span>
+                <strong id="statInProgress">0</strong>
+                <span>In Progress</span>
             </div>
             <div class="stat-card">
                 <strong id="statShortlisted">0</strong>
                 <span>Shortlisted</span>
+            </div>
+            <div class="stat-card">
+                <strong id="statInterviewScheduled">0</strong>
+                <span>Interview Scheduled</span>
             </div>
             <div class="stat-card">
                 <strong id="statSelected">0</strong>
@@ -55,6 +61,10 @@
             <div class="stat-card">
                 <strong id="statRejected">0</strong>
                 <span>Rejected</span>
+            </div>
+            <div class="stat-card">
+                <strong id="statWithdrawn">0</strong>
+                <span>Withdrawn</span>
             </div>
         </div>
 
@@ -157,8 +167,8 @@
     </main>
 </div>
 
-<script src="js/ui.js?v=9"></script>
+<script src="js/ui.js?v=10"></script>
 <script src="js/notices.js?v=2"></script>
-<script src="js/dashboard.js?v=6"></script>
+<script src="js/dashboard.js?v=7"></script>
 </body>
 </html>

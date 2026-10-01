@@ -3,15 +3,18 @@ package com.example.placement.controller;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.io.StringWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -33,6 +36,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.example.placement.dto.ApplicationDetail;
+import com.example.placement.dto.ApplicationEmailRequest;
 import com.example.placement.dto.BulkRequest;
 import com.example.placement.dto.EvaluationRequest;
 import com.example.placement.dto.RoundRequest;
@@ -46,6 +50,8 @@ import com.example.placement.service.ApplicationService;
 import com.example.placement.service.BatchRanges;
 import com.example.placement.service.CloudinaryService;
 import com.example.placement.service.CsvExportService;
+import com.example.placement.service.CsvImportService;
+import com.example.placement.service.EmailCsvService;
 
 import jakarta.servlet.http.HttpServletResponse;
 
@@ -53,20 +59,27 @@ import jakarta.servlet.http.HttpServletResponse;
 @RequestMapping("/admin")
 public class AdminController {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AdminController.class);
+
     private final PlacementRepository placementRepository;
     private final ApplicationService applicationService;
     private final CsvExportService csvExportService;
     private final UsersRepository usersRepository;
     private final CloudinaryService cloudinaryService;
+    private final CsvImportService csvImportService;
+    private final EmailCsvService emailCsvService;
 
     public AdminController(PlacementRepository placementRepository, ApplicationService applicationService,
                            CsvExportService csvExportService, UsersRepository usersRepository,
-                           CloudinaryService cloudinaryService) {
+                           CloudinaryService cloudinaryService, CsvImportService csvImportService,
+                           EmailCsvService emailCsvService) {
         this.placementRepository = placementRepository;
         this.applicationService = applicationService;
         this.csvExportService = csvExportService;
         this.usersRepository = usersRepository;
         this.cloudinaryService = cloudinaryService;
+        this.csvImportService = csvImportService;
+        this.emailCsvService = emailCsvService;
     }
 
     @ExceptionHandler(ResponseStatusException.class)
@@ -97,6 +110,8 @@ public class AdminController {
     @PostMapping("/jobs")
     public Placement addJob(@RequestBody Placement job) {
         validateJob(job);
+        // POST always creates: a body-supplied _id must not overwrite an existing placement.
+        job.setId(null);
         job.setStatus("Open");
         return placementRepository.save(job);
     }
@@ -267,7 +282,8 @@ public class AdminController {
     public Map<String, String> deleteRound(@PathVariable String jobId, @PathVariable int roundNumber) {
         Placement job = requireJob(jobId);
         List<PlacementRound> rounds = new ArrayList<>(job.getRounds() == null ? List.of() : job.getRounds());
-        boolean removed = rounds.removeIf(round -> round != null && roundNumber == round.getRound().intValue());
+        boolean removed = rounds.removeIf(round -> round != null && round.getRound() != null
+                && roundNumber == round.getRound().intValue());
         if (!removed) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,
                     "Round " + roundNumber + " does not exist for this job");
@@ -322,7 +338,11 @@ public class AdminController {
             placementRepository.save(job);
             return ResponseEntity.status(HttpStatus.CREATED).body(document);
         } catch (IllegalStateException e) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage());
+            // Log the provider/configuration detail server-side; the reason is
+            // echoed to the client and would disclose internals.
+            log.error("Document upload failed for job {}", jobId, e);
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "The file could not be uploaded. Please try again.");
         }
     }
 
@@ -330,6 +350,18 @@ public class AdminController {
     public ResponseEntity<?> replaceDocument(@PathVariable String jobId,
                                              @PathVariable String publicId,
                                              @RequestParam("file") MultipartFile file) {
+        return replaceDocumentById(jobId, publicId, file);
+        }
+
+        @PutMapping(value = "/jobs/{jobId}/documents", params = "publicId",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+        public ResponseEntity<?> replaceDocumentByQuery(@PathVariable String jobId,
+                                    @RequestParam("publicId") String publicId,
+                                @RequestParam("file") MultipartFile file) {
+        return replaceDocumentById(jobId, publicId, file);
+        }
+
+        private ResponseEntity<?> replaceDocumentById(String jobId, String publicId, MultipartFile file) {
         Placement job = requireJob(jobId);
         JobDocument existing = findDocument(job, publicId);
         if (existing == null) {
@@ -348,13 +380,27 @@ public class AdminController {
             cloudinaryService.delete(existing.getPublicId());
             return ResponseEntity.ok(replacement);
         } catch (IllegalStateException e) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage());
+            // Log the provider/configuration detail server-side; the reason is
+            // echoed to the client and would disclose internals.
+            log.error("Document upload failed for job {}", jobId, e);
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "The file could not be uploaded. Please try again.");
         }
     }
 
     @DeleteMapping("/jobs/{jobId}/documents/{publicId}")
     public ResponseEntity<Map<String, String>> deleteDocument(@PathVariable String jobId,
                                                               @PathVariable String publicId) {
+        return deleteDocumentById(jobId, publicId);
+    }
+
+    @DeleteMapping(value = "/jobs/{jobId}/documents", params = "publicId")
+    public ResponseEntity<Map<String, String>> deleteDocumentByQuery(@PathVariable String jobId,
+                                                                     @RequestParam("publicId") String publicId) {
+        return deleteDocumentById(jobId, publicId);
+    }
+
+    private ResponseEntity<Map<String, String>> deleteDocumentById(String jobId, String publicId) {
         Placement job = requireJob(jobId);
         JobDocument existing = findDocument(job, publicId);
         if (existing == null) {
@@ -511,20 +557,189 @@ public class AdminController {
         csvDownload(response, "placements", writer -> csvExportService.writePlacements(writer, rows));
     }
 
+    @GetMapping("/applications/import/status/template")
+    public void applicationStatusTemplate(HttpServletResponse response) throws IOException {
+        csvDownload(response, "applications_status_template", writer -> writer.write("Email,Status\n"));
+    }
+
+    /**
+     * Bulk-updates student status from an uploaded CSV {email, status} rows. Students are
+     * matched by email (case-insensitive); invalid/unknown rows are reported without
+     * stopping valid ones. With apply=false this is a dry run so the UI can preview and
+     * confirm before committing.
+     */
+    @PostMapping("/applications/import/status")
+    public Map<String, Object> importApplicationStatus(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(defaultValue = "false") boolean apply) throws IOException {
+        if (file == null || file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "The uploaded file is empty");
+        }
+        if (file.getSize() > 5 * 1024 * 1024) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "File exceeds the 5 MB size limit");
+        }
+        String filename = file.getOriginalFilename();
+        if (filename == null || !filename.toLowerCase().endsWith(".csv")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only .csv files are accepted");
+        }
+        String content = new String(file.getBytes(), StandardCharsets.UTF_8);
+        List<Map<String, String>> rows = csvImportService.parseCsv(Arrays.asList(content.split("\\r?\\n")));
+
+        List<String> statuses = List.of("Active", "Inactive", "Placed", "Not Placed");
+        int total = 0;
+        int updated = 0;
+        int failed = 0;
+        List<Map<String, Object>> failures = new ArrayList<>();
+
+        for (int i = 0; i < rows.size(); i++) {
+            Map<String, String> row = rows.get(i);
+            int rowNumber = i + 2;
+            String email = row.get("email") == null ? "" : row.get("email").trim();
+            String status = row.get("status") == null ? "" : row.get("status").trim();
+            total++;
+            List<String> reasons = new ArrayList<>();
+            if (email.isEmpty() || !email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+                reasons.add("Invalid or missing email");
+            } else if (usersRepository.findByEmailIgnoreCase(email) == null) {
+                reasons.add("No student found for this email");
+            }
+            if (status.isEmpty()) {
+                reasons.add("Status is required");
+            } else if (statuses.stream().noneMatch(s -> s.equalsIgnoreCase(status))) {
+                reasons.add("Status must be one of: " + String.join(", ", statuses));
+            }
+
+            if (reasons.isEmpty() && apply) {
+                UsersEntries student = usersRepository.findByEmailIgnoreCase(email);
+                student.setStudentStatus(statuses.stream()
+                        .filter(s -> s.equalsIgnoreCase(status)).findFirst().orElse(status));
+                usersRepository.save(student);
+            }
+            if (reasons.isEmpty()) {
+                updated++;
+            } else {
+                failed++;
+                Map<String, Object> failure = new LinkedHashMap<>();
+                failure.put("row", rowNumber);
+                failure.put("email", email);
+                failure.put("reason", String.join("; ", reasons));
+                failures.add(failure);
+            }
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("total", total);
+        result.put("updated", updated);
+        result.put("failed", failed);
+        result.put("failures", failures);
+        result.put("message", (apply ? "Import complete" : "Preview") + " — " + updated
+                + " valid, " + failed + " failed.");
+        return result;
+    }
+
+    /**
+     * Emails a filtered applications CSV (selected columns) to a recipient with an
+     * optional subject and file name, reusing the shared email/export services.
+     */
+    @PostMapping("/applications/email")
+    public Map<String, Object> emailApplications(@RequestBody @jakarta.validation.Valid
+            ApplicationEmailRequest request) throws IOException {
+        List<ApplicationDetail> rows = applicationService.filterDetails(
+                        applicationService.getAllApplications(), request.getSearch(),
+                        request.getStatus(), request.getJobId(), request.getCompany(),
+                        request.getBatch(), request.getBranch(), request.getAppliedFrom(),
+                        request.getAppliedTo())
+                .stream()
+                .filter(application -> request.getRound() == null
+                        || request.getRound().equals(application.getCurrentRound()))
+                .toList();
+
+        List<String> columns = CsvExportService.resolveApplicationColumns(request.getFields());
+        StringWriter buffer = new StringWriter();
+        try (Writer out = buffer) {
+            out.write('\uFEFF');
+            csvExportService.writeApplications(out, rows, columns);
+        }
+        String filename = request.getFileName();
+        if (filename == null || filename.trim().isEmpty()) {
+            filename = "applications_export_" + LocalDate.now().toString().replace("-", "_") + ".csv";
+        } else {
+            String cleaned = filename.trim().replaceAll("[^a-zA-Z0-9._-]", "_");
+            filename = cleaned.toLowerCase().endsWith(".csv") ? cleaned : cleaned + ".csv";
+        }
+        emailCsvService.sendCsv(request.getRecipientEmail(), buffer.toString(), filename, request.getSubject());
+        return Map.of(
+                "message", "CSV emailed successfully",
+                "recipient", request.getRecipientEmail(),
+                "file", filename,
+                "rows", rows.size());
+    }
+
+    @PostMapping("/applications/email-export")
+    public Map<String, Object> emailApplicationsExport(@RequestBody @jakarta.validation.Valid
+            ApplicationEmailRequest request) throws IOException {
+        List<ApplicationDetail> allApplications = applicationService.getAllApplications();
+        List<ApplicationDetail> rows;
+        if (request.getScope() != null && request.getScope().equals("selected")
+                && request.getApplicationIds() != null && !request.getApplicationIds().isEmpty()) {
+            Set<String> selectedIds = new HashSet<>(request.getApplicationIds());
+            rows = allApplications.stream()
+                    .filter(a -> selectedIds.contains(a.getApplicationId()))
+                    .toList();
+        } else if (request.getScope() != null && request.getScope().equals("all")) {
+            rows = allApplications;
+        } else {
+            rows = applicationService.filterDetails(
+                            allApplications, request.getSearch(),
+                            request.getStatus(), request.getJobId(), request.getCompany(),
+                            request.getBatch(), request.getBranch(), request.getAppliedFrom(),
+                            request.getAppliedTo())
+                    .stream()
+                    .filter(application -> request.getRound() == null
+                            || request.getRound().equals(application.getCurrentRound()))
+                    .toList();
+        }
+
+        List<String> columns = CsvExportService.resolveApplicationColumns(request.getFields());
+        StringWriter buffer = new StringWriter();
+        try (Writer out = buffer) {
+            out.write('\uFEFF');
+            csvExportService.writeApplications(out, rows, columns);
+        }
+        String filename = request.getFileName();
+        if (filename == null || filename.trim().isEmpty()) {
+            filename = "applications_export_" + LocalDate.now().toString().replace("-", "_") + ".csv";
+        } else {
+            String cleaned = filename.trim().replaceAll("[^a-zA-Z0-9._-]", "_");
+            filename = cleaned.toLowerCase().endsWith(".csv") ? cleaned : cleaned + ".csv";
+        }
+        emailCsvService.sendCsv(request.getRecipientEmail(), buffer.toString(), filename, request.getSubject());
+        return Map.of(
+                "message", "CSV emailed successfully",
+                "recipient", request.getRecipientEmail(),
+                "file", filename,
+                "rows", rows.size());
+    }
+
     private void csvDownload(HttpServletResponse response, String entityName,
                              CsvWriter writer) throws IOException {
         String filename = entityName + "_" + LocalDate.now() + ".csv";
         response.setContentType("text/csv;charset=UTF-8");
         response.setHeader("Content-Disposition", "attachment; filename=\"" + filename + "\"");
-        Writer out = new OutputStreamWriter(new BufferedOutputStream(response.getOutputStream()),
-                StandardCharsets.UTF_8);
-        out.write('\uFEFF');
-        try {
+        // try-with-resources is required, not cosmetic: OutputStreamWriter buffers
+        // internally, so without the implicit close the CSV is never pushed to the
+        // response and small exports download as empty or 8KB-truncated files.
+        try (Writer out = new OutputStreamWriter(new BufferedOutputStream(response.getOutputStream()),
+                StandardCharsets.UTF_8)) {
+            out.write('\uFEFF');
             writer.write(out);
         } catch (IOException exportFailure) {
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"message\":\"Could not generate the CSV export\"}");
+            log.error("Could not generate the {} CSV export", entityName, exportFailure);
+            // The servlet output stream is already in use, so getWriter() is no longer
+            // available. The client falls back to its generic message on a non-2xx status.
+            if (!response.isCommitted()) {
+                response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            }
         }
     }
 

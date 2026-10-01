@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -33,6 +34,7 @@ import com.example.placement.repository.UsersRepository;
 import com.example.placement.service.AuthenticationService;
 import com.example.placement.service.OtpService;
 
+import jakarta.servlet.http.HttpSession;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
@@ -69,24 +71,28 @@ public class AuthController {
         try {
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
                     loginRequest.getEnrollmentno(), loginRequest.getMobile()));
-
-            UsersEntries user = usersRepository.findByEnrollmentno(loginRequest.getEnrollmentno());
-                if (!isStaff(user)) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new LoginResponse("Use your student email and password to sign in.", ""));
-                }
-            String email = user != null ? user.getEmail() : null;
-            if (isMissing(email)) {
-                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                        .body(new LoginResponse("No email address registered for this account. Contact your placement coordinator.", ""));
-            }
-
-            OtpService.OtpRequestResult result = otpService.requestOtp(loginRequest.getEnrollmentno(), email);
-            return otpResponse(result, "OTP sent to your registered email", email);
-        } catch (RuntimeException exception) {
+        } catch (AuthenticationException badCredentials) {
+            // Only credential failures are a 401. Previously the catch covered every
+            // RuntimeException, so a Mongo or SMTP outage was reported to the user
+            // as "Invalid enrollment number or mobile number" and the 503 handler
+            // in GlobalExceptionHandler was never reached.
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new LoginResponse("Invalid enrollment number or mobile number", ""));
         }
+
+        UsersEntries user = usersRepository.findByEnrollmentno(loginRequest.getEnrollmentno());
+        if (!isStaff(user)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new LoginResponse("Use your student email and password to sign in.", ""));
+        }
+        String email = user != null ? user.getEmail() : null;
+        if (isMissing(email)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(new LoginResponse("No email address registered for this account. Contact your placement coordinator.", ""));
+        }
+
+        OtpService.OtpRequestResult result = otpService.requestOtp(loginRequest.getEnrollmentno(), email);
+        return otpResponse(result, "OTP sent to your registered email", email);
     }
 
     @PostMapping("/verify-otp")
@@ -279,6 +285,14 @@ public class AuthController {
     }
 
     private void establishSession(Authentication authentication, HttpServletRequest request) {
+        // Logging in inside the controller bypasses Spring's SessionManagementFilter,
+        // so the pre-authentication session is discarded here. Creating the session
+        // only after that guarantees the client never keeps a session id it chose,
+        // which is the classic session-fixation case.
+        HttpSession preAuth = request.getSession(false);
+        if (preAuth != null) {
+            preAuth.invalidate();
+        }
         SecurityContext context = SecurityContextHolder.createEmptyContext();
         context.setAuthentication(authentication);
         SecurityContextHolder.setContext(context);

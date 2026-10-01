@@ -28,7 +28,7 @@
         var toast = document.createElement("div");
         toast.className = "toast " + type;
         toast.setAttribute("role", "status");
-        toast.innerHTML = svgIcon(type) + "<div>" + (message || "") + "</div>";
+        toast.innerHTML = svgIcon(type) + "<div>" + escapeHtml(message || "") + "</div>";
         container.appendChild(toast);
 
         var timer = setTimeout(function () {
@@ -213,7 +213,8 @@
 
     var profilePromise = null;
 
-    function getProfile() {
+    function getProfile(force) {
+        if (force) profilePromise = null;
         if (!profilePromise) {
             profilePromise = fetch("/user/profile", { credentials: "include" })
                 .then(function (res) {
@@ -318,6 +319,23 @@
         return a.includes(s) || s.includes(a);
     }
 
+    /**
+     * Filters by a student's own batch: exact match, or a batch whose starting year falls
+     * inside one of the selected ranges. Keeps the applications table and its CSV export
+     * showing exactly the same rows.
+     */
+    function studentBatchMatches(studentBatch, selected) {
+        if (!studentBatch || !selected) return false;
+        var a = String(studentBatch).trim();
+        var s = String(selected).trim();
+        if (a.toLowerCase() === s.toLowerCase()) return true;
+        var rangesA = batchRanges(a);
+        var rangesS = batchRanges(s);
+        if (!rangesA.length || !rangesS.length) return false;
+        var start = rangesA[0][0];
+        return rangesS.some(function (range) { return start >= range[0] && start <= range[1]; });
+    }
+
     function batchOptions(currentValue) {
         var existing = currentValue ? String(currentValue).trim() : "";
         var seen = {};
@@ -354,9 +372,11 @@
         initials: initials,
         fmtDateTime: fmtDateTime,
         fmtDate: fmtDate,
+        parseDate: parseDate,
         parseTimestamp: parseTimestamp,
         batchYears: batchYears,
         batchMatches: batchMatches,
+        studentBatchMatches: studentBatchMatches,
         batchOptions: batchOptions
     };
 })();
