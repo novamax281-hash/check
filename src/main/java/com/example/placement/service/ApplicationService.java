@@ -121,7 +121,7 @@ public class ApplicationService {
             return true;
         }
         if (studentCourse == null || studentCourse.trim().isEmpty()) {
-            return true;
+            return false;
         }
         List<String> configured = Arrays.stream(jobCourses.split(","))
                 .map(String::trim)

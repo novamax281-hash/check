@@ -35,6 +35,11 @@ public class ProfileController {
         UsersEntries user = currentUser(authentication);
         String role = user.getRole();
 
+        if (!canEditAdminManagedFields(role) && hasAdminManagedFieldChange(update)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Admin-managed fields cannot be changed by students");
+        }
+
         validateAcademicFields(update);
 
         copyIfPresent(update.getName(), user::setName);
@@ -57,14 +62,13 @@ public class ProfileController {
         } else {
             copyIfPresent(update.getCgpa(), user::setCgpa);
         }
-        copyIfPresent(update.getTenthPercentage(), user::setTenthPercentage);
-        copyIfPresent(update.getTwelfthPercentage(), user::setTwelfthPercentage);
         copyIfPresent(update.getGraduationPercentage(), user::setGraduationPercentage);
 
-        boolean canEditContact = isCoordinator(role) || "admin".equalsIgnoreCase(role);
-        if (canEditContact) {
+        if (canEditAdminManagedFields(role)) {
             copyIfPresent(update.getEmail(), user::setEmail);
             copyIfPresent(update.getPhoneno(), user::setPhoneno);
+            copyIfPresent(update.getTenthPercentage(), user::setTenthPercentage);
+            copyIfPresent(update.getTwelfthPercentage(), user::setTwelfthPercentage);
         }
 
         return usersRepository.save(user);
@@ -78,8 +82,19 @@ public class ProfileController {
         return user;
     }
 
+    private boolean canEditAdminManagedFields(String role) {
+        return isCoordinator(role) || "admin".equalsIgnoreCase(role);
+    }
+
     private boolean isCoordinator(String role) {
         return role != null && role.equalsIgnoreCase("coordinator");
+    }
+
+    private boolean hasAdminManagedFieldChange(UsersEntries update) {
+        return (update.getEmail() != null && !update.getEmail().isBlank())
+                || (update.getPhoneno() != null && !update.getPhoneno().isBlank())
+                || update.getTenthPercentage() != null
+                || update.getTwelfthPercentage() != null;
     }
 
     private void copyIfPresent(String incoming, Consumer<String> setter) {

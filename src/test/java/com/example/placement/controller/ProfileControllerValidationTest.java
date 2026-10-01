@@ -105,6 +105,21 @@ class ProfileControllerValidationTest {
     }
 
     @Test
+    void studentCannotModifyAdminManagedFields() {
+        UsersEntries studentUpdate = new UsersEntries();
+        studentUpdate.setEmail("hacker@mail.com");
+        studentUpdate.setPhoneno("1234567890");
+        studentUpdate.setTenthPercentage(99.0);
+        studentUpdate.setTwelfthPercentage(98.0);
+
+        ResponseStatusException thrown = assertThrows(ResponseStatusException.class,
+                () -> controller.updateProfile(authentication, studentUpdate));
+        assertEquals(HttpStatus.FORBIDDEN, thrown.getStatusCode());
+        assertEquals("Admin-managed fields cannot be changed by students", thrown.getReason());
+        verify(usersRepository, never()).save(any());
+    }
+
+    @Test
     void validValuesAreStillAccepted() {
         UsersEntries update = new UsersEntries();
         update.setName("Asha");

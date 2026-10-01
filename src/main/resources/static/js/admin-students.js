@@ -691,7 +691,24 @@
 
     
 
+    function setStudentFieldError(fieldId, message) {
+        var errorEl = document.querySelector('[data-error-for="' + fieldId + '"]');
+        if (!errorEl) return;
+        errorEl.textContent = message || "";
+        if (fieldId) {
+            var input = document.getElementById(fieldId);
+            if (input) input.style.borderColor = message ? "var(--danger)" : "";
+        }
+    }
+
+    function clearStudentFieldErrors() {
+        ["sEnrollment", "sName", "sEmail", "sPassword", "sPhone", "sBatch", "sBranch", "sSection", "sStatus", "sTenth", "sTwelfth"].forEach(function (fieldId) {
+            setStudentFieldError(fieldId, "");
+        });
+    }
+
     function saveStudent() {
+        clearStudentFieldErrors();
         var payload = {
             enrollmentno: el("sEnrollment").value.trim(),
             name: el("sName").value.trim(),
@@ -701,12 +718,41 @@
             batch: el("sBatch").value.trim(),
             branch: el("sBranch").value.trim(),
             section: el("sSection").value.trim(),
-            studentStatus: el("sStatus").value
+            studentStatus: el("sStatus").value,
+            tenthPercentage: el("sTenth").value.trim() === "" ? null : parseFloat(el("sTenth").value),
+            twelfthPercentage: el("sTwelfth").value.trim() === "" ? null : parseFloat(el("sTwelfth").value)
         };
-        if (!payload.enrollmentno || !payload.email) {
-            UI.showToast("Enrollment number and email are required", "error");
+
+        var errors = [];
+        if (!payload.enrollmentno) errors.push(["sEnrollment", "Enrollment number is required"]);
+        if (!payload.name) errors.push(["sName", "Name is required"]);
+        if (!payload.email) errors.push(["sEmail", "Email is required"]);
+        else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) errors.push(["sEmail", "Email must be in a valid format"]);
+        if (!payload.password) errors.push(["sPassword", "Password is required"]);
+        if (!payload.phoneno) errors.push(["sPhone", "Phone number is required"]);
+        if (!payload.batch) errors.push(["sBatch", "Batch is required"]);
+        if (!payload.branch) errors.push(["sBranch", "Branch is required"]);
+        if (!payload.section) errors.push(["sSection", "Section is required"]);
+        if (!payload.studentStatus) errors.push(["sStatus", "Student status is required"]);
+        if (payload.tenthPercentage === null || payload.tenthPercentage === undefined || Number.isNaN(payload.tenthPercentage)) {
+            errors.push(["sTenth", "10th Percentage is required"]);
+        } else if (payload.tenthPercentage < 0 || payload.tenthPercentage > 100) {
+            errors.push(["sTenth", "10th Percentage must be between 0 and 100"]);
+        }
+        if (payload.twelfthPercentage === null || payload.twelfthPercentage === undefined || Number.isNaN(payload.twelfthPercentage)) {
+            errors.push(["sTwelfth", "12th Percentage is required"]);
+        } else if (payload.twelfthPercentage < 0 || payload.twelfthPercentage > 100) {
+            errors.push(["sTwelfth", "12th Percentage must be between 0 and 100"]);
+        }
+
+        if (errors.length) {
+            errors.forEach(function (entry) {
+                setStudentFieldError(entry[0], entry[1]);
+            });
+            UI.showToast(errors[0][1], "error");
             return;
         }
+
         el("saveStudentBtn").disabled = true;
         var original = el("saveStudentBtn").textContent;
         el("saveStudentBtn").textContent = "Saving...";
@@ -871,10 +917,11 @@
         el("cancelStudentBtn").addEventListener("click", function () { UI.closeModal(el("studentModal")); });
         el("saveStudentBtn").addEventListener("click", saveStudent);
         el("addStudentBtn").addEventListener("click", function () {
-            ["sEnrollment", "sName", "sEmail", "sPassword", "sPhone", "sBatch", "sBranch", "sSection"].forEach(function (id) {
+            ["sEnrollment", "sName", "sEmail", "sPassword", "sPhone", "sBatch", "sBranch", "sSection", "sTenth", "sTwelfth"].forEach(function (id) {
                 var input = document.getElementById(id);
                 if (input) input.value = "";
             });
+            clearStudentFieldErrors();
             el("sStatus").value = "Active";
             UI.openModal(el("studentModal"));
         });

@@ -332,9 +332,10 @@ class CsvImportServiceTest {
     }
 
     @Test
-    void addTemplateContainsOnlyTheStudentFormFields() {
+    void addTemplateContainsStudentAcademicFields() {
         assertThat(csvImportService.templateColumns("ADD")).containsExactly(
-                "enrollmentNo", "name", "email", "password", "phone", "batch", "branch", "section", "studentStatus");
+                "enrollmentNo", "name", "email", "password", "phone", "batch", "branch", "section",
+                "studentStatus", "tenthPercentage", "twelfthPercentage");
     }
 
     @Test

@@ -367,13 +367,43 @@ public class StudentService {
         if (student.getEnrollmentno() == null || student.getEnrollmentno().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Enrollment number is required");
         }
+        if (student.getName() == null || student.getName().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Name is required");
+        }
         if (student.getEmail() == null || student.getEmail().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is required");
         }
+        if (student.getPhoneno() == null || student.getPhoneno().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Phone number is required");
+        }
+        if (student.getBatch() == null || student.getBatch().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Batch is required");
+        }
+        if (student.getBranch() == null || student.getBranch().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Branch is required");
+        }
+        if (student.getSection() == null || student.getSection().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Section is required");
+        }
+
         student.setEnrollmentno(student.getEnrollmentno().trim());
+        student.setName(student.getName().trim());
         student.setEmail(student.getEmail().trim());
+        student.setPhoneno(student.getPhoneno().trim());
+        student.setBatch(student.getBatch().trim());
+        student.setBranch(student.getBranch().trim());
+        student.setSection(student.getSection().trim());
         if (!student.getEmail().matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid email format");
+        }
+        if (student.getTenthPercentage() != null && !isValidPercentage(student.getTenthPercentage())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "10th Percentage must be between 0 and 100");
+        }
+        if (student.getTwelfthPercentage() != null && !isValidPercentage(student.getTwelfthPercentage())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "12th Percentage must be between 0 and 100");
+        }
+        if (student.getPassword() == null || student.getPassword().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password is required");
         }
         String password = student.getPassword();
         if (password != null && password.getBytes(StandardCharsets.UTF_8).length > 72) {
@@ -391,6 +421,10 @@ public class StudentService {
         if (usersRepository.findByEmailIgnoreCase(student.getEmail()) != null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "A student with this email already exists");
         }
+    }
+
+    private boolean isValidPercentage(Double value) {
+        return value != null && !value.isNaN() && !value.isInfinite() && value >= 0 && value <= 100;
     }
 
     public Map<String, Object> bulkUpdateStatus(List<String> studentIds, String status) {

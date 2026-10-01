@@ -34,7 +34,7 @@ import com.example.placement.repository.UsersRepository;
 public class CsvImportService {
 
     private static final List<String> STUDENT_ADD_HEADERS = List.of("enrollmentno", "name", "email", "password",
-            "phone", "batch", "branch", "section", "studentstatus");
+            "phone", "batch", "branch", "section", "studentstatus", "tenthpercentage", "twelfthpercentage");
 
     private final UsersRepository usersRepository;
     private final ApplicationRepository applicationRepository;
@@ -64,7 +64,7 @@ public class CsvImportService {
                         "tenthPercentage", "twelfthPercentage", "graduationPercentage");
             case "ADD":
                 return List.of("enrollmentNo", "name", "email", "password", "phone", "batch", "branch",
-                        "section", "studentStatus");
+                        "section", "studentStatus", "tenthPercentage", "twelfthPercentage");
             case "UPDATE":
             default:
                 return List.of("enrollmentno", "name", "email", "phoneno", "batch", "branch", "section",
@@ -325,15 +325,28 @@ public class CsvImportService {
 
     private UsersEntries studentFromAddRow(Map<String, String> row) {
         UsersEntries student = new UsersEntries(row.get("enrollmentno"),
-                row.getOrDefault("phone", row.get("phoneno")));
+                firstNonBlank(row.get("phone"), row.get("phoneno")));
         student.setName(row.get("name"));
         student.setEmail(row.get("email"));
         student.setPassword(row.get("password"));
-        student.setStudentStatus(row.getOrDefault("studentstatus", row.get("status")));
+        student.setStudentStatus(firstNonBlank(row.get("studentstatus"), row.get("status")));
         student.setBatch(row.get("batch"));
         student.setBranch(row.get("branch"));
         student.setSection(row.get("section"));
+        student.setTenthPercentage(parseDouble(firstNonBlank(
+                row.get("tenthpercentage"), row.get("tenth %"), row.get("10thpercentage"))));
+        student.setTwelfthPercentage(parseDouble(firstNonBlank(
+                row.get("twelfthpercentage"), row.get("12thpercentage"), row.get("12th %"))));
         return student;
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (value != null && !value.trim().isEmpty()) {
+                return value;
+            }
+        }
+        return null;
     }
 
     private void addDuplicateError(String value, int rowNumber, Map<String, Integer> seen, String field,

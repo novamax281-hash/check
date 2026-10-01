@@ -841,12 +841,12 @@ class ApplicationServiceTest {
     }
 
     @Test
-    void studentWithNoStoredCourseStillSeesCourseRestrictedPlacements() {
+    void studentWithNoStoredCourseCannotSeeCourseRestrictedPlacements() {
         Placement job = job(null, null, null, null, null);
         job.setCourses("B.Tech");
         UsersEntries student = student("2021-2025", 82.0, 78.0, 74.0, 8.1);
 
-        assertTrue(applicationService.isEligible(job, student));
+        assertEquals(false, applicationService.isEligible(job, student));
     }
 
     @Test

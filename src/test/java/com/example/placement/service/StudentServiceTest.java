@@ -323,6 +323,24 @@ class StudentServiceTest {
                 .hasMessageContaining("email already exists");
     }
 
+    @Test
+    void addStudentRejectsInvalidPercentageValues() {
+        when(usersRepository.findByEnrollmentno("E1")).thenReturn(null);
+        when(usersRepository.findByEmailIgnoreCase("s2@mail.com")).thenReturn(null);
+
+        UsersEntries invalidTenth = student(null, "E1", "S2", "s2@mail.com", null, null, null);
+        invalidTenth.setTenthPercentage(101.0);
+        assertThatThrownBy(() -> studentService.addStudent(invalidTenth))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("10th Percentage");
+
+        UsersEntries invalidTwelfth = student(null, "E2", "S3", "s3@mail.com", null, null, null);
+        invalidTwelfth.setTwelfthPercentage(-1.0);
+        assertThatThrownBy(() -> studentService.addStudent(invalidTwelfth))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("12th Percentage");
+    }
+
     private UsersEntries coordinator(String id, String enrollment, String name, String email) {
         UsersEntries user = new UsersEntries(enrollment, "9999999999");
         user.setId(id);

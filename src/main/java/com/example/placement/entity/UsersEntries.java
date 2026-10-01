@@ -27,6 +27,7 @@ public class UsersEntries {
 
     private String name;
 
+    @Indexed(unique = true)
     private String email;
 
     @JsonIgnore

@@ -231,9 +231,11 @@
         fields.phone.value = user.phoneno || "";
         document.getElementById("pStudentFields").style.display = student ? "block" : "none";
         fields.enrollment.readOnly = true;
-        fields.email.readOnly = !student ? false : true;
-        fields.phone.readOnly = !student ? false : true;
-        fields.batch.disabled = student;
+        fields.email.readOnly = student;
+        fields.phone.readOnly = student;
+        fields.tenth.readOnly = student;
+        fields.twelfth.readOnly = student;
+        fields.batch.disabled = false;
     }
 
     async function loadProfile(force) {
@@ -304,8 +306,6 @@
                 payload.sgpas = semesterValues();
                 payload.cgpa = Number(computedCgpa());
             }
-            payload.tenthPercentage = numeric(fields.tenth);
-            payload.twelfthPercentage = numeric(fields.twelfth);
             payload.graduationPercentage = numeric(fields.grad);
             payload.address = fields.address.value;
             payload.city = fields.city.value;
