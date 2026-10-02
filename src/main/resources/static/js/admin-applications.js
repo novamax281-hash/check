@@ -65,7 +65,6 @@ const exportBtn = document.getElementById("exportBtn");
 const customizeExportBtn = document.getElementById("customizeExportBtn");
 const importStatusBtn = document.getElementById("importStatusBtn");
 const emailExportBtn = document.getElementById("emailExportBtn");
-const selectQualifiedBtn = document.getElementById("selectQualifiedBtn");
 const appBulkBtn = document.getElementById("appBulkBtn");
 const appAdvancedToggleBtn = document.getElementById("appAdvancedToggleBtn");
 const appFilterToggleBtn = document.getElementById("appFilterToggleBtn");
@@ -1044,11 +1043,11 @@ function openLegacyModal(app) {
         statusSelect.value = "IN_PROGRESS";
     }
     remarkInput.value = app.adminRemark || "";
-    statusModal.classList.add("open");
+    window.UI.openModal(statusModal);
 }
 
 function closeLegacyModal() {
-    statusModal.classList.remove("open");
+    window.UI.closeModal(statusModal);
 }
 
 async function saveStatus() {
@@ -1144,8 +1143,6 @@ selectQualifiedBtn.addEventListener("click", function() {
     });
     syncSelectionUi();
 });
-
-const exportBtn = document.getElementById("exportBtn");
 
 function currentFilterParams() {
     const params = new URLSearchParams();
@@ -1868,17 +1865,6 @@ document.addEventListener("DOMContentLoaded", function() {
             document.getElementById("emailExportColumns").querySelectorAll('input[type="checkbox"]')
                 .forEach(function (box) { box.checked = false; });
             updateEmailExportCount();
-        });
-    }
-
-    if (selectQualifiedBtn) {
-        selectQualifiedBtn.addEventListener("click", function() {
-            selectedIds.clear();
-            actionableIds.forEach(function(id) { selectedIds.add(id); });
-            document.querySelectorAll(".row-select").forEach(function(box) {
-                box.checked = selectedIds.has(box.dataset.id);
-            });
-            syncSelectionUi();
         });
     }
 

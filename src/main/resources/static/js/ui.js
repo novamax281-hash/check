@@ -49,16 +49,44 @@
         return toast;
     }
 
+    var modalReturnFocus = new WeakMap();
+
+    function syncModalScrollLock() {
+        var open = document.querySelector(".modal.open") !== null;
+        document.documentElement.classList.toggle("modal-open", open);
+        document.body.classList.toggle("modal-open", open);
+    }
+
+    function modalFocusable(modal) {
+        return Array.prototype.slice.call(modal.querySelectorAll(
+            'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )).filter(function (element) { return element.getClientRects().length > 0; });
+    }
+
     function openModal(el) {
         if (!el) return;
+        if (!el.classList.contains("open")) modalReturnFocus.set(el, document.activeElement);
+        el.setAttribute("role", "dialog");
+        el.setAttribute("aria-modal", "true");
+        el.setAttribute("aria-hidden", "false");
         el.classList.add("open");
-        var focusable = el.querySelector("input, select, textarea, button:not(.modal-close)");
-        if (focusable) focusable.focus();
+        syncModalScrollLock();
+        window.requestAnimationFrame(function () {
+            if (!el.classList.contains("open")) return;
+            var focusable = el.querySelector("input, select, textarea, button:not(.modal-close)");
+            if (focusable) focusable.focus();
+        });
     }
 
     function closeModal(el) {
         if (!el) return;
         el.classList.remove("open");
+        el.setAttribute("aria-hidden", "true");
+        el.removeAttribute("aria-modal");
+        syncModalScrollLock();
+        var returnFocus = modalReturnFocus.get(el);
+        if (returnFocus && returnFocus.isConnected) returnFocus.focus();
+        modalReturnFocus.delete(el);
     }
 
     function setButtonLoading(btn, loading, loadingText) {
@@ -182,9 +210,9 @@
                 + '" data-act="confirm">' + escapeHtml(options.confirmText || "Confirm") + "</button></div>";
             overlay.appendChild(box);
             document.body.appendChild(overlay);
-            requestAnimationFrame(function () { overlay.classList.add("open"); });
+            openModal(overlay);
             function done(result) {
-                overlay.classList.remove("open");
+                closeModal(overlay);
                 setTimeout(function () { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }, 200);
                 resolve(result);
             }
@@ -192,6 +220,9 @@
                 var act = event.target.getAttribute && event.target.getAttribute("data-act");
                 if (act === "confirm") done(true);
                 else if (act === "cancel" || event.target === overlay) done(false);
+            });
+            overlay.addEventListener("keydown", function (event) {
+                if (event.key === "Escape") done(false);
             });
         });
     }
@@ -580,7 +611,7 @@
     function buildHeader(config) {
         var title = config.title || TITLES[config.role + "." + config.active] || "Dashboard";
         return "" +
-            '<button class="hamburger" id="sidebarToggle" aria-label="Toggle navigation">' + ICONS.menu + "</button>" +
+            '<button class="hamburger" id="sidebarToggle" aria-label="Toggle navigation" aria-controls="sidebar" aria-expanded="false">' + ICONS.menu + "</button>" +
             '<div class="header-title" id="headerTitle">' + title + "</div>" +
             '<div class="header-spacer"></div>' +
             '<div class="header-actions">' +
@@ -702,15 +733,70 @@
 
         document.body.addEventListener("click", function (e) {
             if (e.target.closest("#sidebarToggle")) {
-                try {
-                    localStorage.setItem("portal-sidebar",
-                        document.body.classList.contains("sidebar-collapsed") ? "collapsed" : "expanded");
-                } catch (err) {}
+                if (!isMobile()) {
+                    try {
+                        localStorage.setItem("portal-sidebar",
+                            document.body.classList.contains("sidebar-collapsed") ? "collapsed" : "expanded");
+                    } catch (err) {}
+                }
+            }
+        });
+
+        document.addEventListener("click", function (event) {
+            if (event.target instanceof Element && event.target.classList.contains("modal")
+                    && event.target.classList.contains("open")) {
+                window.UI.closeModal(event.target);
+            }
+        });
+
+        document.addEventListener("keydown", function (event) {
+            var modals = document.querySelectorAll(".modal.open");
+            var modal = modals.length ? modals[modals.length - 1] : null;
+            if (!modal) return;
+            if (event.key === "Escape") {
+                event.preventDefault();
+                window.UI.closeModal(modal);
+                return;
+            }
+            if (event.key !== "Tab") return;
+            var focusable = Array.prototype.slice.call(modal.querySelectorAll(
+                'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+            )).filter(function (element) { return element.getClientRects().length > 0; });
+            if (!focusable.length) {
+                event.preventDefault();
+                modal.focus();
+                return;
+            }
+            var first = focusable[0];
+            var last = focusable[focusable.length - 1];
+            if (event.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && (document.activeElement === last || !modal.contains(document.activeElement))) {
+                event.preventDefault();
+                first.focus();
             }
         });
 
         window.addEventListener("resize", function () {
-            closeMobile();
+            if (isMobile()) {
+                document.body.classList.remove("sidebar-collapsed");
+            } else {
+                closeMobile();
+                var stored = null;
+                try { stored = localStorage.getItem("portal-sidebar"); } catch (err) {}
+                document.body.classList.toggle("sidebar-collapsed", stored === "collapsed");
+                var toggle = document.getElementById("sidebarToggle");
+                if (toggle) toggle.setAttribute("aria-expanded", stored === "collapsed" ? "false" : "true");
+            }
+        });
+
+        document.addEventListener("keydown", function (event) {
+            if (event.key === "Escape" && document.body.classList.contains("mobile-nav-open")) {
+                closeMobile();
+                var toggle = document.getElementById("sidebarToggle");
+                if (toggle) toggle.focus();
+            }
         });
     }
 
@@ -724,10 +810,16 @@
                     var open = sidebar.classList.contains("mobile-open");
                     open ? closeMobile() : openMobile();
                 } else {
-                    document.body.classList.toggle("sidebar-collapsed");
+                    var collapsed = document.body.classList.toggle("sidebar-collapsed");
+                    toggleBtn.setAttribute("aria-expanded", collapsed ? "false" : "true");
                 }
             };
             toggleBtn.addEventListener("click", toggleSidebar);
+        }
+        if (sidebar) {
+            sidebar.addEventListener("click", function (event) {
+                if (isMobile() && event.target.closest("a")) closeMobile();
+            });
         }
 
         var logoutBtn = document.getElementById("logoutBtn");
@@ -739,15 +831,18 @@
     }
 
     function isMobile() {
-        return window.innerWidth <= 767;
+        return window.innerWidth <= 768;
     }
 
     function openMobile() {
         var sidebar = document.getElementById("sidebar");
         var overlay = document.getElementById("sidebarOverlay");
         if (!sidebar) return;
-        document.body.classList.add("sidebar-collapsed");
+        document.body.classList.add("mobile-nav-open");
+        document.documentElement.classList.add("mobile-nav-open");
         sidebar.classList.add("mobile-open");
+        var toggle = document.getElementById("sidebarToggle");
+        if (toggle) toggle.setAttribute("aria-expanded", "true");
         if (overlay) overlay.classList.add("show");
     }
 
@@ -756,6 +851,10 @@
         var overlay = document.getElementById("sidebarOverlay");
         if (sidebar) sidebar.classList.remove("mobile-open");
         if (overlay) overlay.classList.remove("show");
+        document.body.classList.remove("mobile-nav-open");
+        document.documentElement.classList.remove("mobile-nav-open");
+        var toggle = document.getElementById("sidebarToggle");
+        if (toggle) toggle.setAttribute("aria-expanded", "false");
     }
 
     function render(config) {
@@ -783,12 +882,15 @@
         var stored = null;
         try { stored = localStorage.getItem("portal-sidebar"); } catch (e) {}
         var width = window.innerWidth;
-        if (width <= 767) {
+        if (width <= 768) {
+            document.body.classList.remove("sidebar-collapsed");
             closeMobile();
-        } else if (width <= 1024) {
-            if (stored !== "expanded") document.body.classList.add("sidebar-collapsed");
         } else {
-            if (stored === "collapsed") document.body.classList.add("sidebar-collapsed");
+            document.body.classList.toggle("sidebar-collapsed",
+                width <= 1024 ? stored !== "expanded" : stored === "collapsed");
+            var toggle = document.getElementById("sidebarToggle");
+            if (toggle) toggle.setAttribute("aria-expanded",
+                document.body.classList.contains("sidebar-collapsed") ? "false" : "true");
         }
 
         setupEvents(config);

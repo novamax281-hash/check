@@ -15,12 +15,15 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.validation.FieldError;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.example.placement.dto.EmailRequest;
 import com.example.placement.dto.LoginRequest;
@@ -33,6 +36,7 @@ import com.example.placement.entity.UsersEntries;
 import com.example.placement.repository.UsersRepository;
 import com.example.placement.service.AuthenticationService;
 import com.example.placement.service.OtpService;
+import com.example.placement.service.RecaptchaService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -46,15 +50,26 @@ public class AuthController {
     private final UsersRepository usersRepository;
     private final OtpService otpService;
     private final AuthenticationService authenticationService;
+    private final RecaptchaService recaptchaService;
+    private final String recaptchaSiteKey;
 
     public AuthController(AuthenticationManager authenticationManager,
                           UsersRepository usersRepository,
                           OtpService otpService,
-                          AuthenticationService authenticationService) {
+                          AuthenticationService authenticationService,
+                          RecaptchaService recaptchaService,
+                          @Value("${google.recaptcha.site-key:}") String recaptchaSiteKey) {
         this.authenticationManager = authenticationManager;
         this.usersRepository = usersRepository;
         this.otpService = otpService;
         this.authenticationService = authenticationService;
+        this.recaptchaService = recaptchaService;
+        this.recaptchaSiteKey = recaptchaSiteKey;
+    }
+
+    @GetMapping("/recaptcha-config")
+    public Map<String, String> recaptchaConfig() {
+        return Map.of("siteKey", recaptchaSiteKey == null ? "" : recaptchaSiteKey);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -68,6 +83,7 @@ public class AuthController {
     @PostMapping("/send-otp")
     public ResponseEntity<LoginResponse> sendOtp(@Valid @RequestBody LoginRequest loginRequest,
                                                  HttpServletRequest request) {
+        requireCaptcha(loginRequest.getCaptchaResponse());
         try {
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(
                     loginRequest.getEnrollmentno(), loginRequest.getMobile()));
@@ -97,6 +113,7 @@ public class AuthController {
 
     @PostMapping("/verify-otp")
     public ResponseEntity<LoginResponse> verifyOtp(@Valid @RequestBody LoginRequest loginRequest, HttpServletRequest request) {
+        requireCaptcha(loginRequest.getCaptchaResponse());
         if (!otpService.validateOtp(loginRequest.getEnrollmentno(), loginRequest.getOtp())) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(new LoginResponse("Invalid or expired OTP", ""));
@@ -123,6 +140,7 @@ public class AuthController {
         @PostMapping("/student/login")
         public ResponseEntity<LoginResponse> studentLogin(@Valid @RequestBody StudentLoginRequest loginRequest,
                                    HttpServletRequest request) {
+        requireCaptcha(loginRequest.getCaptchaResponse());
         UsersEntries user = authenticationService.authenticateStudent(
             loginRequest.getEmail().trim().toLowerCase(), loginRequest.getPassword());
         if (user == null) {
@@ -142,6 +160,7 @@ public class AuthController {
         @PostMapping("/staff/login")
         public ResponseEntity<LoginResponse> staffLogin(@Valid @RequestBody StudentLoginRequest loginRequest,
                                 HttpServletRequest request) {
+        requireCaptcha(loginRequest.getCaptchaResponse());
         UsersEntries user = authenticationService.authenticateStaff(
             loginRequest.getEmail().trim().toLowerCase(), loginRequest.getPassword());
         if (user == null) {
@@ -161,6 +180,7 @@ public class AuthController {
     @PostMapping("/register/send-otp")
     public ResponseEntity<LoginResponse> sendRegisterOtp(@Valid @RequestBody RegisterRequest registerRequest,
                                                          HttpServletRequest request) {
+        requireCaptcha(registerRequest.getCaptchaResponse());
         String email = registerRequest.getEmail().trim().toLowerCase();
         if (!isLietEmail(email)) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -181,6 +201,7 @@ public class AuthController {
 
     @PostMapping("/register/verify")
     public ResponseEntity<LoginResponse> verifyRegisterOtp(@Valid @RequestBody RegisterRequest registerRequest) {
+        requireCaptcha(registerRequest.getCaptchaResponse());
         String email = registerRequest.getEmail().trim().toLowerCase();
         if (!isLietEmail(email)) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
@@ -218,6 +239,7 @@ public class AuthController {
     @PostMapping("/forgot-password/send-otp")
     public ResponseEntity<LoginResponse> sendPasswordResetOtp(@Valid @RequestBody EmailRequest emailRequest,
                                                                HttpServletRequest request) {
+        requireCaptcha(emailRequest.getCaptchaResponse());
         String email = emailRequest.getEmail().trim().toLowerCase();
         String key = passwordResetKey(email);
         UsersEntries user = usersRepository.findByEmailIgnoreCase(email);
@@ -232,6 +254,7 @@ public class AuthController {
 
     @PostMapping("/forgot-password/reset")
     public ResponseEntity<LoginResponse> resetPassword(@Valid @RequestBody PasswordResetRequest resetRequest) {
+        requireCaptcha(resetRequest.getCaptchaResponse());
         String email = resetRequest.getEmail().trim().toLowerCase();
         String key = passwordResetKey(email);
         if (!otpService.validateOtp(key, resetRequest.getOtp())) {
@@ -256,6 +279,7 @@ public class AuthController {
 
     @PostMapping("/forgot-password/verify-otp")
     public ResponseEntity<LoginResponse> verifyPasswordResetOtp(@Valid @RequestBody OtpVerifyRequest verifyRequest) {
+        requireCaptcha(verifyRequest.getCaptchaResponse());
         String email = verifyRequest.getEmail().trim().toLowerCase();
         String key = passwordResetKey(email);
         UsersEntries user = usersRepository.findByEmailIgnoreCase(email);
@@ -328,6 +352,13 @@ public class AuthController {
 
     private boolean canResetPassword(UsersEntries user) {
         return authenticationService.isStudent(user) || isStaff(user);
+    }
+
+    private void requireCaptcha(String responseToken) {
+        if (!recaptchaService.verify(responseToken)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "CAPTCHA verification failed. Please complete the CAPTCHA and try again.");
+        }
     }
 
     static boolean isLietEmail(String email) {

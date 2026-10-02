@@ -4,9 +4,11 @@ import java.util.Objects;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -28,6 +30,7 @@ import com.example.placement.entity.UsersEntries;
 import com.example.placement.repository.UsersRepository;
 import com.example.placement.service.AuthenticationService;
 import com.example.placement.service.OtpService;
+import com.example.placement.service.RecaptchaService;
 
 import jakarta.servlet.http.HttpSession;
 
@@ -37,8 +40,14 @@ class AuthControllerPasswordTest {
     private final UsersRepository usersRepository = mock(UsersRepository.class);
     private final OtpService otpService = mock(OtpService.class);
     private final AuthenticationService authenticationService = mock(AuthenticationService.class);
+    private final RecaptchaService recaptchaService = mock(RecaptchaService.class);
     private final AuthController controller = new AuthController(
-            authenticationManager, usersRepository, otpService, authenticationService);
+            authenticationManager, usersRepository, otpService, authenticationService, recaptchaService, "test-site-key");
+
+    @BeforeEach
+    void allowCaptchaForExistingTests() {
+        when(recaptchaService.verify(nullable(String.class))).thenReturn(true);
+    }
 
     @AfterEach
     void clearSecurityContext() {
@@ -63,6 +72,23 @@ class AuthControllerPasswordTest {
         var context = (org.springframework.security.core.context.SecurityContext) session.getAttribute(
             HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY);
         assertThat(context.getAuthentication().getName()).isEqualTo("2024CS01");
+    }
+
+    @Test
+    void studentPasswordLoginStopsWhenCaptchaIsRejected() {
+        StudentLoginRequest login = new StudentLoginRequest();
+        login.setEmail("student@liet.in");
+        login.setPassword("StudentPass123");
+        login.setCaptchaResponse("expired-token");
+        when(recaptchaService.verify("expired-token")).thenReturn(false);
+
+        org.springframework.web.server.ResponseStatusException exception = org.junit.jupiter.api.Assertions
+                .assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                        () -> controller.studentLogin(login, new MockHttpServletRequest()));
+
+        assertThat(exception.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(exception.getReason()).contains("CAPTCHA verification failed");
+        verify(authenticationService, never()).authenticateStudent(any(), any());
     }
 
     @Test

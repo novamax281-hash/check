@@ -1,5 +1,7 @@
 package com.example.placement.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Email;
@@ -49,4 +51,7 @@ public class RegisterRequest {
     @Size(min = 6, max = 6, message = "OTP must be exactly 6 digits")
     @Pattern(regexp = "^[0-9]{6}$", message = "OTP must contain only digits")
     private String otp;
+
+    @JsonProperty("g-recaptcha-response")
+    private String captchaResponse;
 }

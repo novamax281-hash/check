@@ -3,6 +3,7 @@ package com.example.placement.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 @Data
@@ -20,4 +21,7 @@ public class LoginRequest {
     @Size(min = 6, max = 6, message = "OTP must be exactly 6 digits")
     @Pattern(regexp = "^[0-9]{6}$", message = "OTP must contain only digits")
     private String otp;
+
+    @JsonProperty("g-recaptcha-response")
+    private String captchaResponse;
 }

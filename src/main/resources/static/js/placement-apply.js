@@ -265,7 +265,10 @@ function render() {
 let docModalEl = null;
 
 function closeDocModal() {
-    if (docModalEl && docModalEl.parentNode) docModalEl.parentNode.removeChild(docModalEl);
+    if (docModalEl) {
+        UI.closeModal(docModalEl);
+        if (docModalEl.parentNode) docModalEl.parentNode.removeChild(docModalEl);
+    }
     docModalEl = null;
 }
 
@@ -301,9 +304,8 @@ function openDocModal(documents, company) {
         if (e.target === modal || e.target.closest("[data-doc-close]")) closeDocModal();
     });
     document.body.appendChild(modal);
-    requestAnimationFrame(function() { modal.classList.add("open"); });
     docModalEl = modal;
-    if (docModalEl.querySelector(".modal-close")) docModalEl.querySelector(".modal-close").focus();
+    UI.openModal(modal);
 }
 
 function applyToJob(jobId, button) {

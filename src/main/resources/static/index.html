@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LLOYD Career | Training &amp; Placement Cell</title>
-    <link rel="stylesheet" href="css/portal.css?v=20">
+    <link rel="stylesheet" href="css/portal.css?v=25">
     <script>try{var t=localStorage.getItem('portal-theme');if(t==='dark'){document.documentElement.setAttribute('data-theme','dark');}else if(!t&&matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.setAttribute('data-theme','dark');}}catch(e){}</script>
 </head>
 <body class="landing-page">
@@ -95,6 +95,7 @@
                     <label for="regPasswordConfirm">Confirm Password</label>
                     <input type="password" id="regPasswordConfirm" placeholder="Re-enter your password" autocomplete="new-password" minlength="8" maxlength="72">
                 </div>
+                <div class="input-group captcha-container"><div id="authCaptcha"></div></div>
                 <p id="message" style="display:none; margin-top: 4px; font-size: 13px;"></p>
                 <button type="submit" id="loginButton" class="btn auth-submit">SIGN IN</button>
             </form>
@@ -106,6 +107,7 @@
                         <label for="otp">Six-digit OTP</label>
                         <input type="text" id="otp" inputmode="numeric" maxlength="6" placeholder="&middot;&middot;&middot;&middot;&middot;&middot;" autocomplete="one-time-code" required>
                     </div>
+                    <div class="input-group captcha-container"><div id="otpCaptcha"></div></div>
                     <button type="submit" id="otpButton" class="btn auth-submit">VERIFY OTP</button>
                 </form>
                 <div class="auth-links">
@@ -133,6 +135,7 @@
                         <label for="confirmNewPassword">Confirm New Password</label>
                         <input type="password" id="confirmNewPassword" autocomplete="new-password" minlength="8" maxlength="72">
                     </div>
+                    <div class="input-group captcha-container"><div id="resetCaptcha"></div></div>
                     <p id="resetMessage" style="display:none; margin-top:4px; font-size:13px;"></p>
                     <button type="submit" id="resetButton" class="btn auth-submit">VERIFY OTP</button>
                 </form>
@@ -155,11 +158,13 @@
     </div>
 
     <button class="campus-gate" id="campusGate" type="button" aria-label="Enter the LLOYD campus" aria-expanded="false">
-        <span class="gate-pillar gate-pillar-left" aria-hidden="true"></span>
-        <span class="gate-pillar gate-pillar-right" aria-hidden="true"></span>
-        <span class="gate-lintel" aria-hidden="true"><span>Recruitment Door</span></span>
-        <span class="gate-panel gate-panel-left" aria-hidden="true"></span>
-        <span class="gate-panel gate-panel-right" aria-hidden="true"></span>
+        <span class="gate-structure" aria-hidden="true">
+            <span class="gate-pillar gate-pillar-left"></span>
+            <span class="gate-pillar gate-pillar-right"></span>
+            <span class="gate-lintel"><span>Recruitment Door</span></span>
+            <span class="gate-panel gate-panel-left"></span>
+            <span class="gate-panel gate-panel-right"></span>
+        </span>
         <span class="gate-ground-shadow" aria-hidden="true"></span>
     </button>
 </section>
@@ -311,9 +316,9 @@
 <script>
     document.getElementById("year").textContent = new Date().getFullYear();
 </script>
-<script src="js/ui.js?v=10"></script>
-<script src="js/login-auth.js?v=5"></script>
-<script src="js/college-gallery.js?v=1"></script>
+<script src="js/ui.js?v=11"></script>
+<script src="js/login-auth.js?v=6"></script>
+<script src="js/college-gallery.js?v=2"></script>
 <script src="js/campus-gate.js?v=1"></script>
 </body>
 </html>

@@ -16,6 +16,7 @@
     var stackOffset = 0;
     var stackTimer = null;
     var lastFocusedElement = null;
+        var reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)");
     var stackPositions = [
         { x: "0px", y: "0px", rotate: "0deg" },
         { x: "14px", y: "8px", rotate: "1.4deg" },
@@ -45,7 +46,9 @@
     }
 
     function startStackAnimation() {
-        if (!stackTimer) stackTimer = window.setInterval(rotateStack, 6000);
+        if (!stackTimer && animatedItems.length && !(reducedMotion && reducedMotion.matches)) {
+            stackTimer = window.setInterval(rotateStack, 6000);
+        }
     }
 
     function stopStackAnimation() {
@@ -71,14 +74,16 @@
         showImage(activeGalleryItems.indexOf(item));
         lightbox.classList.add("open");
         lightbox.setAttribute("aria-hidden", "false");
-        document.body.style.overflow = "hidden";
+        document.documentElement.classList.add("lightbox-open");
+        document.body.classList.add("lightbox-open");
         closeButton.focus();
     }
 
     function closeLightbox() {
         lightbox.classList.remove("open");
         lightbox.setAttribute("aria-hidden", "true");
-        document.body.style.overflow = "";
+        document.documentElement.classList.remove("lightbox-open");
+        document.body.classList.remove("lightbox-open");
         if (lastFocusedElement) lastFocusedElement.focus();
         startStackAnimation();
     }
@@ -103,6 +108,13 @@
         if (event.key === "ArrowLeft") showImage(currentIndex - 1);
         if (event.key === "ArrowRight") showImage(currentIndex + 1);
     });
+
+    if (reducedMotion && reducedMotion.addEventListener) {
+        reducedMotion.addEventListener("change", function (event) {
+            if (event.matches) stopStackAnimation();
+            else startStackAnimation();
+        });
+    }
 
     updateStack();
     startStackAnimation();

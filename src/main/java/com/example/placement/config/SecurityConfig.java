@@ -44,6 +44,7 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/", "/index.html", "/login.html", "/css/**", "/js/**", "/images/**",
+                                "/api/auth/recaptcha-config",
                                 "/api/auth/send-otp", "/api/auth/verify-otp", "/api/auth/register/**",
                                 "/api/auth/student/login", "/api/auth/staff/login", "/api/auth/forgot-password/**",
                                 "/actuator/health", "/actuator/health/**",

@@ -226,7 +226,7 @@ function openModal(job) {
             }
         });
     }
-    jobModal.classList.add("open");
+    UI.openModal(jobModal);
 }
 
 function addRoundRow(round) {
@@ -285,7 +285,7 @@ function collectRounds() {
 }
 
 function closeModal() {
-    jobModal.classList.remove("open");
+    UI.closeModal(jobModal);
 }
 
 function collectJob() {

@@ -56,6 +56,59 @@ let cooldownInterval = null;
 let resetCooldownInterval = null;
 let dailyLimitInterval = null;
 let otpDailyLimitReached = false;
+let captchaWidgets = {};
+let captchaLoadFailed = false;
+
+async function initializeCaptcha() {
+    try {
+        const response = await fetch("/api/auth/recaptcha-config", { credentials: "same-origin" });
+        if (!response.ok) throw new Error("CAPTCHA configuration unavailable");
+        const config = await response.json();
+        if (!config.siteKey) throw new Error("CAPTCHA site key is not configured");
+
+        window.onRecaptchaApiLoaded = function() {
+            ["authCaptcha", "otpCaptcha", "resetCaptcha"].forEach(function(containerId) {
+                captchaWidgets[containerId] = window.grecaptcha.render(containerId, {
+                    sitekey: config.siteKey
+                });
+            });
+        };
+
+        const script = document.createElement("script");
+        script.src = "https://www.google.com/recaptcha/api.js?onload=onRecaptchaApiLoaded&render=explicit";
+        script.async = true;
+        script.defer = true;
+        script.onerror = function() {
+            captchaLoadFailed = true;
+            setMessage("CAPTCHA could not be loaded. Please reload and try again.", true);
+        };
+        document.head.appendChild(script);
+    } catch (error) {
+        captchaLoadFailed = true;
+        setMessage("CAPTCHA is unavailable. Please reload and try again.", true);
+    }
+}
+
+function getCaptchaResponse(containerId) {
+    if (captchaLoadFailed) throw new Error("CAPTCHA is unavailable. Please reload and try again.");
+    const widgetId = captchaWidgets[containerId];
+    if (!window.grecaptcha || widgetId === undefined) {
+        throw new Error("CAPTCHA is still loading. Please try again.");
+    }
+    const token = window.grecaptcha.getResponse(widgetId);
+    if (!token) throw new Error("Please complete the CAPTCHA.");
+    return { widgetId: widgetId, token: token };
+}
+
+async function postCaptchaJson(url, data, containerId) {
+    const captcha = getCaptchaResponse(containerId);
+    try {
+        const payload = Object.assign({}, data, { "g-recaptcha-response": captcha.token });
+        return await postJson(url, payload);
+    } finally {
+        window.grecaptcha.reset(captcha.widgetId);
+    }
+}
 
 function setLinkDisabled(link, disabled) {
     if (disabled) {
@@ -295,10 +348,10 @@ function registrationData() {
 }
 
 async function submitStudentLogin() {
-    const response = await postJson("/api/auth/student/login", {
+    const response = await postCaptchaJson("/api/auth/student/login", {
         email: studentEmail.value.trim().toLowerCase(),
         password: studentPassword.value
-    });
+    }, "authCaptcha");
     if (!response.ok) {
         setMessage(response.result.message || "Invalid email or password.", true);
         return;
@@ -307,10 +360,10 @@ async function submitStudentLogin() {
 }
 
 async function submitStaffLogin() {
-    const response = await postJson("/api/auth/staff/login", {
+    const response = await postCaptchaJson("/api/auth/staff/login", {
         email: staffEmail.value.trim().toLowerCase(),
         password: staffPassword.value
-    });
+    }, "authCaptcha");
     if (!response.ok) {
         setMessage(response.result.message || "Invalid email or password.", true);
         return;
@@ -321,7 +374,16 @@ async function submitStaffLogin() {
 async function requestOtp(mode, data, isResend) {
     const endpoint = mode === "register" ? "/api/auth/register/send-otp" : "/api/auth/send-otp";
     if (isResend) setLinkDisabled(resendLink, true);
-    const response = await postJson(endpoint, data);
+    let response;
+    try {
+        response = await postCaptchaJson(endpoint, data, isResend ? "otpCaptcha" : "authCaptcha");
+    } catch (error) {
+        const target = otpSection.style.display === "block" ? otpSentMessage : message;
+        target.className = "message error";
+        target.textContent = error.message || "Please complete the CAPTCHA.";
+        if (isResend) setLinkDisabled(resendLink, false);
+        return false;
+    }
     if (!response.ok) {
         const errorMessage = response.result.message || "OTP could not be sent. Please try again after some time.";
         const dailyLimit = applyDailyLimit(response.result);
@@ -347,7 +409,18 @@ async function requestOtp(mode, data, isResend) {
 
 async function sendForgotOtp(email, isResend) {
     if (isResend) setLinkDisabled(resendResetLink, true);
-    const response = await postJson("/api/auth/forgot-password/send-otp", { email: email });
+    let response;
+    try {
+        response = await postCaptchaJson("/api/auth/forgot-password/send-otp", { email: email },
+            isResend ? "resetCaptcha" : "authCaptcha");
+    } catch (error) {
+        const sentBox = document.getElementById("resetSentMessage");
+        sentBox.textContent = error.message || "Please complete the CAPTCHA.";
+        sentBox.className = "message error";
+        if (isResend) setLinkDisabled(resendResetLink, false);
+        else setMessage(error.message || "Please complete the CAPTCHA.", true);
+        return false;
+    }
     if (!response.ok) {
         const message = response.result.message || "OTP could not be sent. Please try again after some time.";
         const dailyLimit = applyDailyLimit(response.result);
@@ -434,7 +507,7 @@ async function verifyOtp() {
     otpButton.textContent = "Verifying...";
     try {
         const data = Object.assign({}, pendingOtpData, { otp: otpInput.value.trim() });
-        const response = await postJson("/api/auth/register/verify", data);
+        const response = await postCaptchaJson("/api/auth/register/verify", data, "otpCaptcha");
         if (!response.ok) {
             otpSentMessage.className = "message error";
             otpSentMessage.textContent = response.result.message || "Invalid or expired OTP.";
@@ -459,10 +532,10 @@ async function resetStudentPassword(event) {
         resetButton.disabled = true;
         resetButton.textContent = "Verifying...";
         try {
-            const response = await postJson("/api/auth/forgot-password/verify-otp", {
+            const response = await postCaptchaJson("/api/auth/forgot-password/verify-otp", {
                 email: resetEmail.value,
                 otp: resetOtp.value.trim()
-            });
+            }, "resetCaptcha");
             if (!response.ok) {
                 setResetMessage(response.result.message || "Invalid or expired OTP.", true);
                 return;
@@ -496,11 +569,11 @@ async function resetStudentPassword(event) {
     const originalText = resetButton.textContent;
     resetButton.textContent = "Resetting...";
     try {
-        const response = await postJson("/api/auth/forgot-password/reset", {
+        const response = await postCaptchaJson("/api/auth/forgot-password/reset", {
             email: resetEmail.value,
             otp: resetOtp.value.trim(),
             newPassword: newPassword.value
-        });
+        }, "resetCaptcha");
         if (!response.ok) {
             setResetMessage(response.result.message || "Invalid or expired OTP.", true);
             return;
@@ -572,3 +645,4 @@ staffLoginLink.addEventListener("click", function(event) {
 });
 
 setMode("student");
+initializeCaptcha();
