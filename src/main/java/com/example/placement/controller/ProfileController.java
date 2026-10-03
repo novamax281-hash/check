@@ -1,8 +1,8 @@
 package com.example.placement.controller;
 
-import com.example.placement.entity.UsersEntries;
-import com.example.placement.repository.UsersRepository;
-import com.example.placement.service.BatchRanges;
+import java.util.List;
+import java.util.function.Consumer;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,15 +12,16 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.List;
-import java.util.function.Consumer;
+import com.example.placement.entity.UsersEntries;
+import com.example.placement.repository.UsersRepository;
+import com.example.placement.service.BatchRanges;
 
 @RestController
 @RequestMapping("/api/profile")
 public class ProfileController {
 
     private static final List<String> BTECH_BRANCHES = List.of(
-            "CSE", "ECE", "EEE", "ME", "CIVIL", "Cyber Security", "Data Science");
+            "CSE", "ECE", "EEE", "ME", "CIVIL", "Cyber Security", "Data Science", "AI / ML");
 
     private final UsersRepository usersRepository;
 

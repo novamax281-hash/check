@@ -793,7 +793,7 @@
         loadFilterOptions();
         loadStudents();
 
-        var searchBox = el("searchBox");
+        var searchBox = el("studentQuery");
         searchBox.addEventListener("input", function () {
             var value = searchBox.value;
             el("searchClearBtn").classList.toggle("hidden", !value);
@@ -848,7 +848,7 @@
         });
 
         el("emptyClearBtn").addEventListener("click", function () {
-            el("searchBox").value = "";
+            el("studentQuery").value = "";
             el("searchClearBtn").classList.add("hidden");
             state.search = "";
             el("resetFiltersBtn").click();

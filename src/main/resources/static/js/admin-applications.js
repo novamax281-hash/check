@@ -289,8 +289,85 @@ function actionsMenuHtml(app) {
         + "</div></div>";
 }
 
+function positionActionMenu(menu, button) {
+    if (!menu.classList.contains("viewport-menu")) {
+        menu._menuHome = menu.parentElement;
+        document.body.appendChild(menu);
+        menu.classList.add("viewport-menu");
+    }
+    menu._menuButton = button;
+    menu.style.visibility = "hidden";
+    menu.classList.remove("hidden");
+
+    const buttonRect = button.getBoundingClientRect();
+    const naturalHeight = menu.scrollHeight;
+    const menuWidth = menu.offsetWidth;
+    const gap = 6;
+    const viewportPadding = 8;
+    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+    const availableBelow = Math.max(0, window.innerHeight - buttonRect.bottom - gap - viewportPadding);
+    const availableAbove = Math.max(0, buttonRect.top - gap - viewportPadding);
+    const openBelow = availableBelow >= naturalHeight || availableBelow >= availableAbove;
+    const maxMenuHeight = Math.max(48, window.innerHeight - viewportPadding * 2);
+    const availableHeight = Math.min(
+        Math.max(48, openBelow ? availableBelow : availableAbove),
+        maxMenuHeight
+    );
+
+    menu.style.maxHeight = availableHeight + "px";
+    const menuHeight = menu.offsetHeight;
+    const top = openBelow ? buttonRect.bottom + gap : buttonRect.top - menuHeight - gap;
+    const maxLeft = Math.max(viewportPadding, viewportWidth - menuWidth - viewportPadding);
+    const left = Math.min(Math.max(buttonRect.right - menuWidth, viewportPadding), maxLeft);
+    menu.style.top = Math.max(viewportPadding, Math.min(top, window.innerHeight - menuHeight - viewportPadding)) + "px";
+    menu.style.left = left + "px";
+    menu.style.maxWidth = Math.max(80, viewportWidth - viewportPadding * 2) + "px";
+    menu.style.visibility = "";
+}
+
 function closeOpenMenus() {
-    document.querySelectorAll(".row-menu").forEach(function(menu) { menu.classList.add("hidden"); });
+    document.querySelectorAll(".row-menu").forEach(function(menu) {
+        menu.classList.add("hidden");
+        menu.classList.remove("viewport-menu");
+        menu.style.removeProperty("top");
+        menu.style.removeProperty("left");
+        menu.style.removeProperty("max-height");
+        menu.style.removeProperty("max-width");
+        menu.style.removeProperty("visibility");
+        if (menu._menuHome && menu.parentElement === document.body) {
+            menu._menuHome.appendChild(menu);
+        }
+        menu._menuButton = null;
+        menu._menuHome = null;
+    });
+}
+
+let actionMenuPositionFrame = null;
+
+function repositionOpenMenus() {
+    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+    document.querySelectorAll(".row-menu.viewport-menu").forEach(function(menu) {
+        const button = menu._menuButton;
+        if (!button || !button.isConnected) {
+            closeOpenMenus();
+            return;
+        }
+        const rect = button.getBoundingClientRect();
+        if (rect.bottom < 0 || rect.top > window.innerHeight
+                || rect.right < 0 || rect.left > viewportWidth) {
+            closeOpenMenus();
+            return;
+        }
+        positionActionMenu(menu, button);
+    });
+}
+
+function scheduleMenuReposition() {
+    if (actionMenuPositionFrame !== null) return;
+    actionMenuPositionFrame = window.requestAnimationFrame(function() {
+        actionMenuPositionFrame = null;
+        repositionOpenMenus();
+    });
 }
 
 function filterApplications() {
@@ -322,6 +399,7 @@ function filterApplications() {
 }
 
 function render() {
+    closeOpenMenus();
     const filtered = filterApplications();
 
     emptyMsg.style.display = filtered.length === 0 ? "block" : "none";
@@ -342,8 +420,8 @@ function render() {
         const ended = isTerminal(app);
         const checked = selectedIds.has(app.applicationId);
         const checkbox = ended
-            ? '<td class="select-cell"></td>'
-            : '<td class="select-cell"><input type="checkbox" class="row-select" data-id="'
+            ? '<td class="select-cell" data-label="Select"></td>'
+            : '<td class="select-cell" data-label="Select"><input type="checkbox" class="row-select" data-id="'
                 + esc(app.applicationId) + '"' + (checked ? " checked" : "") + "></td>";
         const score = latestScore(app);
         const jobRoles = app.role || "-";
@@ -356,18 +434,18 @@ function render() {
         return `
             <tr>
                 ${checkbox}
-                <td><span class="cell-name cell-clamp-2" title="${esc(studentName)}">${esc(studentName)}</span></td>
-                <td><span class="cell-ellipsis" title="${esc(studentEmail)}">${esc(studentEmail)}</span></td>
-                <td><span class="cell-clamp-2" title="${esc(company)}">${esc(company)}</span></td>
-                <td><span class="cell-clamp-2 cell-muted" title="${esc(jobRoles)}">${esc(jobRoles)}</span></td>
-                <td><span class="cell-clamp-2 cell-applied-role" title="${esc(appliedRole)}">${esc(appliedRole)}</span></td>
-                <td><span class="cell-clamp-2" title="${esc(course)}">${esc(course)}</span></td>
-                <td><div class="meta-chips"><span class="meta-chip" title="${esc(app.batch || "")}">${esc(app.batch || "—")}</span>${app.branch ? `<span class="chip-sep">·</span><span class="meta-chip" title="${esc(app.branch)}">${esc(app.branch)}</span>` : ""}</div></td>
-                <td><span class="cell-ellipsis cell-muted">${esc(appliedOn)}</span></td>
-                <td>${window.UI.roundPills(app)}</td>
-                <td class="col-score">${score != null ? esc(score) : "-"}</td>
-                <td><span class="badge ${window.UI.badge(app.status)}">${esc(app.status || "Applied")}</span></td>
-                <td class="col-actions">${actionsMenuHtml(app)}</td>
+                <td class="student-cell" data-label="Student"><span class="cell-name cell-clamp-2" title="${esc(studentName)}">${esc(studentName)}</span></td>
+                <td class="email-cell" data-label="Email"><span class="cell-ellipsis" title="${esc(studentEmail)}">${esc(studentEmail)}</span></td>
+                <td class="company-cell" data-label="Company"><span class="cell-clamp-2" title="${esc(company)}">${esc(company)}</span></td>
+                <td class="roles-cell" data-label="Job Roles"><span class="cell-clamp-2 cell-muted" title="${esc(jobRoles)}">${esc(jobRoles)}</span></td>
+                <td class="applied-role-cell" data-label="Applied Role"><span class="cell-clamp-2 cell-applied-role" title="${esc(appliedRole)}">${esc(appliedRole)}</span></td>
+                <td class="course-cell" data-label="Course"><span class="cell-clamp-2" title="${esc(course)}">${esc(course)}</span></td>
+                <td class="batch-cell" data-label="Batch · Branch"><div class="meta-chips"><span class="meta-chip" title="${esc(app.batch || "")}">${esc(app.batch || "—")}</span>${app.branch ? `<span class="chip-sep">·</span><span class="meta-chip" title="${esc(app.branch)}">${esc(app.branch)}</span>` : ""}</div></td>
+                <td class="applied-cell" data-label="Applied"><span class="cell-ellipsis cell-muted">${esc(appliedOn)}</span></td>
+                <td class="round-cell" data-label="Round">${window.UI.roundPills(app)}</td>
+                <td class="col-score score-cell" data-label="Score">${score != null ? esc(score) : "-"}</td>
+                <td class="status-cell" data-label="Status"><span class="badge ${window.UI.badge(app.status)}">${esc(app.status || "Applied")}</span></td>
+                <td class="col-actions actions-cell" data-label="Action">${actionsMenuHtml(app)}</td>
             </tr>
         `;
     }).join("");
@@ -1086,11 +1164,13 @@ appsBody.addEventListener("click", function(event) {
         const menu = document.querySelector('.row-menu[data-menu-for="' + CSS.escape(menuButton.dataset.menu) + '"]');
         const wasOpen = menu && !menu.classList.contains("hidden");
         closeOpenMenus();
-        if (menu && !wasOpen) menu.classList.remove("hidden");
+        if (menu && !wasOpen) positionActionMenu(menu, menuButton);
         return;
     }
-    const item = event.target.closest(".menu-item");
-    if (!item || item.disabled) return;
+});
+
+function handleActionMenuItem(item) {
+    if (item.disabled) return;
     const app = applications.find(function(candidate) {
         return candidate.applicationId === item.dataset.id;
     });
@@ -1109,11 +1189,19 @@ appsBody.addEventListener("click", function(event) {
             window.UI.showToast(actionSuccessMessage("qualify", updated), "success");
         });
     } else if (item.classList.contains("status-btn")) openLegacyModal(app);
-});
+}
 
 document.addEventListener("click", function(event) {
-    if (!event.target.closest(".menu-wrap")) closeOpenMenus();
+    const item = event.target.closest(".menu-item");
+    if (item) {
+        handleActionMenuItem(item);
+        return;
+    }
+    if (!event.target.closest(".menu-wrap") && !event.target.closest(".row-menu")) closeOpenMenus();
 });
+
+window.addEventListener("resize", scheduleMenuReposition);
+window.addEventListener("scroll", scheduleMenuReposition, true);
 
 appsBody.addEventListener("change", function(event) {
     const checkbox = event.target.closest(".row-select");

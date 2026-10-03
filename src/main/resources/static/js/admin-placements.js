@@ -187,13 +187,195 @@ function collectBatchRanges() {
     });
 }
 
+function setMultiSelectValues(field, value) {
+    const selectedValues = new Set(String(value || "").split(",")
+        .map(function(item) { return item.trim().toLowerCase(); })
+        .filter(Boolean));
+    if (field.id === "fBranch" && selectedValues.has("all")) {
+        selectedValues.clear();
+        selectedValues.add("all");
+    }
+    Array.from(field.options).forEach(function(option) {
+        option.selected = selectedValues.has(option.value.trim().toLowerCase());
+    });
+    syncPlacementMultiSelect(field);
+}
+
+function getMultiSelectValues(field) {
+    return Array.from(field.selectedOptions).map(function(option) {
+        return option.value;
+    }).join(", ");
+}
+
+function syncPlacementMultiSelect(field) {
+    const wrapper = field.closest("[data-placement-multiselect]");
+    if (!wrapper) return;
+    const selectedValues = new Set(Array.from(field.selectedOptions).map(function(option) {
+        return option.value.toLowerCase();
+    }));
+    wrapper.querySelectorAll(".placement-multi-select-option input").forEach(function(checkbox) {
+        checkbox.checked = selectedValues.has(checkbox.value.toLowerCase());
+    });
+    const summary = wrapper.querySelector(".placement-multi-select-summary");
+    const selectedLabels = Array.from(field.selectedOptions).map(function(option) {
+        return option.textContent.trim();
+    });
+    summary.textContent = selectedLabels.length > 0
+        ? selectedLabels.join(", ")
+        : summary.dataset.placeholder;
+}
+
+function positionPlacementMultiSelect(wrapper) {
+    const trigger = wrapper.querySelector(".placement-multi-select-trigger");
+    const menu = wrapper.querySelector(".placement-multi-select-menu") || wrapper._placementMenu;
+    if (!menu || menu.hidden) return;
+    wrapper._placementMenu = menu;
+    if (menu.parentElement !== document.body) document.body.appendChild(menu);
+
+    const triggerRect = trigger.getBoundingClientRect();
+    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+    const padding = 8;
+    const gap = 4;
+    menu.style.visibility = "hidden";
+    menu.hidden = false;
+    menu.style.width = Math.min(triggerRect.width, viewportWidth - padding * 2) + "px";
+
+    const naturalHeight = menu.scrollHeight;
+    const below = Math.max(0, window.innerHeight - triggerRect.bottom - gap - padding);
+    const above = Math.max(0, triggerRect.top - gap - padding);
+    const opensDown = below >= naturalHeight || below >= above;
+    const maxHeight = Math.max(48, opensDown ? below : above);
+    menu.style.maxHeight = Math.min(naturalHeight, maxHeight) + "px";
+
+    const menuHeight = menu.offsetHeight;
+    const maxLeft = Math.max(padding, viewportWidth - menu.offsetWidth - padding);
+    const left = Math.min(Math.max(triggerRect.left, padding), maxLeft);
+    const top = opensDown
+        ? triggerRect.bottom + gap
+        : triggerRect.top - menuHeight - gap;
+    menu.style.left = left + "px";
+    menu.style.top = Math.max(padding, Math.min(top, window.innerHeight - menuHeight - padding)) + "px";
+    menu.style.visibility = "";
+}
+
+function closePlacementMultiSelect(wrapper, restoreFocus) {
+    const menu = wrapper._placementMenu || wrapper.querySelector(".placement-multi-select-menu");
+    const trigger = wrapper.querySelector(".placement-multi-select-trigger");
+    if (!menu) return;
+    menu.hidden = true;
+    menu.classList.remove("is-portal");
+    menu.style.removeProperty("left");
+    menu.style.removeProperty("top");
+    menu.style.removeProperty("width");
+    menu.style.removeProperty("max-height");
+    menu.style.removeProperty("visibility");
+    wrapper.appendChild(menu);
+    trigger.setAttribute("aria-expanded", "false");
+    wrapper._placementMenu = null;
+    if (restoreFocus) trigger.focus();
+}
+
+function closePlacementMultiSelects(except) {
+    document.querySelectorAll("[data-placement-multiselect]").forEach(function(wrapper) {
+        if (wrapper !== except && wrapper._placementMenu) closePlacementMultiSelect(wrapper, false);
+    });
+}
+
+let placementMultiSelectFrame = null;
+
+function schedulePlacementMultiSelectPosition() {
+    if (placementMultiSelectFrame !== null) return;
+    placementMultiSelectFrame = window.requestAnimationFrame(function() {
+        placementMultiSelectFrame = null;
+        document.querySelectorAll("[data-placement-multiselect]").forEach(function(wrapper) {
+            const menu = wrapper._placementMenu;
+            if (!menu || menu.hidden) return;
+            const trigger = wrapper.querySelector(".placement-multi-select-trigger");
+            const rect = trigger.getBoundingClientRect();
+            if (rect.bottom < 0 || rect.top > window.innerHeight
+                    || rect.right < 0 || rect.left > window.innerWidth) {
+                closePlacementMultiSelect(wrapper, false);
+                return;
+            }
+            positionPlacementMultiSelect(wrapper);
+        });
+    });
+}
+
+document.querySelectorAll("[data-placement-multiselect]").forEach(function(wrapper) {
+    const field = document.getElementById(wrapper.dataset.selectId);
+    const trigger = wrapper.querySelector(".placement-multi-select-trigger");
+    const menu = wrapper.querySelector(".placement-multi-select-menu");
+
+    wrapper._placementMenu = null;
+    trigger.addEventListener("click", function() {
+        if (wrapper._placementMenu) {
+            closePlacementMultiSelect(wrapper, false);
+            return;
+        }
+        closePlacementMultiSelects(wrapper);
+        wrapper._placementMenu = menu;
+        menu.hidden = false;
+        menu.classList.add("is-portal");
+        trigger.setAttribute("aria-expanded", "true");
+        positionPlacementMultiSelect(wrapper);
+        const firstOption = menu.querySelector("input[type='checkbox']");
+        if (firstOption) firstOption.focus();
+    });
+    menu.addEventListener("change", function(event) {
+        const checkbox = event.target.closest("input[type='checkbox']");
+        if (!checkbox) return;
+        if (field.id === "fBranch") {
+            const allBranches = menu.querySelector("input[value='All']");
+            if (checkbox.value === "All" && checkbox.checked) {
+                menu.querySelectorAll("input[type='checkbox']").forEach(function(item) {
+                    if (item !== checkbox) item.checked = false;
+                });
+            } else if (checkbox.checked && allBranches) {
+                allBranches.checked = false;
+            }
+            Array.from(field.options).forEach(function(option) {
+                const matchingCheckbox = Array.from(menu.querySelectorAll("input[type='checkbox']"))
+                    .find(function(item) { return item.value === option.value; });
+                option.selected = Boolean(matchingCheckbox && matchingCheckbox.checked);
+            });
+        } else {
+            const option = Array.from(field.options).find(function(item) {
+                return item.value.toLowerCase() === checkbox.value.toLowerCase();
+            });
+            if (option) option.selected = checkbox.checked;
+        }
+        syncPlacementMultiSelect(field);
+    });
+});
+
+document.addEventListener("click", function(event) {
+    const target = event.target instanceof Element ? event.target : null;
+    if (target && (target.closest("[data-placement-multiselect]")
+            || Array.from(document.querySelectorAll("[data-placement-multiselect]"))
+                    .some(function(wrapper) {
+                        return wrapper._placementMenu && wrapper._placementMenu.contains(target);
+                    }))) return;
+    closePlacementMultiSelects();
+});
+
+document.addEventListener("keydown", function(event) {
+    if (event.key !== "Escape") return;
+    const openWrapper = Array.from(document.querySelectorAll("[data-placement-multiselect]"))
+        .find(function(wrapper) { return Boolean(wrapper._placementMenu); });
+    if (openWrapper) closePlacementMultiSelect(openWrapper, true);
+});
+
+window.addEventListener("resize", schedulePlacementMultiSelectPosition);
+window.addEventListener("scroll", schedulePlacementMultiSelectPosition, true);
+
 function openModal(job) {
     editingId = job ? job.id : null;
     currentModalJobId = job ? job.id : null;
     modalTitle.textContent = job ? "Edit Placement" : "Add Placement";
     fields.company.value = job ? job.company || "" : "";
     fields.jobRole.value = job ? job.jobRole || "" : "";
-    fields.courses.value = job ? job.courses || "" : "";
+    setMultiSelectValues(fields.courses, job ? job.courses : "");
     fields.jobType.value = job ? job.jobType || "" : "";
     fields.location.value = job ? job.location || "" : "";
     fields.eligibility.value = job ? job.eligibility || "" : "";
@@ -208,7 +390,7 @@ function openModal(job) {
     fields.likelyDateOfJoining.value = toDateInputValue(job ? job.likelyDateOfJoining : "");
     fields.salaryLpa.value = job ? (job.salaryLpa != null ? job.salaryLpa : "") : "";
     setBatchRanges(job ? job.batch : "");
-    fields.branch.value = job ? job.branch || "" : "";
+    setMultiSelectValues(fields.branch, job ? job.branch : "");
     fields.minTenth.value = job && job.minTenth != null ? job.minTenth : "";
     fields.minTwelfth.value = job && job.minTwelfth != null ? job.minTwelfth : "";
     fields.minGraduation.value = job && job.minGraduation != null ? job.minGraduation : "";
@@ -311,10 +493,8 @@ function collectJob() {
         batch: collectBatchRanges().map(function(range) {
             return range.from + "-" + range.to;
         }).join(", "),
-        courses: fields.courses.value.split(",").map(function(course) {
-            return course.trim();
-        }).filter(Boolean).join(", "),
-        branch: fields.branch.value.trim(),
+        courses: getMultiSelectValues(fields.courses),
+        branch: getMultiSelectValues(fields.branch),
         minTenth: num(fields.minTenth),
         minTwelfth: num(fields.minTwelfth),
         minGraduation: num(fields.minGraduation),

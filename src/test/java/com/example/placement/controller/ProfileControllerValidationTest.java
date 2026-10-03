@@ -1,17 +1,16 @@
 package com.example.placement.controller;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
-import java.util.List;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.server.ResponseStatusException;
@@ -159,6 +158,18 @@ class ProfileControllerValidationTest {
         UsersEntries saved = controller.updateProfile(authentication, update);
 
         assertEquals("Cyber Security", saved.getBranch());
+        verify(usersRepository).save(stored);
+    }
+
+    @Test
+    void btechAiMlBranchIsAccepted() {
+        stored.setCourse("B.Tech");
+        UsersEntries update = new UsersEntries();
+        update.setBranch("ai / ml");
+
+        UsersEntries saved = controller.updateProfile(authentication, update);
+
+        assertEquals("AI / ML", saved.getBranch());
         verify(usersRepository).save(stored);
     }
 
