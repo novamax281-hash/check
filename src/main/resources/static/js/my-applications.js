@@ -111,8 +111,8 @@ function rowHtml(app) {
         + '<div class="job-role">' + esc(app.effectiveRole || app.selectedRole || app.role || "-") + "</div>"
         + "</td>"
         + '<td><div class="meta-chips"><span class="meta-chip">' + esc(app.batch || "—")
-        + '</span><span class="chip-sep">·</span><span class="meta-chip">' + esc(app.branch || "—")
-        + "</span></div></td>"
+        + "</span>" + (app.branch ? '<span class="chip-sep">·</span><span class="meta-chip">'
+            + esc(app.branch) + "</span>" : "") + "</div></td>"
         + '<td><span class="badge ' + window.UI.badge(app.status) + '">' + esc(statusOf(app)) + "</span></td>"
         + '<td class="cell-date">' + esc(fmtDay(app.applicationDate)) + "</td>"
         + '<td class="cell-progress">' + window.UI.roundPills(app) + "</td>"

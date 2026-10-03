@@ -36,7 +36,7 @@ public class CsvExportService {
     /** Application export columns enabled by default. */
     public static final List<String> APPLICATION_DEFAULT_COLUMNS = List.of(
             "Application ID", "Student ID", "Enrollment No", "Student Name", "Email", "Phone",
-            "Student Course", "Student Batch", "Branch", "Department", "CGPA",
+            "Student Course", "Student Batch", "Branch", "CGPA",
             "Company", "Job Role", "Salary / CTC",
             "Application Status", "Current Round", "Current Round Score", "Admin Remark",
             "Applied On", "Last Updated");
@@ -58,7 +58,7 @@ public class CsvExportService {
         APPLICATION_FIELD_GROUPS.put("Student Information", List.of(
                 "Student ID", "Enrollment No", "Student Name", "Email", "Phone", "Student Course",
                 "Selected Course", "Selected Job Role", "Student Batch", "Branch", "Section",
-                "Department", "College", "CGPA", "10th %", "12th %", "Graduation %", "DOB", "Gender",
+                "College", "CGPA", "10th %", "12th %", "Graduation %", "DOB", "Gender",
                 "Address", "City", "State", "Student Status", "Account Role"));
         APPLICATION_FIELD_GROUPS.put("Placement Information", List.of(
                 "Job ID", "Company", "Job Role", "Salary / CTC", "Skills", "Eligibility", "Location",
@@ -208,7 +208,6 @@ public class CsvExportService {
             case "Student Batch": return text(application.getStudentBatch());
             case "Branch": return text(application.getBranch());
             case "Section": return text(application.getSection());
-            case "Department": return text(application.getDepartment());
             case "College": return text(application.getCollege());
             case "CGPA": return decimal(application.getCgpa());
             case "10th %": return decimal(application.getTenthPercentage());

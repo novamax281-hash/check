@@ -52,7 +52,7 @@ class CsvImportServiceTest {
     void addValidationIgnoresDatabaseOnlyCgpaField() {
         when(usersRepository.findByEnrollmentno("2023CS101")).thenReturn(null);
         List<Map<String, String>> rows = List.of(
-                row("enrollmentno", "2023CS101", "email", "vikram@gmail.com", "cgpa", "85"));
+                row("enrollmentno", "2023CS101", "email", "vikram@gmail.com", "course", "B.Tech", "cgpa", "85"));
 
         CsvValidationResult result = csvImportService.validate("ADD", rows, true);
         assertThat(result.getTotalRows()).isEqualTo(1);
@@ -65,7 +65,7 @@ class CsvImportServiceTest {
     void addValidationAcceptsValidCgpaScale() {
         when(usersRepository.findByEnrollmentno("2023CS101")).thenReturn(null);
         List<Map<String, String>> rows = List.of(
-                row("enrollmentno", "2023CS101", "email", "vikram@gmail.com", "cgpa", "8.5"));
+                row("enrollmentno", "2023CS101", "email", "vikram@gmail.com", "course", "B.Tech", "cgpa", "8.5"));
 
         CsvValidationResult result = csvImportService.validate("ADD", rows, true);
         assertThat(result.getValidRows()).isEqualTo(1);
@@ -76,7 +76,8 @@ class CsvImportServiceTest {
     void addValidateAcceptsNewStudents() {
         when(usersRepository.findByEnrollmentno("2023CS101")).thenReturn(null);
         List<Map<String, String>> rows = List.of(
-                row("enrollmentno", "2023CS101", "name", "Vikram", "email", "vikram@gmail.com", "branch", "CSE"));
+                row("enrollmentno", "2023CS101", "name", "Vikram", "email", "vikram@gmail.com",
+                        "course", "B.Tech"));
 
         CsvValidationResult result = csvImportService.validate("ADD", rows, true);
         assertThat(result.getTotalRows()).isEqualTo(1);
@@ -85,11 +86,83 @@ class CsvImportServiceTest {
     }
 
     @Test
+    void addValidationRequiresCourseFromSupportedValues() {
+        List<Map<String, String>> rows = List.of(
+                row("enrollmentno", "E1", "email", "one@mail.com"),
+                row("enrollmentno", "E2", "email", "two@mail.com", "course", "M.Tech"));
+
+        CsvValidationResult result = csvImportService.validate("ADD", rows, true);
+
+        assertThat(result.getRows().get(0).getError()).contains("Course is required");
+        assertThat(result.getRows().get(1).getError()).contains("Course must be one of: B.Tech, MCA, BCA");
+    }
+
+    @Test
+    void addValidationAcceptsSupportedCoursesIgnoringCase() {
+        List<Map<String, String>> rows = List.of(
+                row("enrollmentno", "E1", "email", "one@mail.com", "course", "mca"),
+                row("enrollmentno", "E2", "email", "two@mail.com", "course", "BCA"));
+
+        CsvValidationResult result = csvImportService.validate("ADD", rows, true);
+
+        assertThat(result.getValidRows()).isEqualTo(2);
+        assertThat(result.getErrorRows()).isZero();
+    }
+
+    @Test
+    void addCsvDoesNotRequireBranchForMcaOrBcaOrBTech() {
+        List<Map<String, String>> rows = List.of(
+                row("enrollmentno", "E1", "name", "MCA Student", "email", "mca@mail.com",
+                        "password", "Pass@123", "phone", "9000000001", "batch", "2023-2027",
+                        "section", "A", "studentstatus", "Active", "course", "MCA"),
+                row("enrollmentno", "E2", "name", "BCA Student", "email", "bca@mail.com",
+                        "password", "Pass@123", "phone", "9000000002", "batch", "2023-2027",
+                        "section", "A", "studentstatus", "Active", "course", "BCA"),
+                row("enrollmentno", "E3", "name", "BTech Student", "email", "btech@mail.com",
+                        "password", "Pass@123", "phone", "9000000003", "batch", "2023-2027",
+                        "section", "A", "studentstatus", "Active", "course", "B.Tech"));
+
+        CsvValidationResult result = csvImportService.validate("ADD", rows, true);
+
+        assertThat(result.getRows().get(0).isValid()).isTrue();
+        assertThat(result.getRows().get(1).isValid()).isTrue();
+        assertThat(result.getRows().get(2).isValid()).isTrue();
+        assertThat(result.getErrorRows()).isZero();
+    }
+
+    @Test
+    void mixedCourseCsvImportsBTechMcaAndBcaTogetherAndLeavesBranchNull() {
+        when(usersRepository.findByEnrollmentno(org.mockito.ArgumentMatchers.anyString())).thenReturn(null);
+        when(usersRepository.findByEmailIgnoreCase(org.mockito.ArgumentMatchers.anyString())).thenReturn(null);
+        when(usersRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        String csv = "enrollmentNo,name,email,password,phone,batch,section,studentStatus,"
+                + "tenthPercentage,twelfthPercentage,Course\n"
+                + "E1,BTech Student,btech@mail.com,Pass@123,9000000001,2023-2027,A,Active,,,B.Tech\n"
+                + "E2,MCA Student,mca@mail.com,Pass@123,9000000002,2023-2027,A,Active,,,MCA\n"
+                + "E3,BCA Student,bca@mail.com,Pass@123,9000000003,2023-2027,A,Active,,,BCA";
+        List<Map<String, String>> rows = csvImportService.parseCsvContent(csv, "ADD");
+
+        CsvValidationResult validation = csvImportService.validate("ADD", rows, true);
+        CsvImportResult imported = csvImportService.commit("ADD", rows);
+
+        assertThat(validation.getValidRows()).isEqualTo(3);
+        assertThat(validation.getErrorRows()).isZero();
+        assertThat(imported.getCreatedRows()).isEqualTo(3);
+        assertThat(imported.getFailedRows()).isZero();
+        org.mockito.ArgumentCaptor<UsersEntries> saved = org.mockito.ArgumentCaptor.forClass(UsersEntries.class);
+        verify(usersRepository, org.mockito.Mockito.times(3)).save(saved.capture());
+        assertThat(saved.getAllValues()).extracting(UsersEntries::getCourse)
+                .containsExactly("B.Tech", "MCA", "BCA");
+        assertThat(saved.getAllValues()).extracting(UsersEntries::getBranch)
+                .containsExactly((String) null, (String) null, (String) null);
+    }
+
+    @Test
     void addValidationRejectsDuplicateEnrollment() {
         when(usersRepository.findByEnrollmentno("2023CS101"))
                 .thenReturn(new UsersEntries("2023CS101", "9000000000"));
         List<Map<String, String>> rows = List.of(
-                row("enrollmentno", "2023CS101", "name", "Vikram", "email", "vikram@gmail.com"));
+                row("enrollmentno", "2023CS101", "name", "Vikram", "email", "vikram@gmail.com", "course", "B.Tech"));
 
         CsvValidationResult result = csvImportService.validate("ADD", rows, true);
         assertThat(result.getErrorRows()).isEqualTo(1);
@@ -101,7 +174,7 @@ class CsvImportServiceTest {
     void addValidationRejectsBadEmail() {
         when(usersRepository.findByEnrollmentno("2023CS101")).thenReturn(null);
         List<Map<String, String>> rows = List.of(
-                row("enrollmentno", "2023CS101", "name", "Vikram", "email", "not-an-email"));
+                row("enrollmentno", "2023CS101", "name", "Vikram", "email", "not-an-email", "course", "B.Tech"));
 
         CsvValidationResult result = csvImportService.validate("ADD", rows, true);
         assertThat(result.getErrorRows()).isEqualTo(1);
@@ -112,8 +185,8 @@ class CsvImportServiceTest {
     void duplicateRowsAreReported() {
         when(usersRepository.findByEnrollmentno("2023CS101")).thenReturn(null);
         List<Map<String, String>> rows = List.of(
-                row("enrollmentno", "2023CS101", "name", "Vikram", "email", "vikram@gmail.com"),
-                row("enrollmentno", "2023CS101", "name", "Vikram", "email", "vikram@gmail.com"));
+                row("enrollmentno", "2023CS101", "name", "Vikram", "email", "vikram@gmail.com", "course", "B.Tech"),
+                row("enrollmentno", "2023CS101", "name", "Vikram", "email", "vikram@gmail.com", "course", "B.Tech"));
 
         CsvValidationResult result = csvImportService.validate("ADD", rows, true);
         assertThat(result.getTotalRows()).isEqualTo(2);
@@ -124,8 +197,8 @@ class CsvImportServiceTest {
     @Test
     void duplicateEmailsAreDetectedIndependentlyOfEnrollmentNumbers() {
         List<Map<String, String>> rows = List.of(
-                row("enrollmentno", "E1", "email", "same@mail.com"),
-                row("enrollmentno", "E2", "email", "SAME@mail.com"));
+                row("enrollmentno", "E1", "email", "same@mail.com", "course", "B.Tech"),
+                row("enrollmentno", "E2", "email", "SAME@mail.com", "course", "B.Tech"));
 
         CsvValidationResult result = csvImportService.validate("ADD", rows, true);
 
@@ -136,8 +209,8 @@ class CsvImportServiceTest {
     @Test
     void duplicateEnrollmentNumbersAreDetectedIndependentlyOfEmails() {
         List<Map<String, String>> rows = List.of(
-                row("enrollmentno", "E1", "email", "first@mail.com"),
-                row("enrollmentno", "e1", "email", "second@mail.com"));
+                row("enrollmentno", "E1", "email", "first@mail.com", "course", "B.Tech"),
+                row("enrollmentno", "e1", "email", "second@mail.com", "course", "B.Tech"));
 
         CsvValidationResult result = csvImportService.validate("ADD", rows, true);
 
@@ -182,7 +255,8 @@ class CsvImportServiceTest {
     void validationDoesNotModifyDatabase() {
         when(usersRepository.findByEnrollmentno("2023CS101")).thenReturn(null);
         List<Map<String, String>> rows = List.of(
-                row("enrollmentno", "2023CS101", "name", "Vikram", "email", "vikram@gmail.com", "status", "Placed"));
+                row("enrollmentno", "2023CS101", "name", "Vikram", "email", "vikram@gmail.com", "status", "Placed",
+                        "course", "B.Tech"));
 
         CsvValidationResult result = csvImportService.validate("ADD", rows, true);
         assertThat(result.getValidRows()).isEqualTo(1);
@@ -195,7 +269,9 @@ class CsvImportServiceTest {
         when(usersRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         List<Map<String, String>> rows = List.of(
-                row("enrollmentno", "2023CS101", "name", "Vikram", "email", "vikram@gmail.com", "branch", "CSE"));
+                row("enrollmentno", "2023CS101", "name", "Vikram", "email", "vikram@gmail.com",
+                        "course", "B.Tech", "password", "Pass@123", "phone", "9000000000",
+                        "batch", "2023-2027", "section", "A", "studentstatus", "Active"));
 
         CsvImportResult result = csvImportService.commit("ADD", rows);
         assertThat(result.getCreatedRows()).isEqualTo(1);
@@ -334,14 +410,16 @@ class CsvImportServiceTest {
     @Test
     void addTemplateContainsStudentAcademicFields() {
         assertThat(csvImportService.templateColumns("ADD")).containsExactly(
-                "enrollmentNo", "name", "email", "password", "phone", "batch", "branch", "section",
-                "studentStatus", "tenthPercentage", "twelfthPercentage");
+                "enrollmentNo", "name", "email", "password", "phone", "batch", "section",
+                "studentStatus", "tenthPercentage", "twelfthPercentage", "Course");
     }
 
     @Test
     void addParserRequiresExactHeadersAndPreservesQuotedMultilineValues() {
-        String headers = "enrollmentNo,name,email,password,phone,batch,branch,section,studentStatus";
-        String content = headers + "\r\n2023CS101,\"Doe, John\r\nJr.\",john@example.com,,9876543210,2023-2027,CSE,A,Active";
+        String headers = "enrollmentNo,name,email,password,phone,batch,section,studentStatus,"
+                + "tenthPercentage,twelfthPercentage,Course";
+        String content = headers + "\r\n2023CS101,\"Doe, John\r\nJr.\",john@example.com,,9876543210,"
+                + "2023-2027,A,Active,,,B.Tech";
 
         var rows = csvImportService.parseCsvContent(content, "ADD");
 
@@ -356,10 +434,11 @@ class CsvImportServiceTest {
 
     @Test
     void addParserIgnoresEmptyRecordsAndRejectsRowsWithMissingColumns() {
-        String headers = "enrollmentNo,name,email,password,phone,batch,branch,section,studentStatus";
-        var rows = csvImportService.parseCsvContent(headers + "\n,,,,,,,,\n"
-                + "E1,Jane,jane@mail.com,,9000000000,2023-2027,CSE,A,Active\n"
-                + "E2,John,john@mail.com,,9000000001,2023-2027,CSE", "ADD");
+        String headers = "enrollmentNo,name,email,password,phone,batch,section,studentStatus,"
+                + "tenthPercentage,twelfthPercentage,Course";
+        var rows = csvImportService.parseCsvContent(headers + "\n,,,,,,,,,\n"
+                + "E1,Jane,jane@mail.com,Pass@123,9000000000,2023-2027,A,Active,,,B.Tech\n"
+                + "E2,John,john@mail.com,,9000000001,2023-2027", "ADD");
 
         assertThat(rows).hasSize(2);
         assertThat(rows.get(0).get("__rownumber")).isEqualTo("3");
@@ -367,7 +446,7 @@ class CsvImportServiceTest {
         CsvValidationResult result = csvImportService.validate("ADD", rows, true);
         assertThat(result.getRows().get(0).isValid()).isTrue();
         assertThat(result.getRows().get(1).isValid()).isFalse();
-        assertThat(result.getRows().get(1).getError()).contains("expected 9");
+        assertThat(result.getRows().get(1).getError()).contains("expected 11");
     }
 
     @Test

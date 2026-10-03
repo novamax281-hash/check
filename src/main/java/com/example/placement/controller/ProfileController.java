@@ -19,6 +19,9 @@ import java.util.function.Consumer;
 @RequestMapping("/api/profile")
 public class ProfileController {
 
+    private static final List<String> BTECH_BRANCHES = List.of(
+            "CSE", "ECE", "EEE", "ME", "CIVIL", "Cyber Security", "Data Science");
+
     private final UsersRepository usersRepository;
 
     public ProfileController(UsersRepository usersRepository) {
@@ -39,8 +42,15 @@ public class ProfileController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "Admin-managed fields cannot be changed by students");
         }
+        if (!canEditAdminManagedFields(role) && hasRegistrationFieldChange(user, update)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Course and batch cannot be changed after registration");
+        }
 
         validateAcademicFields(update);
+        String profileCourse = update.getCourse() == null || update.getCourse().isBlank()
+                ? user.getCourse() : update.getCourse();
+        String branch = normalizeBranch(profileCourse, update.getBranch());
 
         copyIfPresent(update.getName(), user::setName);
         copyIfPresent(update.getDob(), user::setDob);
@@ -49,7 +59,9 @@ public class ProfileController {
         copyIfPresent(update.getCity(), user::setCity);
         copyIfPresent(update.getState(), user::setState);
         copyIfPresent(update.getBatch(), user::setBatch);
-        copyIfPresent(update.getBranch(), user::setBranch);
+        if (!isBranchlessCourse(profileCourse)) {
+            copyIfPresent(branch, user::setBranch);
+        }
         copyIfPresent(update.getSection(), user::setSection);
         copyIfPresent(update.getCourse(), user::setCourse);
         copyIfPresent(update.getCollege(), user::setCollege);
@@ -74,6 +86,26 @@ public class ProfileController {
         return usersRepository.save(user);
     }
 
+    private String normalizeBranch(String course, String branch) {
+        if (branch == null || branch.isBlank() || !isBtechCourse(course)) {
+            return branch;
+        }
+        return BTECH_BRANCHES.stream()
+                .filter(allowed -> allowed.equalsIgnoreCase(branch.trim()))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Branch must be one of: " + String.join(", ", BTECH_BRANCHES)));
+    }
+
+    private boolean isBtechCourse(String course) {
+        return course != null && course.trim().equalsIgnoreCase("B.Tech");
+    }
+
+    private boolean isBranchlessCourse(String course) {
+        return course != null && (course.trim().equalsIgnoreCase("MCA")
+                || course.trim().equalsIgnoreCase("BCA"));
+    }
+
     private UsersEntries currentUser(Authentication authentication) {
         UsersEntries user = usersRepository.findByEnrollmentno(authentication.getName());
         if (user == null) {
@@ -95,6 +127,16 @@ public class ProfileController {
                 || (update.getPhoneno() != null && !update.getPhoneno().isBlank())
                 || update.getTenthPercentage() != null
                 || update.getTwelfthPercentage() != null;
+    }
+
+    private boolean hasRegistrationFieldChange(UsersEntries user, UsersEntries update) {
+        return hasChangedValue(user.getBatch(), update.getBatch())
+                || hasChangedValue(user.getCourse(), update.getCourse());
+    }
+
+    private boolean hasChangedValue(String current, String incoming) {
+        return incoming != null && !incoming.isBlank()
+                && !incoming.trim().equals(current == null ? "" : current.trim());
     }
 
     private void copyIfPresent(String incoming, Consumer<String> setter) {

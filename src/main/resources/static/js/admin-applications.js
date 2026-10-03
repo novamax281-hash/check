@@ -362,7 +362,7 @@ function render() {
                 <td><span class="cell-clamp-2 cell-muted" title="${esc(jobRoles)}">${esc(jobRoles)}</span></td>
                 <td><span class="cell-clamp-2 cell-applied-role" title="${esc(appliedRole)}">${esc(appliedRole)}</span></td>
                 <td><span class="cell-clamp-2" title="${esc(course)}">${esc(course)}</span></td>
-                <td><div class="meta-chips"><span class="meta-chip" title="${esc(app.batch || "")}">${esc(app.batch || "—")}</span><span class="chip-sep">·</span><span class="meta-chip" title="${esc(app.branch || "")}">${esc(app.branch || "—")}</span></div></td>
+                <td><div class="meta-chips"><span class="meta-chip" title="${esc(app.batch || "")}">${esc(app.batch || "—")}</span>${app.branch ? `<span class="chip-sep">·</span><span class="meta-chip" title="${esc(app.branch)}">${esc(app.branch)}</span>` : ""}</div></td>
                 <td><span class="cell-ellipsis cell-muted">${esc(appliedOn)}</span></td>
                 <td>${window.UI.roundPills(app)}</td>
                 <td class="col-score">${score != null ? esc(score) : "-"}</td>
@@ -496,7 +496,7 @@ function userDetailHtml(user) {
             + "</div>"
             + '<div class="meta-chips user-app-chips">'
             + '<span class="meta-chip">Batch: ' + esc(app.batch || "—") + "</span>"
-            + '<span class="meta-chip">Branch: ' + esc(app.branch || "—") + "</span>"
+            + (app.branch ? '<span class="meta-chip">Branch: ' + esc(app.branch) + "</span>" : "")
             + '<span class="meta-chip">Applied ' + esc(fmtDateTimeNice(app.applicationDate)) + "</span>"
             + "</div>"
             + '<div class="user-app-meta">'

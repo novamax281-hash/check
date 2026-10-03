@@ -36,7 +36,7 @@
 
         <div class="step-card">
             <h3>Edit Profile</h3>
-            <p class="section-help" style="font-size: 13px; color: var(--text-muted);">Email address and mobile number cannot be changed here — they are managed by the placement cell.</p>
+            <p class="section-help" style="font-size: 13px; color: var(--text-muted);">Email address and mobile number cannot be changed here — they are managed by the placement cell. Course and batch are fixed at registration.</p>
             <form id="profileForm" class="auth-form" style="margin-top: 12px;">
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
                     <div class="form-group">
@@ -62,9 +62,18 @@
                         <label for="pBatch">Batch</label>
                         <select id="pBatch"></select>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="pBranchGroup">
                         <label for="pBranch">Branch</label>
-                        <input type="text" id="pBranch">
+                        <select id="pBranch">
+                            <option value="" selected disabled>Select branch</option>
+                            <option value="CSE">CSE</option>
+                            <option value="ECE">ECE</option>
+                            <option value="EEE">EEE</option>
+                            <option value="ME">ME</option>
+                            <option value="CIVIL">CIVIL</option>
+                            <option value="Cyber Security">Cyber Security</option>
+                            <option value="Data Science">Data Science</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="pSection">Section</label>
@@ -141,6 +150,6 @@
 </div>
 
 <script src="js/ui.js?v=11"></script>
-<script src="js/profile.js?v=8"></script>
+<script src="js/profile.js?v=9"></script>
 </body>
 </html>

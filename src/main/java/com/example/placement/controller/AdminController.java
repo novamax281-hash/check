@@ -40,6 +40,7 @@ import com.example.placement.dto.ApplicationEmailRequest;
 import com.example.placement.dto.BulkRequest;
 import com.example.placement.dto.EvaluationRequest;
 import com.example.placement.dto.RoundRequest;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.example.placement.entity.JobDocument;
 import com.example.placement.entity.Placement;
 import com.example.placement.entity.PlacementRound;
@@ -117,7 +118,23 @@ public class AdminController {
     }
 
     @PutMapping("/jobs/{id}")
-    public ResponseEntity<?> updateJob(@PathVariable String id, @RequestBody Placement job) {
+    public ResponseEntity<?> updateJob(@PathVariable String id, @RequestBody com.fasterxml.jackson.databind.JsonNode payload) {
+        Placement existing = placementRepository.findById(id)
+                .orElse(null);
+        if (existing == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Job not found"));
+        }
+        if (payload == null || !payload.isObject()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid request body");
+        }
+        applyExplicitUpdates(existing, payload);
+        if (existing.getRounds() == null) {
+            existing.setRounds(new ArrayList<>());
+        }
+        return ResponseEntity.ok(placementRepository.save(existing));
+    }
+
+    public ResponseEntity<?> updateJob(String id, Placement job) {
         Placement existing = placementRepository.findById(id)
                 .orElse(null);
         if (existing == null) {
@@ -128,6 +145,87 @@ public class AdminController {
             existing.setRounds(new ArrayList<>());
         }
         return ResponseEntity.ok(placementRepository.save(existing));
+    }
+
+    private void applyExplicitUpdates(Placement existing, JsonNode payload) {
+        setStringField(payload, "company", existing::setCompany);
+        setStringField(payload, "jobRole", existing::setJobRole);
+        setStringField(payload, "jobType", existing::setJobType);
+        setStringField(payload, "location", existing::setLocation);
+        setStringField(payload, "eligibility", existing::setEligibility);
+        setStringField(payload, "skills", existing::setSkills);
+        setStringField(payload, "applicationDeadline", existing::setApplicationDeadline);
+        setStringField(payload, "openings", existing::setOpenings);
+        setStringField(payload, "status", existing::setStatus);
+        setStringField(payload, "jobDescription", existing::setJobDescription);
+        setStringField(payload, "website", existing::setWebsite);
+        setStringField(payload, "driveType", existing::setDriveType);
+        setStringField(payload, "mode", existing::setMode);
+        setStringField(payload, "likelyDateOfJoining", existing::setLikelyDateOfJoining);
+        setStringField(payload, "salaryLpa", existing::setSalaryLpa);
+        setStringField(payload, "batch", existing::setBatch);
+        setStringField(payload, "courses", existing::setCourses);
+        setStringField(payload, "branch", existing::setBranch);
+
+        if (payload.has("minTenth")) {
+            existing.setMinTenth(parseNullableDouble(payload.get("minTenth")));
+        }
+        if (payload.has("minTwelfth")) {
+            existing.setMinTwelfth(parseNullableDouble(payload.get("minTwelfth")));
+        }
+        if (payload.has("minGraduation")) {
+            existing.setMinGraduation(parseNullableDouble(payload.get("minGraduation")));
+        }
+        if (payload.has("minCgpa")) {
+            existing.setMinCgpa(parseNullableDouble(payload.get("minCgpa")));
+        }
+        if (payload.has("rounds") && payload.get("rounds") != null && !payload.get("rounds").isNull()) {
+            JsonNode roundsNode = payload.get("rounds");
+            if (roundsNode.isArray() && roundsNode.size() > 0) {
+                existing.setRounds(new ArrayList<>());
+                for (JsonNode roundNode : roundsNode) {
+                    if (roundNode == null || roundNode.isNull()) {
+                        continue;
+                    }
+                    try {
+                        existing.getRounds().add(new com.fasterxml.jackson.databind.ObjectMapper()
+                                .treeToValue(roundNode, PlacementRound.class));
+                    } catch (IOException exception) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid rounds payload");
+                    }
+                }
+            }
+        }
+    }
+
+    private void setStringField(JsonNode payload, String fieldName, java.util.function.Consumer<String> setter) {
+        if (!payload.has(fieldName)) {
+            return;
+        }
+        JsonNode valueNode = payload.get(fieldName);
+        if (valueNode == null || valueNode.isNull()) {
+            setter.accept(null);
+            return;
+        }
+        setter.accept(valueNode.isTextual() ? valueNode.asText() : valueNode.toString());
+    }
+
+    private Double parseNullableDouble(JsonNode valueNode) {
+        if (valueNode == null || valueNode.isNull()) {
+            return null;
+        }
+        if (valueNode.isNumber()) {
+            return valueNode.doubleValue();
+        }
+        String text = valueNode.asText();
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+        try {
+            return Double.parseDouble(text.trim());
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     private void mergeJob(Placement existing, Placement incoming) {

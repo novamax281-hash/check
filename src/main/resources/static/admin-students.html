@@ -206,8 +206,28 @@
             <div class="field-error" data-error-for="sBatch" style="color: var(--danger); font-size: 12px; margin-top:6px;"></div>
         </div>
         <div class="form-group">
-            <label>Branch</label>
-            <input type="text" id="sBranch" placeholder="e.g. CSE">
+            <label for="sCourse">Course</label>
+            <select id="sCourse" required>
+                <option value="">Select course</option>
+                <option value="B.Tech">B.Tech</option>
+                <option value="MCA">MCA</option>
+                <option value="BCA">BCA</option>
+            </select>
+            <div class="field-error" data-error-for="sCourse" style="color: var(--danger); font-size: 12px; margin-top:6px;"></div>
+        </div>
+        <div class="form-group" id="branchFieldGroup" style="display:none;">
+            <label for="sBranch">Branch</label>
+            <select id="sBranch">
+                <option value="">Select branch</option>
+                <option value="CSE">CSE</option>
+                <option value="AI / ML">AI / ML</option>
+                <option value="ECE">ECE</option>
+                <option value="EEE">EEE</option>
+                <option value="ME">ME</option>
+                <option value="CIVIL">CIVIL</option>
+                <option value="Cyber Security">Cyber Security</option>
+                <option value="Data Science">Data Science</option>
+            </select>
             <div class="field-error" data-error-for="sBranch" style="color: var(--danger); font-size: 12px; margin-top:6px;"></div>
         </div>
         <div class="form-group">
@@ -308,7 +328,7 @@
         </div>
 
         <div class="import-step" id="importStep1">
-            <p class="field-hint" style="margin-bottom:12px;">Choose the CSV file containing student data.</p>
+            <p class="field-hint" style="margin-bottom:12px;">Choose a CSV file containing student data. For adding students, include a <strong>Course</strong> column with values B.Tech, MCA, or BCA.</p>
             <div class="drop-zone" id="dropZone" style="border:2px dashed var(--border-color); padding:32px; text-align:center; border-radius:var(--radius-md);">
                 <p><strong>Drop CSV here</strong> or</p>
                 <button type="button" class="btn btn-secondary" id="chooseFileBtn" style="margin-top:8px;">Choose CSV File</button>
@@ -437,6 +457,6 @@
 </div>
 
 <script src="js/ui.js?v=11"></script>
-<script src="js/admin-students.js?v=6"></script>
+<script src="js/admin-students.js?v=7"></script>
 </body>
 </html>

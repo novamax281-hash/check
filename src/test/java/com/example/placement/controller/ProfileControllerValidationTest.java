@@ -54,6 +54,10 @@ class ProfileControllerValidationTest {
         verify(usersRepository, never()).save(any());
     }
 
+    private void setCoordinatorRole() {
+        stored.setRole("Coordinator");
+    }
+
     @Test
     void cgpaAboveTenIsRejected() {
         UsersEntries update = new UsersEntries();
@@ -70,6 +74,7 @@ class ProfileControllerValidationTest {
 
     @Test
     void percentageAboveHundredIsRejected() {
+        setCoordinatorRole();
         UsersEntries update = new UsersEntries();
         update.setTenthPercentage(150.0);
         assertRejected(update, "10th percentage");
@@ -92,6 +97,7 @@ class ProfileControllerValidationTest {
 
     @Test
     void malformedBatchIsRejected() {
+        setCoordinatorRole();
         UsersEntries update = new UsersEntries();
         update.setBatch("not-a-batch");
         assertRejected(update, "batch");
@@ -120,7 +126,59 @@ class ProfileControllerValidationTest {
     }
 
     @Test
+    void studentCannotChangeCourseOrBatchAfterRegistration() {
+        stored.setBatch("2022-2026");
+        stored.setCourse("B.Tech");
+        UsersEntries update = new UsersEntries();
+        update.setBatch("2023-2027");
+        update.setCourse("MCA");
+
+        ResponseStatusException thrown = assertThrows(ResponseStatusException.class,
+                () -> controller.updateProfile(authentication, update));
+
+        assertEquals(HttpStatus.FORBIDDEN, thrown.getStatusCode());
+        assertEquals("Course and batch cannot be changed after registration", thrown.getReason());
+        verify(usersRepository, never()).save(any());
+    }
+
+    @Test
+    void btechBranchMustBeOneOfTheSupportedBranches() {
+        stored.setCourse("B.Tech");
+        UsersEntries update = new UsersEntries();
+        update.setBranch("Architecture");
+
+        assertRejected(update, "Branch must be one of");
+    }
+
+    @Test
+    void btechBranchIsNormalizedToTheSupportedOption() {
+        stored.setCourse("B.Tech");
+        UsersEntries update = new UsersEntries();
+        update.setBranch("cyber security");
+
+        UsersEntries saved = controller.updateProfile(authentication, update);
+
+        assertEquals("Cyber Security", saved.getBranch());
+        verify(usersRepository).save(stored);
+    }
+
+    @Test
+    void mcaAndBcaProfilesDoNotChangeBranch() {
+        for (String course : List.of("MCA", "BCA")) {
+            stored.setCourse(course);
+            stored.setBranch("Existing value");
+            UsersEntries update = new UsersEntries();
+            update.setBranch("CSE");
+
+            UsersEntries saved = controller.updateProfile(authentication, update);
+
+            assertEquals("Existing value", saved.getBranch());
+        }
+    }
+
+    @Test
     void validValuesAreStillAccepted() {
+        setCoordinatorRole();
         UsersEntries update = new UsersEntries();
         update.setName("Asha");
         update.setCgpa(8.75);

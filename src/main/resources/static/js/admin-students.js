@@ -225,7 +225,7 @@
                 '<div class="student-sub">' + UI.escapeHtml(student.enrollmentno || "") + "</div></div></div></td>" +
                 "<td>" + UI.escapeHtml(student.email || "—") + "</td>" +
                 "<td>" + UI.escapeHtml(student.enrollmentno || "—") + "</td>" +
-                "<td>" + UI.escapeHtml(student.branch || "—") + "</td>" +
+                "<td>" + UI.escapeHtml(student.branch || "") + "</td>" +
                 "<td>" + UI.escapeHtml(student.section || "—") + "</td>" +
                 "<td>" + UI.escapeHtml(student.batch || "—") + "</td>" +
                 "<td>" + (student.applicationCount || 0) + "</td>" +
@@ -372,7 +372,7 @@
             state.csvContent = content;
             el("fileNameHint").textContent = file.name + " selected";
             var operations = {
-                ADD: { title: "Add New Students", desc: "Insert students that do not yet exist. Enrollment is required." },
+                ADD: { title: "Add New Students", desc: "Insert students that do not yet exist. Enrollment and Course (B.Tech, MCA, or BCA) are required." },
                 UPDATE: { title: "Update Existing Students", desc: "Merge academic & contact fields for existing students." },
                 STATUS: { title: "Update Student Status", desc: "Set Active / Inactive / Placed / Not Placed." },
                 APPLICATION_STATUS: { title: "Update Application Status", desc: "Change an application's status using jobId." },
@@ -702,9 +702,19 @@
     }
 
     function clearStudentFieldErrors() {
-        ["sEnrollment", "sName", "sEmail", "sPassword", "sPhone", "sBatch", "sBranch", "sSection", "sStatus", "sTenth", "sTwelfth"].forEach(function (fieldId) {
+        ["sEnrollment", "sName", "sEmail", "sPassword", "sPhone", "sBatch", "sBranch", "sCourse", "sSection", "sStatus", "sTenth", "sTwelfth"].forEach(function (fieldId) {
             setStudentFieldError(fieldId, "");
         });
+    }
+
+    function updateBranchField() {
+        var isBTech = el("sCourse").value === "B.Tech";
+        el("branchFieldGroup").style.display = isBTech ? "" : "none";
+        el("sBranch").required = isBTech;
+        if (!isBTech) {
+            el("sBranch").value = "";
+            setStudentFieldError("sBranch", "");
+        }
     }
 
     function saveStudent() {
@@ -717,6 +727,7 @@
             phoneno: el("sPhone").value.trim(),
             batch: el("sBatch").value.trim(),
             branch: el("sBranch").value.trim(),
+            course: el("sCourse").value,
             section: el("sSection").value.trim(),
             studentStatus: el("sStatus").value,
             tenthPercentage: el("sTenth").value.trim() === "" ? null : parseFloat(el("sTenth").value),
@@ -731,7 +742,8 @@
         if (!payload.password) errors.push(["sPassword", "Password is required"]);
         if (!payload.phoneno) errors.push(["sPhone", "Phone number is required"]);
         if (!payload.batch) errors.push(["sBatch", "Batch is required"]);
-        if (!payload.branch) errors.push(["sBranch", "Branch is required"]);
+        if (payload.course === "B.Tech" && !payload.branch) errors.push(["sBranch", "Branch is required"]);
+        if (!payload.course) errors.push(["sCourse", "Course is required"]);
         if (!payload.section) errors.push(["sSection", "Section is required"]);
         if (!payload.studentStatus) errors.push(["sStatus", "Student status is required"]);
         if (payload.tenthPercentage === null || payload.tenthPercentage === undefined || Number.isNaN(payload.tenthPercentage)) {
@@ -916,12 +928,14 @@
         });
         el("cancelStudentBtn").addEventListener("click", function () { UI.closeModal(el("studentModal")); });
         el("saveStudentBtn").addEventListener("click", saveStudent);
+        el("sCourse").addEventListener("change", updateBranchField);
         el("addStudentBtn").addEventListener("click", function () {
-            ["sEnrollment", "sName", "sEmail", "sPassword", "sPhone", "sBatch", "sBranch", "sSection", "sTenth", "sTwelfth"].forEach(function (id) {
+            ["sEnrollment", "sName", "sEmail", "sPassword", "sPhone", "sBatch", "sBranch", "sCourse", "sSection", "sTenth", "sTwelfth"].forEach(function (id) {
                 var input = document.getElementById(id);
                 if (input) input.value = "";
             });
             clearStudentFieldErrors();
+            updateBranchField();
             el("sStatus").value = "Active";
             UI.openModal(el("studentModal"));
         });

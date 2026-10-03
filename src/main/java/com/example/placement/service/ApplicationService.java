@@ -144,15 +144,12 @@ public class ApplicationService {
         if (studentBatch == null || studentBatch.trim().isEmpty()) {
             return false;
         }
-        String job = jobBatch.trim();
-        String student = studentBatch.trim();
-        if (job.equalsIgnoreCase(student)) {
-            return true;
+        List<BatchRanges.Range> eligibleBatches = BatchRanges.parse(jobBatch);
+        List<BatchRanges.Range> studentBatches = BatchRanges.parse(studentBatch);
+        if (eligibleBatches.isEmpty() || studentBatches.isEmpty()) {
+            return false;
         }
-        if (BatchRanges.overlapsAny(job, student)) {
-            return true;
-        }
-        return job.contains(student) || student.contains(job);
+        return studentBatches.stream().anyMatch(eligibleBatches::contains);
     }
 
     /**

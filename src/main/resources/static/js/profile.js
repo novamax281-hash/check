@@ -189,15 +189,22 @@
         return value !== "admin" && value !== "coordinator";
     }
 
+    function hasBranch(course) {
+        var value = String(course || "").trim().toUpperCase();
+        return value !== "MCA" && value !== "BCA";
+    }
+
     function renderDetails(user) {
         var role = user.role || "Student";
+        var branchApplies = hasBranch(user.course);
         var rows = [
             ["Enrollment Number:", user.enrollmentno || "-"],
             ["Role:", role]
         ];
         if (isStudent(role)) {
             rows.push(["Status:", user.studentStatus || "-"]);
-            rows.push(["Branch", user.branch || "-"], ["Section", user.section || "-"], ["Batch", user.batch || "-"]);
+            if (branchApplies && user.branch) rows.push(["Branch", user.branch]);
+            rows.push(["Section", user.section || "-"], ["Batch", user.batch || "-"]);
             rows.push(["Course", user.course || "-"], ["College", user.college || "-"]);
         } else {
             rows.push(["Name:", user.name || "-"], ["Email:", user.email || "-"], ["Mobile:", user.phoneno || "-"]);
@@ -213,7 +220,6 @@
         fields.name.value = user.name || "";
         fields.batch.innerHTML = window.UI.batchOptions(user.batch || "");
         fields.batch.value = user.batch || "";
-        fields.branch.value = user.branch || "";
         fields.section.value = user.section || "";
         fields.course.value = user.course || "";
         fields.college.value = user.college || "";
@@ -230,12 +236,17 @@
         fields.email.value = user.email || "";
         fields.phone.value = user.phoneno || "";
         document.getElementById("pStudentFields").style.display = student ? "block" : "none";
+        var branchApplies = hasBranch(user.course);
+        document.getElementById("pBranchGroup").style.display = student && branchApplies ? "" : "none";
+        fields.branch.disabled = !student || !branchApplies;
+        fields.branch.value = user.branch || "";
         fields.enrollment.readOnly = true;
         fields.email.readOnly = student;
         fields.phone.readOnly = student;
         fields.tenth.readOnly = student;
         fields.twelfth.readOnly = student;
-        fields.batch.disabled = false;
+        fields.batch.disabled = student;
+        fields.course.readOnly = student;
     }
 
     async function loadProfile(force) {
@@ -262,7 +273,8 @@
         currentRole = user.role || "Student";
 
         document.getElementById("profileName").textContent = user.name || user.enrollmentno || "User";
-        document.getElementById("profileMeta").textContent = currentRole + (user.branch ? " · " + user.branch : "");
+        document.getElementById("profileMeta").textContent =
+            currentRole + (hasBranch(user.course) && user.branch ? " · " + user.branch : "");
         document.getElementById("profileAvatar").textContent =
             window.UI.initials(user.name || user.enrollmentno);
         renderDetails(user);
@@ -294,9 +306,8 @@
 
         const payload = { name: fields.name.value };
         if (isStudent(currentRole)) {
-            payload.branch = fields.branch.value;
+            if (!fields.branch.disabled) payload.branch = fields.branch.value;
             payload.section = fields.section.value;
-            payload.course = fields.course.value;
             payload.college = fields.college.value;
             payload.dob = fields.dob.value;
             payload.gender = fields.gender.value;

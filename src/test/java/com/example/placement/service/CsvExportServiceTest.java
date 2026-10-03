@@ -95,16 +95,18 @@ class CsvExportServiceTest {
     }
 
     @Test
-    void applicationsCsvDefaultsToExactlyTwentyFields() throws IOException {
+    void applicationsCsvDefaultsWithoutDepartment() throws IOException {
         StringWriter out = new StringWriter();
         csvExportService.writeApplications(out, List.of(new ApplicationDetail()));
         String header = out.toString().split("\\R", -1)[0];
 
-        assertEquals(20, CsvExportService.APPLICATION_DEFAULT_COLUMNS.size());
+        assertEquals(19, CsvExportService.APPLICATION_DEFAULT_COLUMNS.size());
         assertEquals("Application ID,Student ID,Enrollment No,Student Name,Email,Phone,"
-                + "Student Course,Student Batch,Branch,Department,CGPA,Company,Job Role,Salary / CTC,"
+                + "Student Course,Student Batch,Branch,CGPA,Company,Job Role,Salary / CTC,"
                 + "Application Status,Current Round,Current Round Score,Admin Remark,Applied On,Last Updated",
                 header);
+        assertFalse(CsvExportService.APPLICATION_COLUMNS.contains("Department"));
+        assertFalse(header.contains("Department"));
     }
 
     @Test
@@ -165,6 +167,7 @@ class CsvExportServiceTest {
         assertEquals(List.of("Company", "Email", "Application ID"),
                 CsvExportService.resolveApplicationColumns(
                         List.of("Company", "Email", "Company", "Application ID", "Nope")));
+        assertFalse(CsvExportService.APPLICATION_COLUMNS.contains("Department"));
     }
 
     @Test
@@ -197,7 +200,7 @@ class CsvExportServiceTest {
         String[] lines = out.toString().split("\n");
 
         long emptyTrailers = lines[1].chars().filter(ch -> ch == ',').count();
-        assertEquals(19, emptyTrailers);
+        assertEquals(18, emptyTrailers);
         assertTrue(lines[1].startsWith("app2,,,,,,,"));
     }
 

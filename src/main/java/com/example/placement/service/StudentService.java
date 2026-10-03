@@ -345,7 +345,11 @@ public class StudentService {
     }
 
     public UsersEntries addStudent(UsersEntries student) {
-        validateNewStudent(student);
+        return addStudent(student, true);
+    }
+
+    public UsersEntries addStudent(UsersEntries student, boolean requireBranch) {
+        validateNewStudent(student, requireBranch);
         String password = student.getPassword();
         student.setRole("Student");
         if (student.getStudentStatus() == null || student.getStudentStatus().isBlank()) {
@@ -361,6 +365,10 @@ public class StudentService {
     }
 
     public void validateNewStudent(UsersEntries student) {
+        validateNewStudent(student, true);
+    }
+
+    public void validateNewStudent(UsersEntries student, boolean requireBranch) {
         if (student == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Student data is required");
         }
@@ -379,7 +387,9 @@ public class StudentService {
         if (student.getBatch() == null || student.getBatch().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Batch is required");
         }
-        if (student.getBranch() == null || student.getBranch().isBlank()) {
+        boolean branchRequired = requireBranch && (student.getCourse() == null
+                || !List.of("MCA", "BCA").contains(student.getCourse().trim().toUpperCase(java.util.Locale.ROOT)));
+        if (branchRequired && (student.getBranch() == null || student.getBranch().isBlank())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Branch is required");
         }
         if (student.getSection() == null || student.getSection().isBlank()) {
@@ -391,7 +401,7 @@ public class StudentService {
         student.setEmail(student.getEmail().trim());
         student.setPhoneno(student.getPhoneno().trim());
         student.setBatch(student.getBatch().trim());
-        student.setBranch(student.getBranch().trim());
+        student.setBranch(branchRequired && student.getBranch() != null ? student.getBranch().trim() : null);
         student.setSection(student.getSection().trim());
         if (!student.getEmail().matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid email format");

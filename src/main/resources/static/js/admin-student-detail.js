@@ -69,9 +69,12 @@
         el("profileAvatar").textContent = UI.initials(student.name, student.enrollmentno);
         el("profileName").textContent = student.name || student.enrollmentno || "Unnamed";
         el("profileEmail").textContent = student.email || "No email";
-        el("profileEnrollment").textContent = "Enrollment: " + (student.enrollmentno || "—") +
-            " · " + (student.branch || "No branch") + " · " + (student.section || "No section") +
-            " · " + (student.batch || "No batch");
+        el("profileEnrollment").textContent = [
+            "Enrollment: " + (student.enrollmentno || "—"),
+            student.branch,
+            student.section || "No section",
+            student.batch || "No batch"
+        ].filter(Boolean).join(" · ");
 
         var personal = "";
         personal += infoBox("Full Name", student.name);
@@ -89,7 +92,7 @@
         var academic = "";
         academic += infoBox("Enrollment Number", student.enrollmentno);
         academic += infoBox("Course", student.course);
-        academic += infoBox("Branch", student.branch);
+        if (student.branch) academic += infoBox("Branch", student.branch);
         academic += infoBox("Section", student.section);
         academic += infoBox("Batch", student.batch);
         academic += infoBox("College", student.college);
@@ -206,6 +209,9 @@
         el("ePhone").value = student.phoneno || "";
         el("eBatch").value = student.batch || "";
         el("eBranch").value = student.branch || "";
+        var course = String(student.course || "").trim().toUpperCase();
+        el("eBranch").closest(".form-group").style.display =
+            course === "MCA" || course === "BCA" ? "none" : "";
         el("eSection").value = student.section || "";
         el("eStatus").value = student.studentStatus || "Active";
         el("eCourse").value = student.course || "";

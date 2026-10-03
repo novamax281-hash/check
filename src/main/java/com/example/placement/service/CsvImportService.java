@@ -34,7 +34,8 @@ import com.example.placement.repository.UsersRepository;
 public class CsvImportService {
 
     private static final List<String> STUDENT_ADD_HEADERS = List.of("enrollmentno", "name", "email", "password",
-            "phone", "batch", "branch", "section", "studentstatus", "tenthpercentage", "twelfthpercentage");
+            "phone", "batch", "section", "studentstatus", "tenthpercentage", "twelfthpercentage", "course");
+    private static final List<String> ALLOWED_STUDENT_COURSES = List.of("B.Tech", "MCA", "BCA");
 
     private final UsersRepository usersRepository;
     private final ApplicationRepository applicationRepository;
@@ -60,14 +61,14 @@ public class CsvImportService {
             case "APPLICATION_ROUND":
                 return List.of("enrollmentno", "email", "jobId", "round");
             case "ACADEMIC":
-                return List.of("enrollmentno", "email", "batch", "branch", "section", "course", "cgpa",
+                return List.of("enrollmentno", "email", "batch", "section", "course", "cgpa",
                         "tenthPercentage", "twelfthPercentage", "graduationPercentage");
             case "ADD":
-                return List.of("enrollmentNo", "name", "email", "password", "phone", "batch", "branch",
-                        "section", "studentStatus", "tenthPercentage", "twelfthPercentage");
+                return List.of("enrollmentNo", "name", "email", "password", "phone", "batch", "section",
+                        "studentStatus", "tenthPercentage", "twelfthPercentage", "Course");
             case "UPDATE":
             default:
-                return List.of("enrollmentno", "name", "email", "phoneno", "batch", "branch", "section",
+                return List.of("enrollmentno", "name", "email", "phoneno", "batch", "section",
                         "course", "college", "cgpa", "tenthPercentage", "twelfthPercentage",
                         "graduationPercentage", "dob", "gender", "city", "state", "password", "studentStatus");
         }
@@ -182,9 +183,15 @@ public class CsvImportService {
                 if (columnCount != null && Integer.parseInt(columnCount) != STUDENT_ADD_HEADERS.size()) {
                     errors.add("Row has " + columnCount + " columns; expected " + STUDENT_ADD_HEADERS.size());
                 } else {
+                    String course = row.get("course");
+                    if (isBlank(course)) {
+                        errors.add("Course is required");
+                    } else if (normalizeCourse(course) == null) {
+                        errors.add("Course must be one of: " + String.join(", ", ALLOWED_STUDENT_COURSES));
+                    }
                     UsersEntries student = studentFromAddRow(row);
                     try {
-                        studentService.validateNewStudent(student);
+                        studentService.validateNewStudent(student, false);
                     } catch (ResponseStatusException exception) {
                         errors.add(exception.getReason() == null ? "Invalid student data" : exception.getReason());
                     } catch (DataAccessException | com.mongodb.MongoException exception) {
@@ -331,13 +338,23 @@ public class CsvImportService {
         student.setPassword(row.get("password"));
         student.setStudentStatus(firstNonBlank(row.get("studentstatus"), row.get("status")));
         student.setBatch(row.get("batch"));
-        student.setBranch(row.get("branch"));
         student.setSection(row.get("section"));
+        String course = normalizeCourse(row.get("course"));
+        student.setCourse(course);
+        student.setBranch(null);
         student.setTenthPercentage(parseDouble(firstNonBlank(
                 row.get("tenthpercentage"), row.get("tenth %"), row.get("10thpercentage"))));
         student.setTwelfthPercentage(parseDouble(firstNonBlank(
                 row.get("twelfthpercentage"), row.get("12thpercentage"), row.get("12th %"))));
         return student;
+    }
+
+    private String normalizeCourse(String course) {
+        if (isBlank(course)) return null;
+        return ALLOWED_STUDENT_COURSES.stream()
+                .filter(allowed -> allowed.equalsIgnoreCase(course.trim()))
+                .findFirst()
+                .orElse(null);
     }
 
     private String firstNonBlank(String... values) {
@@ -392,7 +409,7 @@ public class CsvImportService {
             try {
                 switch (op) {
                     case "ADD": {
-                        studentService.addStudent(studentFromAddRow(row));
+                        studentService.addStudent(studentFromAddRow(row), false);
                         created++;
                         break;
                     }
